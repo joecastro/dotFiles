@@ -1,5 +1,16 @@
 set nocompatible
 
+if has("gui_running")
+    if has("gui_win32")
+        " Assuming a pretty standard Windows install.
+        " This makes most of the expected standard keyboard shortcuts work.
+        source $VIMRUNTIME/mswin.vim
+        behave mswin
+    endif
+endif
+
+source ~/extra_commands.vim
+
 set softtabstop=4
 set shiftwidth=4
 set tabstop=4
@@ -78,6 +89,14 @@ set mat=2
 " Enable syntax highlighting
 syntax enable
 
+if has("gui_running")
+    if has("gui_gtk2")
+        set guifont=Inconsolata\ 12
+    elseif has("gui_win32")
+        set guifont=Consolas:h11:cANSI
+    endif
+endif
+
 colorscheme molokai
 
 set cursorline
@@ -92,3 +111,5 @@ function! NumberToggle()
     set relativenumber
   endif
 endfunc
+
+nnoremap <F2> :call NumberToggle()<CR>
