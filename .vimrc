@@ -113,3 +113,9 @@ function! NumberToggle()
 endfunc
 
 nnoremap <F2> :call NumberToggle()<CR>
+
+if has("gui_running")
+    if has("win32") || has("win64")
+        set guifont=Consolas:h14
+endif
+
