@@ -9,7 +9,7 @@ if has("gui_running")
     endif
 endif
 
-source ~/extra_commands.vim
+" source ~/extra_commands.vim
 
 set softtabstop=4
 set shiftwidth=4
@@ -113,9 +113,4 @@ function! NumberToggle()
 endfunc
 
 nnoremap <F2> :call NumberToggle()<CR>
-
-if has("gui_running")
-    if has("win32") || has("win64")
-        set guifont=Consolas:h14
-endif
 
