@@ -6,6 +6,9 @@ if has("gui_running")
         " This makes most of the expected standard keyboard shortcuts work.
         source $VIMRUNTIME/mswin.vim
         behave mswin
+        set guifont=Consolas:h11:cANSI
+    elseif has("gui_gtk2")
+        set guifont=Inconsolata\ 12
     endif
 endif
 
@@ -66,7 +69,7 @@ set whichwrap+=<,>,h,l
 " Ignore case when searching
 set ignorecase
 
-" When searching try to be smart about cases 
+" When searching try to be smart about cases
 set smartcase
 
 " Highlight search results
@@ -88,14 +91,6 @@ set mat=2
 
 " Enable syntax highlighting
 syntax enable
-
-if has("gui_running")
-    if has("gui_gtk2")
-        set guifont=Inconsolata\ 12
-    elseif has("gui_win32")
-        set guifont=Consolas:h11:cANSI
-    endif
-endif
 
 colorscheme molokai
 
