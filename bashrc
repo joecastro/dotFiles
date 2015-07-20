@@ -6,6 +6,9 @@ PathFull="\W"
 NewLine="\n"
 Jobs="\j"
 
+# Reset
+Color_Off="\[\033[0m\]"       # Text Reset
+
 # Normal Colors
 Black='\e[0;30m'        # Black
 Red='\e[0;31m'          # Red
@@ -15,6 +18,8 @@ Blue='\e[0;34m'         # Blue
 Purple='\e[0;35m'       # Purple
 Cyan='\e[0;36m'         # Cyan
 White='\e[0;37m'        # White
+
+IBlack="\[\033[0;90m\]"       # Black
 
 # Bold
 BBlack='\e[1;30m'       # Black
@@ -40,38 +45,42 @@ RESET="\[\017\]"
 SMILEY="${WHITE}:)${NORMAL}"
 FROWNY="${RED}:(${NORMAL}"
 
-# Hurley Stuff
-export WORKON_HOME=~/Envs
-source /usr/local/bin/virtualenvwrapper.sh
-
 export PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+export JAVA_HOME=`/usr/libexec/java_home`
+export PATH=$JAVA_HOME/bin:$PATH
 
-if [ -f `brew --prefix`/etc/bash_completion.d/git-completion.bash ]; then
-    . `brew --prefix`/etc/bash_completion.d/git-completion.bash
-    . `brew --prefix`/etc/bash_completion.d/git-prompt.sh
+# curl -o ~/.git-prompt.sh \
+#    https://raw.githubusercontent.com/git/git/master/contrib/completion/git-prompt.sh
+source ~/.git-prompt.sh
 
-    export PS1='[\u@\h $(__git_ps1 " (%s)")\W] $ '
-else # Not OS X
+#if [ -f `brew --prefix`/etc/bash_completion.d/git-completion.bash ]; then
+#    . `brew --prefix`/etc/bash_completion.d/git-completion.bash
+#    . `brew --prefix`/etc/bash_completion.d/git-prompt.sh
+#
+#    export PS1=$IBlack$Time12h$Color_Off' \u@\h $(__git_ps1 "(%s) ")\W $ '
+#else # Not OS X
 
     # Note that this tends to cause error messages when inside a .git folder.
     # I'm not sure of a good way to suppress that.
-    export PS1='[\u@\h $(git branch &>/dev/null;\
+    export PS1=$IBlack$Time12h$Color_Off' \u@\h $(git branch &>/dev/null;\
 
-    if [ $? -eq 0 ]; then \
-        echo "$(echo `git status` | grep "nothing to commit" > /dev/null 2>&1; \
-        if [ "$?" -eq "0" ]; then \
-            # @4 - Clean repository - nothing to commit
-            echo $(__git_ps1 " (%s)"); \
-        else \
-            # @5 - Changes to working tree
-            echo $(__git_ps1 " {%s *}"); \
-        fi) "; \
-    else \
-        # @2 - Prompt when not in GIT repo
+    if [ "$?" -ne "0" ]; then \
         echo ""; \
-    fi)\W] $ '
+    else
+        echo "$(echo `git status` | grep "HEAD detached" > /dev/null 2>&1; \
+        if [ "$?" -eq "0" ]; then \
+            echo "'$Red'"$(__git_ps1 " %s");\
+        else \
+            echo "$(echo `git status` | grep "nothing to commit" > /dev/null 2>&1; \
+            if [ "$?" -eq "0" ]; then \
+                echo "'$Green'"$(__git_ps1 " (%s)");\
+            else \
+                echo "'$Yellow'"$(__git_ps1 " {%s *}");\
+            fi) "; \
+        fi) "; \
+    fi)'$Color_Off'\W] $ '
 
-fi
+# fi
 
 SELECT="if [ \$? = 0 ]; then echo \"${SMILEY}\"; else echo \"${FROWNY}\"; fi"
 
