@@ -7,29 +7,30 @@ NewLine="\n"
 Jobs="\j"
 
 # Reset
+# Enclose colors in \[*\] so readline doesn't think the line uses space for those sequences.
 Color_Off="\[\033[0m\]"       # Text Reset
 
 # Normal Colors
-Black='\e[0;30m'        # Black
-Red='\e[0;31m'          # Red
-Green='\e[0;32m'        # Green
-Yellow='\e[0;33m'       # Yellow
-Blue='\e[0;34m'         # Blue
-Purple='\e[0;35m'       # Purple
-Cyan='\e[0;36m'         # Cyan
-White='\e[0;37m'        # White
+Black='\[\e[0;30m\]'        # Black
+Red='\[\e[0;31m\]'          # Red
+Green='\[\e[0;32m\]'        # Green
+Yellow='\[\e[0;33m\]'       # Yellow
+Blue='\[\e[0;34m\]'         # Blue
+Purple='\[\e[0;35m\]'       # Purple
+Cyan='\[\e[0;36m\]'         # Cyan
+White='\[\e[0;37m\]'        # White
 
 IBlack="\[\033[0;90m\]"       # Black
 
 # Bold
-BBlack='\e[1;30m'       # Black
-BRed='\e[1;31m'         # Red
-BGreen='\e[1;32m'       # Green
-BYellow='\e[1;33m'      # Yellow
-BBlue='\e[1;34m'        # Blue
-BPurple='\e[1;35m'      # Purple
-BCyan='\e[1;36m'        # Cyan
-BWhite='\e[1;37m'       # White
+BBlack='\[\e[1;30m\]'       # Black
+BRed='\[\e[1;31m\]'         # Red
+BGreen='\[\e[1;32m\]'       # Green
+BYellow='\[\e[1;33m\]'      # Yellow
+BBlue='\[\e[1;34m\]'        # Blue
+BPurple='\[\e[1;35m\]'      # Purple
+BCyan='\[\e[1;36m\]'        # Cyan
+BWhite='\[\e[1;37m\]'       # White
 
 # Background
 On_Black='\e[40m'       # Black
@@ -54,8 +55,8 @@ export PATH=$JAVA_HOME/bin:$PATH
 source ~/.git-prompt.sh
 
 #if [ -f `brew --prefix`/etc/bash_completion.d/git-completion.bash ]; then
-#    . `brew --prefix`/etc/bash_completion.d/git-completion.bash
-#    . `brew --prefix`/etc/bash_completion.d/git-prompt.sh
+    . `brew --prefix`/etc/bash_completion.d/git-completion.bash
+    . `brew --prefix`/etc/bash_completion.d/git-prompt.sh
 #
 #    export PS1=$IBlack$Time12h$Color_Off' \u@\h $(__git_ps1 "(%s) ")\W $ '
 #else # Not OS X
@@ -86,4 +87,4 @@ SELECT="if [ \$? = 0 ]; then echo \"${SMILEY}\"; else echo \"${FROWNY}\"; fi"
 
 # Throw it all together 
 #PS1="${RESET}${YELLOW}\h${NORMAL} \`${SELECT}\` ${YELLOW}>${NORMAL} "
-
+:
