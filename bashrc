@@ -46,21 +46,56 @@ RESET="\[\017\]"
 SMILEY="${WHITE}:)${NORMAL}"
 FROWNY="${RED}:(${NORMAL}"
 
-export PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
-export JAVA_HOME=`/usr/libexec/java_home`
-export PATH=$JAVA_HOME/bin:$PATH
+if [ "$(uname)" == "Darwin" ]; then
+    export PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+    export JAVA_HOME=`/usr/libexec/java_home`
 
-# curl -o ~/.git-prompt.sh \
-#    https://raw.githubusercontent.com/git/git/master/contrib/completion/git-prompt.sh
-source ~/.git-prompt.sh
+    export PATH=$JAVA_HOME/bin:$PATH
 
-#if [ -f `brew --prefix`/etc/bash_completion.d/git-completion.bash ]; then
-    . `brew --prefix`/etc/bash_completion.d/git-completion.bash
-    . `brew --prefix`/etc/bash_completion.d/git-prompt.sh
-#
-#    export PS1=$IBlack$Time12h$Color_Off' \u@\h $(__git_ps1 "(%s) ")\W $ '
-#else # Not OS X
+    # android / gradle / buck setup
+    export ANDROID_HOME=/Users/$USER/Library/Android/sdk
+    export ANDROID_SDK=$ANDROID_HOME
+    export ANDROID_SDK_ROOT=$ANDROID_SDK
+    export ANDROID_NDK=$ANDROID_SDK/ndk-bundle
+    export ANDROID_NDK_HOME=$ANDROID_NDK
+    unset ANDROID_NDK_REPOSITORY
 
+    export PATH=${PATH}:$ANDROID_HOME/tools:$ANDROID_HOME/platform-tools:$ANDROID_NDK
+
+    # appengine setup
+    export APPENGINE_HOME=~/Downloads/appengine-java-sdk-1.9.54
+    export PATH=$PATH:$APPENGINE_HOME/bin/
+
+    # curl -o ~/.git-prompt.sh \
+    #    https://raw.githubusercontent.com/git/git/master/contrib/completion/git-prompt.sh
+    source ~/.git-prompt.sh
+
+    if [ -f `brew --prefix`/etc/bash_completion.d/git-completion.bash ]; then
+        . `brew --prefix`/etc/bash_completion.d/git-completion.bash
+        . `brew --prefix`/etc/bash_completion.d/git-prompt.sh
+    fi
+
+    export PS1=$IBlack$Time12h$Color_Off' \u@\h $(__git_ps1 "(%s) ")\W $ '
+
+elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
+    echo "Unexpected Linux environment"
+elif [ "$(expr substr $(uname -s) 1 10)" == "MINGW32_NT" ]; then
+    echo "Unexpected Win32 environment"
+elif [ "$(expr substr $(uname -s) 1 10)" == "MINGW64_NT" ]; then
+
+    export JAVA_HOME=/c/Program\ Files/Java/jdk1.8.0_161/bin/
+
+    export PATH=$JAVA_HOME/bin:$PATH
+
+    # android / gradle / buck setup
+    export ANDROID_HOME=/c/Program\ Files\ (x86)/Android/android-sdk
+    export ANDROID_SDK=$ANDROID_HOME
+    export ANDROID_SDK_ROOT=$ANDROID_SDK
+    export ANDROID_NDK=/c/Users/joeca/AppData/Local/Android/Sdk/ndk-bundle
+    export ANDROID_NDK_HOME=$ANDROID_NDK
+    unset ANDROID_NDK_REPOSITORY
+
+    export PATH=${PATH}:$ANDROID_HOME/tools:$ANDROID_HOME/platform-tools:$ANDROID_NDK
     # Note that this tends to cause error messages when inside a .git folder.
     # I'm not sure of a good way to suppress that.
     export PS1=$IBlack$Time12h$Color_Off' \u@\h $(git branch &>/dev/null;\
@@ -80,11 +115,5 @@ source ~/.git-prompt.sh
             fi) "; \
         fi) "; \
     fi)'$Color_Off'\W] $ '
+fi
 
-# fi
-
-SELECT="if [ \$? = 0 ]; then echo \"${SMILEY}\"; else echo \"${FROWNY}\"; fi"
-
-# Throw it all together 
-#PS1="${RESET}${YELLOW}\h${NORMAL} \`${SELECT}\` ${YELLOW}>${NORMAL} "
-:
