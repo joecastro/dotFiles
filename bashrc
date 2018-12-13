@@ -46,6 +46,19 @@ RESET="\[\017\]"
 SMILEY="${WHITE}:)${NORMAL}"
 FROWNY="${RED}:(${NORMAL}"
 
+eval "`dircolors -b ~/.dircolorsrc`"
+export LS_OPTIONS='--color=auto'
+
+function wintitle() {
+    if [ -z "$1" ]
+    then
+        echo "Missing window title"
+    else
+        echo -ne "\e]0;$1\a"
+    fi
+}
+
+
 if [ "$(uname)" == "Darwin" ]; then
     export PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
     export JAVA_HOME=`/usr/libexec/java_home`
@@ -88,14 +101,14 @@ elif [ "$(expr substr $(uname -s) 1 10)" == "MINGW64_NT" ]; then
     export PATH=$JAVA_HOME/bin:$PATH
 
     # android / gradle / buck setup
-    export ANDROID_HOME=/c/Program\ Files\ (x86)/Android/android-sdk
-    export ANDROID_SDK=$ANDROID_HOME
-    export ANDROID_SDK_ROOT=$ANDROID_SDK
-    export ANDROID_NDK=/c/Users/joeca/AppData/Local/Android/Sdk/ndk-bundle
-    export ANDROID_NDK_HOME=$ANDROID_NDK
-    unset ANDROID_NDK_REPOSITORY
+    # export ANDROID_HOME=/c/Program\ Files\ (x86)/Android/android-sdk
+    # export ANDROID_SDK=$ANDROID_HOME
+    # export ANDROID_SDK_ROOT=$ANDROID_SDK
+    # export ANDROID_NDK=/c/Users/joeca/AppData/Local/Android/Sdk/ndk-bundle
+    # export ANDROID_NDK_HOME=$ANDROID_NDK
+    # unset ANDROID_NDK_REPOSITORY
 
-    export PATH=${PATH}:$ANDROID_HOME/tools:$ANDROID_HOME/platform-tools:$ANDROID_NDK
+    # export PATH=${PATH}:$ANDROID_HOME/tools:$ANDROID_HOME/platform-tools:$ANDROID_NDK
     # Note that this tends to cause error messages when inside a .git folder.
     # I'm not sure of a good way to suppress that.
     export PS1=$IBlack$Time12h$Color_Off' \u@\h $(git branch &>/dev/null;\

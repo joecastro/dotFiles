@@ -1,5 +1,9 @@
 set nocompatible
 
+if has('win32') || has('win64')
+  set runtimepath=$HOME/.vim,$VIM/vimfiles,$VIMRUNTIME,$VIM/vimfiles/after,$HOME/.vim/after
+endif
+
 if has("gui_running")
     if has("gui_win32")
         " Assuming a pretty standard Windows install.
@@ -97,7 +101,7 @@ colorscheme molokai
 set cursorline
 set sbr=↪\
 
-set statusline=%F%m%r%h%w\ [TYPE=Y\ %{&ff]}\ [%l/%L\ (%p%%)]
+" set statusline=%F%m%r%h%w\ [TYPE=Y\ %{&ff]}\ [%l/%L\ (%p%%)]
 
 function! NumberToggle()
   if(&relativenumber == 1)
