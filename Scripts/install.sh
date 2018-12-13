@@ -29,11 +29,12 @@ fi
 
 for i in ${!sourcedirs[*]}
 do
-    cp -fr $sourceroot/${sourcedirs[i]} $targetroot/${targetdirs[i]}
+    rm -r $targetroot/${targetdirs[i]}
+    cp -r $sourceroot/${sourcedirs[i]}/ $targetroot/${targetdirs[i]}
 done
 
 for i in ${!sourcefiles[*]}
 do
-    cp -f $sourceroot/${sourcefiles[i]} $targetroot/${targetfiles[i]}
+    cp $sourceroot/${sourcefiles[i]} $targetroot/${targetfiles[i]}
 done
 
