@@ -76,16 +76,16 @@ function print_git_info() {
     if [ "$?" -ne "0" ]; then
         echo "";
     else
-        echo "$(echo `git status` | grep "HEAD detached" > /dev/null 2>&1;
+        echo "$(echo `git status 2>/dev/null` | grep "HEAD detached" > /dev/null 2>&1;
         if [ "$?" -eq "0" ]; then
-            echo "$(echo `git status` | grep "nothing to commit" > /dev/null 2>&1; 
+            echo "$(echo `git status 2>/dev/null` | grep "nothing to commit" > /dev/null 2>&1; 
             if [ "$?" -eq "0" ]; then 
                 echo -e "\001$Red\002"$(__git_ps1 "%s")" ";
             else 
                 echo -e "\001$Red\002"$(__git_ps1 "{%s *}")" ";
             fi)"; 
         else 
-            echo "$(echo `git status` | grep "nothing to commit" > /dev/null 2>&1; 
+            echo "$(echo `git status 2>/dev/null` | grep "nothing to commit" > /dev/null 2>&1; 
             if [ "$?" -eq "0" ]; then 
                 echo -e "\001$Green\002"$(__git_ps1 "(%s)")" ";
             else 
