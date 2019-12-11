@@ -1,4 +1,4 @@
- export DISPLAY=:0
+export DISPLAY=:0
 
 # If not running interactively, don't do anything
 case $- in
@@ -99,7 +99,7 @@ export PS1=\\[$IBlack\\]$Time12h\\[$Color_Off\\]' \u@\h $(print_git_info)'\\[$Co
 
 EFFECTIVE_DISTRIBUTION="Unhandled"
 if grep -qE "(Microsoft|WSL)" /proc/version &> /dev/null ; then
-    echo "WSL"
+    EFFECTIVE_DISTRIBUTION="WSL"
 elif [ "$(uname)" == "Darwin" ]; then
     EFFECTIVE_DISTRIBUTION="OSX"
 elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
