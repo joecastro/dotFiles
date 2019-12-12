@@ -77,7 +77,7 @@ function wintitle() {
 
 function __cute_pwd() {
     case "${PWD##*/}" in
-        ${HOME})
+        ${HOME##*/})
             printf 🏠
             ;;
         /)
@@ -116,7 +116,14 @@ function __print_git_info() {
     fi
 }
 
-export PS1=\\[$DarkGray\\]$Time12h\\[$Color_Off\\]' '\\[$BrightGreen\\]'\u@\h'\\[$Color_Off\\]' $(__print_git_info)'\\[$Color_Off\\]'$(__cute_pwd)] $ '
+# Use a different color for displaying the host name when we're logged into SSH
+if [ -n "$SSH_CLIENT" ] || [ -n "$SSH_TTY" ] || [ -n "$SSH_CONNECTION" ]; then
+    HostColor=$Yellow
+else
+    HostColor=$BrightGreen
+fi
+
+export PS1=\\[$DarkGray\\]$Time12h\\[$Color_Off\\]' '\\[$BrightGreen\\]'\u'\\[$HostColor\\]'@\h'\\[$Color_Off\\]' $(__print_git_info)'\\[$Color_Off\\]'$(__cute_pwd)] $ '
 
 EFFECTIVE_DISTRIBUTION="Unhandled"
 if grep -qE "(Microsoft|WSL)" /proc/version &> /dev/null ; then
