@@ -29,7 +29,7 @@ fi
 
 for i in ${!sourcedirs[*]}
 do
-    rm -r $targetroot/${targetdirs[i]}
+    rm -r $targetroot/${targetdirs[i]} 2>/dev/null
     cp -r $sourceroot/${sourcedirs[i]}/ $targetroot/${targetdirs[i]}
 done
 
