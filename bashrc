@@ -19,14 +19,22 @@ Jobs="\j"
 Color_Off='\e[0m'       # Text Reset
 
 # Normal Colors
-Black='\e[0;30m'        # Black
-Red='\e[0;31m'          # Red
-Green='\e[0;32m'        # Green
-Yellow='\e[0;33m'       # Yellow
-Blue='\e[0;34m'         # Blue
-Purple='\e[0;35m'       # Purple
-Cyan='\e[0;36m'         # Cyan
-White='\e[0;37m'        # White
+Black='\e[0;30m'
+DarkGray='\e[01;30m'
+Red='\e[0;31m'
+BrightRed='\e[01;31m'
+Green='\e[0;32m'
+BrightGreen='\e[01;32m'
+Brown='\e[0;33m'
+Yellow='\e[1;33m'
+Blue='\e[0;34m'
+BrightBlue='\e[1;34m'
+Purple='\e[0;35m'
+LightPurple='\e[1;35m'
+Cyan='\e[0;36m'
+BrightCyan='\e[1;36m'
+LightGray='\e[0;37m'
+White='\e[1;37m'
 
 IBlack="\033[0;90m"       # Black
 
@@ -50,10 +58,6 @@ On_Purple='\e[45m'      # Purple
 On_Cyan='\e[46m'        # Cyan
 On_White='\e[47m'       # White
 
-RESET="\017"
-SMILEY="${WHITE}:)${NORMAL}"
-FROWNY="${RED}:(${NORMAL}"
-
 eval "`dircolors -b ~/.dircolorsrc`"
 export LS_OPTIONS='--color=auto'
 
@@ -71,7 +75,24 @@ function wintitle() {
     fi
 }
 
-function print_git_info() {
+function __cute_pwd() {
+    case "${PWD##*/}" in
+        ${HOME})
+            printf 🏠
+            ;;
+        /)
+            printf 🌲
+            ;;
+        src | source)
+            printf 💾
+            ;;
+        *)
+        echo -n ${PWD##*/}
+        ;;
+    esac
+}
+
+function __print_git_info() {
     git branch > /dev/null 2>&1;
     if [ "$?" -ne "0" ]; then
         echo "";
@@ -95,7 +116,7 @@ function print_git_info() {
     fi
 }
 
-export PS1=\\[$IBlack\\]$Time12h\\[$Color_Off\\]' \u@\h $(print_git_info)'\\[$Color_Off\\]'\W] $ '
+export PS1=\\[$DarkGray\\]$Time12h\\[$Color_Off\\]' '\\[$BrightGreen\\]'\u@\h'\\[$Color_Off\\]' $(__print_git_info)'\\[$Color_Off\\]'$(__cute_pwd)] $ '
 
 EFFECTIVE_DISTRIBUTION="Unhandled"
 if grep -qE "(Microsoft|WSL)" /proc/version &> /dev/null ; then
