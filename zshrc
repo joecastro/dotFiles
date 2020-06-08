@@ -66,10 +66,10 @@ function __print_git_info() {
 #curl -ocurl -o ~/.git-prompt.sh \
 #    https://raw.githubusercontent.com/git/git/master/contrib/completion/git-prompt.sh
 
-source ~/.git-prompt.sh
-source "/opt/brew/opt/zsh-git-prompt/zshrc.sh"
+#source ~/.git-prompt.sh
+#source "/opt/brew/opt/zsh-git-prompt/zshrc.sh"
 
-# Use a different color for displaying the host name when we're logged into     ↪\SSH
+# Use a different color for displaying the host name when we're logged into SSH
 if [ -n "$SSH_CLIENT" ] || [ -n "$SSH_TTY" ] || [ -n "$SSH_CONNECTION" ]; then
      HostColor=%F{11}
 else
