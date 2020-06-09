@@ -69,11 +69,19 @@ function __print_git_info() {
 #source ~/.git-prompt.sh
 #source "/opt/brew/opt/zsh-git-prompt/zshrc.sh"
 
+# Color cheat sheet: https://jonasjacek.github.io/colors/
+
 # Use a different color for displaying the host name when we're logged into SSH
 if [ -n "$SSH_CLIENT" ] || [ -n "$SSH_TTY" ] || [ -n "$SSH_CONNECTION" ]; then
-     HostColor=%F{11}
+     HostColor=%F{214}
 else
-     HostColor=%F{10}
+     HostColor=%F{11}
 fi
 
 PROMPT='%F{234}%T %{$fg[green]%}$USER%{$fg[yellow]%}@%B$HostColor%m%{$reset_color%} $(__print_git_info)%{$reset_color%}$(__cute_pwd) $ '
+
+# by default, show slashes, follow symbolic links, colorize
+alias ls='ls -FHG'
+
+alias myip='curl http://ipecho.net/plain; echo'
+alias distro='cat /etc/*-release'
