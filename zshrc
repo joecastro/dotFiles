@@ -1,3 +1,10 @@
+#! /bin/zsh
+
+setopt PROMPT_SUBST
+
+# Color cheat sheet: https://jonasjacek.github.io/colors/
+autoload -U colors
+colors
 
 setopt NO_CASE_GLOB
 setopt AUTO_CD
@@ -22,21 +29,28 @@ function wintitle() {
     fi
 }
 
+# emojipedia.org
 function __cute_pwd() {
-    case "${PWD##*/}" in
-        ${HOME##*/})
-            printf 🏠
-            ;;
-        /)
-            printf 🌲
-            ;;
-        src | source)
-            printf 💾
-            ;;
-        *)
-        echo -n ${PWD##*/}
-        ;;
-    esac
+    # If we're in a git repo then show the current directory relative to the root of that repo.
+    git branch > /dev/null 2>&1;
+    if [ "$?" -ne "0" ]; then
+        case "${PWD##*/}" in
+            ${HOME##*/})
+                echo 🏠
+                ;;
+            /)
+                echo 🌲
+                ;;
+            src | source)
+                echo 💾
+                ;;
+            *)
+                echo -n ${PWD##*/}
+                ;;
+        esac
+    else
+        echo "📌$(git rev-parse --show-toplevel | xargs basename)/$(git rev-parse --show-prefix)" 
+    fi
 }
 
 function __print_git_info() {
@@ -66,22 +80,25 @@ function __print_git_info() {
 #curl -ocurl -o ~/.git-prompt.sh \
 #    https://raw.githubusercontent.com/git/git/master/contrib/completion/git-prompt.sh
 
-#source ~/.git-prompt.sh
-#source "/opt/brew/opt/zsh-git-prompt/zshrc.sh"
+if [ -f ~/.git-prompt.sh ]; then
+    source ~/.git-prompt.sh
+fi
 
-# Color cheat sheet: https://jonasjacek.github.io/colors/
+if [ -f $(brew --prefix)/opt/zsh-git-prompt/zshrc.sh ]; then
+    source $(brew --prefix)/opt/zsh-git-prompt/zshrc.sh
+fi
 
 # Use a different color for displaying the host name when we're logged into SSH
 if [ -n "$SSH_CLIENT" ] || [ -n "$SSH_TTY" ] || [ -n "$SSH_CONNECTION" ]; then
      HostColor=%F{214}
 else
-     HostColor=%F{11}
+     HostColor=%{$fg[yellow]%}
 fi
 
 PROMPT='%F{234}%T %{$fg[green]%}$USER%{$fg[yellow]%}@%B$HostColor%m%{$reset_color%} $(__print_git_info)%{$reset_color%}$(__cute_pwd) $ '
+
 
 # by default, show slashes, follow symbolic links, colorize
 alias ls='ls -FHG'
 
 alias myip='curl http://ipecho.net/plain; echo'
-alias distro='cat /etc/*-release'
