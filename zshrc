@@ -1,5 +1,7 @@
 #! /bin/zsh
 
+# Useful reference: https://scriptingosx.com/2019/07/moving-to-zsh-part-7-miscellanea/
+
 setopt PROMPT_SUBST
 
 # Color cheat sheet: https://jonasjacek.github.io/colors/
@@ -21,6 +23,9 @@ setopt APPEND_HISTORY
 setopt INC_APPEND_HISTORY
 
 setopt CORRECT
+
+bindkey "^[[A" history-beginning-search-backward # up arrow bindkey
+bindkey "^[[B" history-beginning-search-forward # down arrow bindkey
 
 function wintitle() {
     if [ -z "$1" ]
@@ -75,8 +80,15 @@ function __print_git_worktree() {
         return 0;
     fi
 
-    echo 🌲"%{$fg[green]%}[${ROOT_WORKTREE##*/}/${ACTIVE_WORKTREE##*/}] "
-    return 0
+    SUBMODULE_WORKTREE=$(echo `git rev-parse --show-superproject-working-tree`)
+    if [[ "$SUBMODULE_WORKTREE" == "" ]]; then
+        echo 🌲"%{$fg[green]%}[${ROOT_WORKTREE##*/}/${ACTIVE_WORKTREE##*/}] ";
+        return 0;
+    fi
+
+    echo 🛶"%{$fg[magenta]%}[${SUBMODULE_WORKTREE##*/}/${ROOT_WORKTREE##*/}] ";
+    return 0;
+ 
 }
 
 function __print_git_info() {
@@ -146,6 +158,38 @@ else
 fi
 
 alias myip='curl http://ipecho.net/plain; echo'
-export PATH="/opt/brew/opt/openjdk/bin:$PATH"
 
-export JAVA_HOME=`/usr/libexec/java_home -v 1.8`
+# kill_port_proc <port>
+function __kill_port_proc() {
+    readonly port=${1:?"The port must be specified."}
+
+    lsof -i tcp:"$port" | grep LISTEN | awk '{print $2}'
+}
+
+# update_java_home <version>
+function __update_java_home() {
+    readonly jver=${1:?"Version must be specified"}
+    if (( ${+JAVA_HOME} )); then
+        path[$path[(i)$JAVA_HOME/bin]]=()
+    fi
+    export JAVA_HOME=$(/usr/libexec/java_home -v $jver)
+    path=($JAVA_HOME/bin $path)
+}
+
+# $PATH is tied to $path - Can use one as an array and the other as a scalar.
+typeset -U path # force unique values.
+
+alias chjava='__update_java_home'
+alias kill_port_proc='__kill_port_proc'
+
+#export PATH="/opt/brew/opt/openjdk/bin:$PATH"
+#export JAVA_HOME=/Library/Java/JavaVirtualMachines/applejdk-17.jdk/Contents/Home
+
+# path+=($JAVA_HOME)
+# or, prepend
+# path[1,0]=~$JAVA_HOME/bin
+
+__update_java_home 11
+
+test -e "${HOME}/.iterm2_shell_integration.zsh" && source "${HOME}/.iterm2_shell_integration.zsh"
+
