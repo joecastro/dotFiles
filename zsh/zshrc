@@ -5,10 +5,10 @@
 setopt PROMPT_SUBST
 
 # Color cheat sheet: https://jonasjacek.github.io/colors/
-autoload -U colors
-colors
+autoload -U colors && colors
 
 export LSCOLORS="Gxfxcxdxbxegedabagacad" 
+zstyle ':completion:*' list-colors ${(s.:.)LS_COLORS}  
 
 setopt NO_CASE_GLOB
 setopt AUTO_CD
@@ -26,10 +26,11 @@ setopt CORRECT
 
 bindkey "^[[A" history-beginning-search-backward # up arrow bindkey
 bindkey "^[[B" history-beginning-search-forward # down arrow bindkey
+bindkey \^U backward-kill-line
+bindkey \^W kill-line
 
 function wintitle() {
-    if [ -z "$1" ]
-    then
+    if [ -z "$1" ]; then
         echo "Missing window title"
     else
         echo -ne "\e]0;$1\a"
@@ -125,17 +126,16 @@ function __print_git_info() {
 #curl -ocurl -o ~/.git-prompt.sh \
 #    https://raw.githubusercontent.com/git/git/master/contrib/completion/git-prompt.sh
 
-if [ -f ~/.git-prompt.sh ]; then
-    source ~/.git-prompt.sh
-else
+if [ ! -f ~/.git-prompt.sh ]; then
     curl -o ~/.git-prompt.sh \
     https://raw.githubusercontent.com/git/git/master/contrib/completion/git-prompt.sh
-    source ~/.git-prompt.sh
 fi
 
-if [ -f $(brew --prefix)/opt/zsh-git-prompt/zshrc.sh ]; then
-    source $(brew --prefix)/opt/zsh-git-prompt/zshrc.sh
-fi
+# defines __git_ps1
+source ~/.git-prompt.sh
+
+
+test -e "$(brew --prefix)/opt/zsh-git-prompt/zshrc.sh" && source "$(brew --prefix)/opt/zsh-git-prompt/zshrc.sh"
 
 # Use a different color for displaying the host name when we're logged into SSH
 if [ -n "$SSH_CLIENT" ] || [ -n "$SSH_TTY" ] || [ -n "$SSH_CONNECTION" ]; then
@@ -144,8 +144,12 @@ else
      HostColor=%{$fg[yellow]%}
 fi
 
-PROMPT='${white}%T %{$fg[green]%}$USER%{$fg[yellow]%}@%B$HostColor%m%{$reset_color%} $(__print_git_worktree)$(__print_git_info)%{$reset_color%}$(__cute_pwd) $ '
-
+PROMPT='${white}%T '
+PROMPT+='%{$fg[green]%}$USER%{$fg[yellow]%}@%B$HostColor%m%{$reset_color%} '
+# Optional - spaces are embedded in output suffix if these are non-empty.
+PROMPT+='$(__print_git_worktree)$(__print_git_info)%{$reset_color%} '
+PROMPT+='$(__cute_pwd) $ '
+# RPROMPT='%*'
 
 # if exa is installed prefer that to ls
 # options aren't the same, but I also need it less often...
@@ -160,7 +164,7 @@ fi
 alias myip='curl http://ipecho.net/plain; echo'
 
 # kill_port_proc <port>
-function __kill_port_proc() {
+function kill_port_proc() {
     readonly port=${1:?"The port must be specified."}
 
     lsof -i tcp:"$port" | grep LISTEN | awk '{print $2}'
@@ -179,17 +183,10 @@ function __update_java_home() {
 # $PATH is tied to $path - Can use one as an array and the other as a scalar.
 typeset -U path # force unique values.
 
-alias chjava='__update_java_home'
-alias kill_port_proc='__kill_port_proc'
-
-#export PATH="/opt/brew/opt/openjdk/bin:$PATH"
-#export JAVA_HOME=/Library/Java/JavaVirtualMachines/applejdk-17.jdk/Contents/Home
-
-# path+=($JAVA_HOME)
-# or, prepend
-# path[1,0]=~$JAVA_HOME/bin
-
 __update_java_home 11
+
+alias chjava='__update_java_home'
+
 
 test -e "${HOME}/.iterm2_shell_integration.zsh" && source "${HOME}/.iterm2_shell_integration.zsh"
 

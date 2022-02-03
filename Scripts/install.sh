@@ -1,4 +1,6 @@
-#!/bin/bash
+#!/bin/zsh
+
+DF_ROOT=${0:a:h}
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
 
