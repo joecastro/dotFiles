@@ -38,6 +38,9 @@ function wintitle() {
 }
 
 # emojipedia.org
+ANCHOR_ICON=⚓
+PIN_ICON=📌
+
 function __cute_pwd() {
     git branch > /dev/null 2>&1;
     if [[ "$?" != "0" ]]; then
@@ -59,7 +62,7 @@ function __cute_pwd() {
         git rev-parse --is-inside-git-dir | grep "true" > /dev/null 2>&1;
         if [[ "$?" != "0" ]]; then
             # If we're in a git repo then show the current directory relative to the root of that repo.
-            echo "📌$(git rev-parse --show-toplevel | xargs basename)/$(git rev-parse --show-prefix)" 
+            echo "$ANCHOR_ICON$(git rev-parse --show-toplevel | xargs basename)/$(git rev-parse --show-prefix)" 
         else 
             echo "🚧" 
         fi
@@ -144,7 +147,17 @@ else
      HostColor=%{$fg[yellow]%}
 fi
 
+function __virtualenv_info(){
+    # venv="${VIRTUAL_ENV##*/}"
+    test -n "$VIRTUAL_ENV" && echo "🐍 "
+}
+
+# disable the default virtualenv prompt change
+export VIRTUAL_ENV_DISABLE_PROMPT=1
+
 PROMPT='${white}%T '
+# Optional
+PROMPT+='$(__virtualenv_info)'
 PROMPT+='%{$fg[green]%}$USER%{$fg[yellow]%}@%B$HostColor%m%{$reset_color%} '
 # Optional - spaces are embedded in output suffix if these are non-empty.
 PROMPT+='$(__print_git_worktree)$(__print_git_info)%{$reset_color%} '
@@ -153,7 +166,7 @@ PROMPT+='$(__cute_pwd) $ '
 
 # if exa is installed prefer that to ls
 # options aren't the same, but I also need it less often...
-if [ "$(which exa > /dev/null  2>&1)" -ne "0" ]; then
+if ! command -v exa &> /dev/null; then
     # by default, show slashes, follow symbolic links, colorize
     alias ls='ls -FHG'
 else
@@ -162,6 +175,28 @@ else
 fi
 
 alias myip='curl http://ipecho.net/plain; echo'
+
+function __venv_aware_cd() {
+    builtin cd "$@"
+
+    # If I am no longer in the same directory hierarchy as the venv that was last activated, deactivate.
+    if [[ -n "$VIRTUAL_ENV" ]]; then
+        P_DIR="$(dirname "$VIRTUAL_ENV")"
+        if [[ "$PWD"/ != "$P_DIR"/* ]]; then
+            echo "🐍 Deactivating venv for $P_DIR"
+            deactivate
+        fi
+    fi
+
+    # If I enter a directory with a .venv and I am already activated with another one, let me know but don't activate.
+    if [[ -d ./.venv ]]; then
+        if [[ -z "$VIRTUAL_ENV" ]]; then
+            source ./.venv/bin/activate
+            echo "🐍 Activating venv with $(python --version) for $PWD/.venv"
+        # else: CONSIDER: test "$PWD" -ef "$VIRUAL_ENV" && "🐍 Avoiding implicit activation of .venv environment because $VIRTUAL_ENV is already active"
+        fi
+    fi
+}
 
 # kill_port_proc <port>
 function kill_port_proc() {
@@ -188,5 +223,14 @@ __update_java_home 11
 alias chjava='__update_java_home'
 
 
-test -e "${HOME}/.iterm2_shell_integration.zsh" && source "${HOME}/.iterm2_shell_integration.zsh"
+eval "$(hub alias -s)"
 
+case "$TERM_PROGRAM" in
+    "iTerm.app")
+        test -e "${HOME}/.iterm2_shell_integration.zsh" && source "${HOME}/.iterm2_shell_integration.zsh"
+        alias cd='__venv_aware_cd'
+        ;;
+    "vscode")
+        echo "Limiting zsh initialization because inside vscode terminal."
+        ;;
+esac
