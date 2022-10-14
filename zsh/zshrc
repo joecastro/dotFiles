@@ -2,7 +2,12 @@
 
 # Useful reference: https://scriptingosx.com/2019/07/moving-to-zsh-part-7-miscellanea/
 
+# autoload -Uz promptinit
+# promptinit
+# prompt fire
+
 setopt PROMPT_SUBST
+setopt histignorealldups sharehistory
 
 # Color cheat sheet: https://jonasjacek.github.io/colors/
 autoload -U colors && colors
@@ -28,6 +33,36 @@ bindkey "^[[A" history-beginning-search-backward # up arrow bindkey
 bindkey "^[[B" history-beginning-search-forward # down arrow bindkey
 bindkey \^U backward-kill-line
 bindkey \^W kill-line
+bindkey "\e[3~" delete-char
+
+# Use modern completion system
+# autoload -Uz compinit
+# compinit
+
+# zstyle ':completion:*' auto-description 'specify: %d'
+# zstyle ':completion:*' completer _expand _complete _correct _approximate
+# zstyle ':completion:*' format 'Completing %d'
+# zstyle ':completion:*' group-name ''
+# zstyle ':completion:*' menu select=2
+# eval "$(dircolors -b)"
+# zstyle ':completion:*:default' list-colors ${(s.:.)LS_COLORS}
+# zstyle ':completion:*' list-colors ''
+# zstyle ':completion:*' list-prompt %SAt %p: Hit TAB for more, or the character to insert%s
+# zstyle ':completion:*' matcher-list '' 'm:{a-z}={A-Z}' 'm:{a-zA-Z}={A-Za-z}' 'r:|[._-]=* r:|=* l:|=*'
+# zstyle ':completion:*' menu select=long
+# zstyle ':completion:*' select-prompt %SScrolling active: current selection at %p%s
+# zstyle ':completion:*' use-compctl false
+# zstyle ':completion:*' verbose true
+
+# zstyle ':completion:*:*:kill:*:processes' list-colors '=(#b) #([0-9]#)*=0=01;31'
+# zstyle ':completion:*:kill:*' command 'ps -u $USER -o pid,%cpu,tty,cputime,cmd'
+
+function __is_ssh_session() {
+    if [ -n "$SSH_CLIENT" ] || [ -n "$SSH_TTY" ] || [ -n "$SSH_CONNECTION" ]; then
+        return 0
+    fi
+    return 1
+}
 
 function wintitle() {
     if [ -z "$1" ]; then
@@ -40,11 +75,24 @@ function wintitle() {
 # emojipedia.org
 ANCHOR_ICON=⚓
 PIN_ICON=📌
+# This one has a bad width in it?
+HUT_ICON=🛖
+HOUSE_ICON=🏠
+TREE_ICON=🌲
+DISK_ICON=💾
+OFFICE_ICON=🏢
+
+ICONS=($ANCHOR_ICON $PIN_ICON $HUT_ICON $HOUSE_ICON $TREE_ICON $DISK_ICON $OFFICE_ICON)
 
 function __cute_pwd() {
     git branch > /dev/null 2>&1;
     if [[ "$?" != "0" ]]; then
         case "${PWD##*/}" in
+            random | rnd)
+                RANDOM=$$$(date +%s)
+                ix=$(($RANDOM % ${#ICONS[@]}))
+                echo "r$ICONS[$(($ix+1))]d"
+                ;;
             ${HOME##*/})
                 echo 🏠
                 ;;
@@ -53,6 +101,9 @@ function __cute_pwd() {
                 ;;
             src | source)
                 echo 💾
+                ;;
+            work)
+                echo 🏢
                 ;;
             *)
                 echo -n ${PWD##*/}
@@ -137,14 +188,17 @@ fi
 # defines __git_ps1
 source ~/.git-prompt.sh
 
-
-test -e "$(brew --prefix)/opt/zsh-git-prompt/zshrc.sh" && source "$(brew --prefix)/opt/zsh-git-prompt/zshrc.sh"
+if command -v brew > /dev/null; then
+    test -e "$(brew --prefix)/opt/zsh-git-prompt/zshrc.sh" && source "$(brew --prefix)/opt/zsh-git-prompt/zshrc.sh"
+fi
 
 # Use a different color for displaying the host name when we're logged into SSH
-if [ -n "$SSH_CLIENT" ] || [ -n "$SSH_TTY" ] || [ -n "$SSH_CONNECTION" ]; then
+if __is_ssh_session; then
      HostColor=%F{214}
+     HostNameDisplay=%M
 else
      HostColor=%{$fg[yellow]%}
+     HostNameDisplay=%m
 fi
 
 function __virtualenv_info(){
@@ -158,7 +212,7 @@ export VIRTUAL_ENV_DISABLE_PROMPT=1
 PROMPT='${white}%T '
 # Optional
 PROMPT+='$(__virtualenv_info)'
-PROMPT+='%{$fg[green]%}$USER%{$fg[yellow]%}@%B$HostColor%m%{$reset_color%} '
+PROMPT+='%{$fg[green]%}$USER%{$fg[yellow]%}@%B$HostColor$HostNameDisplay%{$reset_color%} '
 # Optional - spaces are embedded in output suffix if these are non-empty.
 PROMPT+='$(__print_git_worktree)$(__print_git_info)%{$reset_color%} '
 PROMPT+='$(__cute_pwd) $ '
@@ -218,12 +272,16 @@ function __update_java_home() {
 # $PATH is tied to $path - Can use one as an array and the other as a scalar.
 typeset -U path # force unique values.
 
-__update_java_home 11
+if command -v /usr/libexec/java_home &> /dev/null; then
+    __update_java_home 11
 
-alias chjava='__update_java_home'
+    alias chjava='__update_java_home'
+fi
 
 
-eval "$(hub alias -s)"
+if command -v hub &> /dev/null; then
+    eval "$(hub alias -s)"
+fi
 
 case "$TERM_PROGRAM" in
     "iTerm.app")

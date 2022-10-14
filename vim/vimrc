@@ -4,6 +4,10 @@ if has('win32') || has('win64')
   set runtimepath=$HOME/.vim,$VIM/vimfiles,$VIMRUNTIME,$VIM/vimfiles/after,$HOME/.vim/after
 endif
 
+" Ways to update this:
+" `:set guifont=*` will display the native font picker.
+" Once Vim looks as desired, it can be pasted in INSERT mode by
+" `<ctrl-R>=&guifont;`
 if has("gui_running")
     if has("gui_win32")
         " Assuming a pretty standard Windows install.
@@ -11,8 +15,10 @@ if has("gui_running")
         source $VIMRUNTIME/mswin.vim
         behave mswin
         set guifont=Consolas:h11:cANSI
-    elseif has("gui_gtk2")
+    elseif has("gui_gtk3")
         set guifont=Inconsolata\ 12
+    elseif has("gui_macvim")
+        set guifont=CaskaydiaCoveNerdFontCompleteM-Regular:h14
     endif
 endif
 
@@ -112,4 +118,3 @@ function! NumberToggle()
 endfunc
 
 nnoremap <F2> :call NumberToggle()<CR>
-
