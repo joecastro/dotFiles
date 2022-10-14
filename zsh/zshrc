@@ -33,12 +33,13 @@ bindkey "^[[A" history-beginning-search-backward # up arrow bindkey
 bindkey "^[[B" history-beginning-search-forward # down arrow bindkey
 bindkey \^U backward-kill-line
 bindkey \^W kill-line
+bindkey "\e[3~" delete-char
 
 # Use modern completion system
 # autoload -Uz compinit
 # compinit
 
-#zstyle ':completion:*' auto-description 'specify: %d'
+# zstyle ':completion:*' auto-description 'specify: %d'
 # zstyle ':completion:*' completer _expand _complete _correct _approximate
 # zstyle ':completion:*' format 'Completing %d'
 # zstyle ':completion:*' group-name ''
@@ -56,6 +57,13 @@ bindkey \^W kill-line
 # zstyle ':completion:*:*:kill:*:processes' list-colors '=(#b) #([0-9]#)*=0=01;31'
 # zstyle ':completion:*:kill:*' command 'ps -u $USER -o pid,%cpu,tty,cputime,cmd'
 
+function __is_ssh_session() {
+    if [ -n "$SSH_CLIENT" ] || [ -n "$SSH_TTY" ] || [ -n "$SSH_CONNECTION" ]; then
+        return 0
+    fi
+    return 1
+}
+
 function wintitle() {
     if [ -z "$1" ]; then
         echo "Missing window title"
@@ -67,11 +75,24 @@ function wintitle() {
 # emojipedia.org
 ANCHOR_ICON=⚓
 PIN_ICON=📌
+# This one has a bad width in it?
+HUT_ICON=🛖
+HOUSE_ICON=🏠
+TREE_ICON=🌲
+DISK_ICON=💾
+OFFICE_ICON=🏢
+
+ICONS=($ANCHOR_ICON $PIN_ICON $HUT_ICON $HOUSE_ICON $TREE_ICON $DISK_ICON $OFFICE_ICON)
 
 function __cute_pwd() {
     git branch > /dev/null 2>&1;
     if [[ "$?" != "0" ]]; then
         case "${PWD##*/}" in
+            random | rnd)
+                RANDOM=$$$(date +%s)
+                ix=$(($RANDOM % ${#ICONS[@]}))
+                echo "r$ICONS[$(($ix+1))]d"
+                ;;
             ${HOME##*/})
                 echo 🏠
                 ;;
@@ -80,6 +101,9 @@ function __cute_pwd() {
                 ;;
             src | source)
                 echo 💾
+                ;;
+            work)
+                echo 🏢
                 ;;
             *)
                 echo -n ${PWD##*/}
@@ -169,7 +193,7 @@ if command -v brew > /dev/null; then
 fi
 
 # Use a different color for displaying the host name when we're logged into SSH
-if [ -n "$SSH_CLIENT" ] || [ -n "$SSH_TTY" ] || [ -n "$SSH_CONNECTION" ]; then
+if __is_ssh_session; then
      HostColor=%F{214}
      HostNameDisplay=%M
 else
@@ -248,11 +272,12 @@ function __update_java_home() {
 # $PATH is tied to $path - Can use one as an array and the other as a scalar.
 typeset -U path # force unique values.
 
-if command -v /usr/libexec/java_home > /dev/null; then
+if command -v /usr/libexec/java_home &> /dev/null; then
     __update_java_home 11
+
+    alias chjava='__update_java_home'
 fi
 
-alias chjava='__update_java_home'
 
 if command -v hub &> /dev/null; then
     eval "$(hub alias -s)"
