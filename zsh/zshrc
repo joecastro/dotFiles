@@ -75,7 +75,6 @@ function wintitle() {
 # emojipedia.org
 ANCHOR_ICON=⚓
 PIN_ICON=📌
-# This one has a bad width in it?
 HUT_ICON=🛖
 HOUSE_ICON=🏠
 TREE_ICON=🌲
@@ -120,6 +119,17 @@ function __cute_pwd() {
     fi
 }
 
+function __cute_time_prompt() {
+    case "$(date +%Z)" in
+        UTC)
+            echo -n "%Tz"
+            ;;
+        *)
+            echo -n "%T %D{%Z}"
+            ;;
+    esac
+}
+
 function __print_git_worktree() {
     git branch > /dev/null 2>&1;
     if [[ "$?" != "0" ]]; then
@@ -144,6 +154,17 @@ function __print_git_worktree() {
     echo 🛶"%{$fg[magenta]%}[${SUBMODULE_WORKTREE##*/}/${ROOT_WORKTREE##*/}] ";
     return 0;
  
+}
+
+function __print_repo_worktree() {
+    repo --show-toplevel > /dev/null 2>&1;
+    if [[ "$?" != "0" ]]; then
+        echo "";
+        return 0;
+    fi
+
+    REPO_ROOT=$(repo --show-toplevel | head -n1 | awk '{print $1;}')
+    echo 🤖"%{$fg[red]%}[repo:${REPO_ROOT##*/}] ";
 }
 
 function __print_git_info() {
@@ -209,12 +230,13 @@ function __virtualenv_info(){
 # disable the default virtualenv prompt change
 export VIRTUAL_ENV_DISABLE_PROMPT=1
 
-PROMPT='${white}%T '
+PROMPT='${white}$(__cute_time_prompt) '
 # Optional
 PROMPT+='$(__virtualenv_info)'
 PROMPT+='%{$fg[green]%}$USER%{$fg[yellow]%}@%B$HostColor$HostNameDisplay%{$reset_color%} '
 # Optional - spaces are embedded in output suffix if these are non-empty.
-PROMPT+='$(__print_git_worktree)$(__print_git_info)%{$reset_color%} '
+PROMPT+='$(__print_repo_worktree)%{$reset_color%}'
+PROMPT+='$(__print_git_worktree)$(__print_git_info)%{$reset_color%}'
 PROMPT+='$(__cute_pwd) $ '
 # RPROMPT='%*'
 
@@ -278,10 +300,23 @@ if command -v /usr/libexec/java_home &> /dev/null; then
     alias chjava='__update_java_home'
 fi
 
-
 if command -v hub &> /dev/null; then
     eval "$(hub alias -s)"
 fi
+
+# Android build utilities
+
+function refresh_build_env() {
+    repo --show-toplevel > /dev/null 2>&1;
+    if [[ "$?" != "0" ]]; then
+        echo "error: Not in an Android repo tree"
+        return 1;
+    fi
+
+    pushd $(repo --show-toplevel)
+    source ./build/envsetup.sh
+    popd
+}
 
 case "$TERM_PROGRAM" in
     "iTerm.app")
