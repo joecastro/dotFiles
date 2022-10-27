@@ -36,8 +36,8 @@ bindkey \^W kill-line
 bindkey "\e[3~" delete-char
 
 # Use modern completion system
-# autoload -Uz compinit
-# compinit
+autoload -Uz compinit
+compinit
 
 # zstyle ':completion:*' auto-description 'specify: %d'
 # zstyle ':completion:*' completer _expand _complete _correct _approximate
@@ -98,7 +98,7 @@ function __cute_pwd() {
             /)
                 echo 🌲
                 ;;
-            src | source)
+            src | source | master | main)
                 echo 💾
                 ;;
             work)
@@ -274,6 +274,13 @@ function __venv_aware_cd() {
     fi
 }
 
+function ___venv_aware_cd() {
+  ((CURRENT == 2)) &&
+  _files -/
+}
+
+compdef ___venv_aware_cd __venv_aware_cd
+
 # kill_port_proc <port>
 function kill_port_proc() {
     readonly port=${1:?"The port must be specified."}
@@ -318,12 +325,21 @@ function refresh_build_env() {
     popd
 }
 
-case "$TERM_PROGRAM" in
-    "iTerm.app")
-        test -e "${HOME}/.iterm2_shell_integration.zsh" && source "${HOME}/.iterm2_shell_integration.zsh"
-        alias cd='__venv_aware_cd'
-        ;;
-    "vscode")
-        echo "Limiting zsh initialization because inside vscode terminal."
-        ;;
-esac
+LOCAL_TERMINAL_CATEGORY="LOGIN"
+
+if [[ "$TERM_PROGRAM" == "vscode" ]]; then
+    LOCAL_TERMINAL_CATEGORY="EMBEDDED"
+fi
+
+# If using iTerm2, try for shell integration.
+# When in SSH TERM_PROGRAM isn't getting propagated.
+# iTerm profile switching requires shell_integration to be installed anyways.
+if [[ "iTerm2" == "$LC_TERMINAL" ]]; then
+    test -e "${HOME}/.iterm2_shell_integration.zsh" && source "${HOME}/.iterm2_shell_integration.zsh"
+fi
+
+if [[ "$LOCAL_TERMINAL_CATEGORY" != "EMBEDDED" ]]; then
+    alias cd='__venv_aware_cd'
+else
+     echo "Limiting zsh initialization because inside vscode terminal."
+fi
