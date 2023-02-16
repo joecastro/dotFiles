@@ -114,7 +114,7 @@ function __cute_pwd() {
             # If we're in a git repo then show the current directory relative to the root of that repo.
             echo "$ANCHOR_ICON$(git rev-parse --show-toplevel | xargs basename)/$(git rev-parse --show-prefix)" 
         else 
-            echo "🚧" 
+            echo "🚧"
         fi
     fi
 }
@@ -156,15 +156,23 @@ function __print_git_worktree() {
  
 }
 
-function __print_repo_worktree() {
+function __is_in_repo() {
     repo --show-toplevel > /dev/null 2>&1;
-    if [[ "$?" != "0" ]]; then
-        echo "";
+    if [[ "$?" == "0" ]]; then
         return 0;
     fi
+    return 1
+}
 
-    REPO_ROOT=$(repo --show-toplevel | head -n1 | awk '{print $1;}')
-    echo 🤖"%{$fg[red]%}[repo:${REPO_ROOT##*/}] ";
+function __print_repo_worktree() {
+    if __is_in_repo; then
+        # REPO_ROOT=$(repo --show-toplevel | head -n1 | awk '{print $1;}')
+        REPO_ROOT=$(repo info -o --outer-manifest -l | grep -i "Manifest branch" | sed 's/^Manifest branch: //')
+        echo 🤖"%{$fg[red]%}[repo:${REPO_ROOT##*/}] ";
+    else
+        echo "";
+    fi
+    return 0;
 }
 
 function __print_git_info() {
@@ -274,6 +282,7 @@ function __venv_aware_cd() {
     fi
 }
 
+# Basically this lets me override cd and still get file completion...
 function ___venv_aware_cd() {
   ((CURRENT == 2)) &&
   _files -/
@@ -314,15 +323,59 @@ fi
 # Android build utilities
 
 function refresh_build_env() {
-    repo --show-toplevel > /dev/null 2>&1;
-    if [[ "$?" != "0" ]]; then
+    if ! repo_root; then
+        return 1
+    fi
+
+    source ./build/envsetup.sh
+    popd
+
+    return 0;
+}
+
+function repo_clean() {
+    if ! __is_in_repo; then
+        echo "error: Not in an Android repo tree"
+        return 1;
+    fi
+
+    repo forall -vc "git checkout goog/master && git reset --hard"
+}
+
+function repo_root() {
+    if ! __is_in_repo; then
         echo "error: Not in an Android repo tree"
         return 1;
     fi
 
     pushd $(repo --show-toplevel)
-    source ./build/envsetup.sh
-    popd
+}
+
+function repo_pushd() {
+    if ! __is_in_repo; then
+        echo "error: Not in an Android repo tree"
+        return 1;
+    fi
+
+    if [ $# -lt 1 ]; then
+        echo "$funcstack[1] Missing sub-project"
+        return 1
+    fi
+
+    MOUNT_PATHS=($(repo info --outer-manifest -l | grep "Mount path.*$1$" | sed 's/^Mount path: //'))
+    for MOUNT_PATH in "${MOUNT_PATHS[@]}"; do
+        if [[ "${MOUNT_PATH##*/}" == "$1" ]]; then
+            pushd $MOUNT_PATH
+            break
+        fi
+    done
+
+    if [[ "$MOUNT_PATH" == "$PWD" ]]; then
+        return 0
+    fi
+
+    echo "Unknown project"
+    return 1
 }
 
 LOCAL_TERMINAL_CATEGORY="LOGIN"
