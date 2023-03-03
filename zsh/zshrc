@@ -131,6 +131,11 @@ function __cute_time_prompt() {
 }
 
 function __print_git_worktree() {
+    if __is_in_repo && (( ${+SKIP_WORKTREE_IN_ANDROID_REPO} )); then
+        echo ""
+        return 0
+    fi
+
     git branch > /dev/null 2>&1
     if [[ "$?" != "0" ]]; then
         echo ""
@@ -157,9 +162,17 @@ function __print_git_worktree() {
 }
 
 function __is_in_repo() {
+    verbose=0
+    if [[ -z "$1" ]]; then
+        unset verbose
+    fi
+
     repo --show-toplevel > /dev/null 2>&1;
     if [[ "$?" == "0" ]]; then
         return 0
+    fi
+    if (( ${+verbose} )); then
+        echo "error: Not in Android repo tree"
     fi
     return 1
 }
@@ -243,6 +256,8 @@ PROMPT+='$(__virtualenv_info)'
 PROMPT+='%{$fg[green]%}$USER%{$fg[yellow]%}@%B$HostColor$HostNameDisplay%{$reset_color%} '
 # Optional - spaces are embedded in output suffix if these are non-empty.
 PROMPT+='$(__print_repo_worktree)%{$reset_color%}'
+# Repo is implemented in terms of worktrees, so this gets noisy.
+SKIP_WORKTREE_IN_ANDROID_REPO=1
 PROMPT+='$(__print_git_worktree)$(__print_git_info)%{$reset_color%}'
 PROMPT+='$(__cute_pwd) $ '
 # RPROMPT='%*'
@@ -321,26 +336,6 @@ fi
 
 # Android build utilities
 
-function refresh_build_env() {
-    if ! repo_root; then
-        return 1
-    fi
-
-    source ./build/envsetup.sh
-    popd
-
-    return 0
-}
-
-function repo_clean() {
-    if ! __is_in_repo; then
-        echo "error: Not in an Android repo tree"
-        return 1
-    fi
-
-    repo forall -vc "git checkout goog/master && git reset --hard"
-}
-
 function repo_find() {
     if __is_in_repo; then
         echo $(repo --show-toplevel)
@@ -353,9 +348,29 @@ function repo_root() {
     pushd $(repo_find)
 }
 
+function refresh_build_env() {
+    if ! __is_in_repo -v; then
+        return 1
+    fi
+
+    repo_root
+    source ./build/envsetup.sh
+    popd
+
+    return 0
+}
+
+function repo_clean() {
+    if ! __is_in_repo -v; then
+        return 1
+    fi
+
+    REPO_UPSTREAM_BRANCH=goog/$(repo info -o --outer-manifest -l | grep -i "Manifest branch" | sed 's/^Manifest branch: //')
+    repo forall -vc "git checkout $REPO_UPSTREAM_BRANCH && git reset --hard $REPO_UPSTREAM_BRANCH &&  git clean -xfd"
+}
+
 function repo_pushd() {
-    if ! __is_in_repo; then
-        echo "error: Not in an Android repo tree"
+    if ! __is_in_repo -v; then
         return 1
     fi
 
