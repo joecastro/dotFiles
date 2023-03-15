@@ -24,6 +24,17 @@ endif
 
 " source ~/extra_commands.vim
 
+" Reference chart of values:
+"   Ps = 0  -> blinking block.
+"   Ps = 1  -> blinking block (default).
+"   Ps = 2  -> steady block.
+"   Ps = 3  -> blinking underline.
+"   Ps = 4  -> steady underline.
+"   Ps = 5  -> blinking beam (xterm).
+"   Ps = 6  -> steady beam (xterm).
+let &t_SI = "\e[6 q"
+let &t_EI = "\e[2 q"
+
 set softtabstop=4
 set shiftwidth=4
 set tabstop=4

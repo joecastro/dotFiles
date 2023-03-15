@@ -29,6 +29,12 @@ setopt INC_APPEND_HISTORY
 
 setopt CORRECT
 
+# Vim mode
+bindkey -v
+
+bindkey ^R history-incremental-search-backward
+bindkey ^S history-incremental-search-forward
+
 bindkey "^[[A" history-beginning-search-backward # up arrow bindkey
 bindkey "^[[B" history-beginning-search-forward # down arrow bindkey
 bindkey \^U backward-kill-line
@@ -56,6 +62,50 @@ compinit
 
 # zstyle ':completion:*:*:kill:*:processes' list-colors '=(#b) #([0-9]#)*=0=01;31'
 # zstyle ':completion:*:kill:*' command 'ps -u $USER -o pid,%cpu,tty,cputime,cmd'
+
+# Vim stuff
+
+# Remove mode switching delay.
+KEYTIMEOUT=5
+
+# Set cursor style (DECSCUSR), VT520.
+# 0 ⇒ blinking block.
+# 1 ⇒ blinking block (default).
+# 2 ⇒ steady block.
+# 3 ⇒ blinking underline.
+# 4 ⇒ steady underline.
+# 5 ⇒ blinking bar, xterm.
+# 6 ⇒ steady bar, xterm.
+
+function _set_cursor_beam() {
+   echo -ne '\e[5 q'
+}
+
+function _set_cursor_block() {
+   echo -ne '\e[1 q'
+}
+
+function zle-keymap-select {
+    case $KEYMAP in
+        vicmd)
+            _set_cursor_block
+            ;;
+        viins|main)
+            _set_cursor_beam
+            ;;
+    esac
+}
+
+zle -N zle-keymap-select
+
+zle-line-finish() { _set_cursor_block }
+zle -N zle-line-finish
+
+zle-line-init() { _set_cursor_beam }
+zle -N zle-line-init
+
+# Use beam shape cursor for each new prompt.
+preexec() { _set_cursor_beam }
 
 function __is_ssh_session() {
     if [ -n "$SSH_CLIENT" ] || [ -n "$SSH_TTY" ] || [ -n "$SSH_CONNECTION" ]; then
@@ -181,7 +231,7 @@ function __print_repo_worktree() {
     if __is_in_repo; then
         # REPO_ROOT=$(repo --show-toplevel | head -n1 | awk '{print $1;}')
         REPO_ROOT=$(repo info -o --outer-manifest -l | grep -i "Manifest branch" | sed 's/^Manifest branch: //')
-        echo 🤖"%{$fg[red]%}[repo:${REPO_ROOT##*/}] "
+        echo 🤖"%{$fg[red]%}[${REPO_ROOT##*/}] "
     else
         echo ""
     fi
@@ -222,6 +272,7 @@ function __print_git_info() {
 #    https://raw.githubusercontent.com/git/git/master/contrib/completion/git-prompt.sh
 
 if [ ! -f ~/.git-prompt.sh ]; then
+    echo "Bootstrapping git-prompt installation on new machine through curl"
     curl -o ~/.git-prompt.sh \
     https://raw.githubusercontent.com/git/git/master/contrib/completion/git-prompt.sh
 fi
@@ -265,6 +316,7 @@ PROMPT+='$(__cute_pwd) $ '
 # if exa is installed prefer that to ls
 # options aren't the same, but I also need it less often...
 if ! command -v exa &> /dev/null; then
+    echo "## Using native ls because missing exa"
     # by default, show slashes, follow symbolic links, colorize
     alias ls='ls -FHG'
 else
@@ -405,6 +457,10 @@ fi
 # When in SSH TERM_PROGRAM isn't getting propagated.
 # iTerm profile switching requires shell_integration to be installed anyways.
 if [[ "iTerm2" == "$LC_TERMINAL" ]]; then
+    if [ ! -f ~/.iterm2_shell_integration.zsh ]; then
+        echo "Bootstrapping iTerm2 Shell Integration on a new machine through curl"
+        curl -L https://iterm2.com/shell_integration/zsh -o ~/.iterm2_shell_integration.zsh
+    fi
     test -e "${HOME}/.iterm2_shell_integration.zsh" && source "${HOME}/.iterm2_shell_integration.zsh"
 fi
 
