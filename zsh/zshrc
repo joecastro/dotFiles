@@ -400,6 +400,11 @@ function repo_root() {
     pushd $(repo_find)
 }
 
+function repo_format() {
+    git diff HEAD^ --name-only | xargs -t ${ANDROID_BUILD_TOP}/external/ktfmt/ktfmt.py
+    git diff HEAD^ --name-only | xargs -t google-java-format -i --aosp
+}
+
 function refresh_build_env() {
     if ! __is_in_repo -v; then
         return 1
