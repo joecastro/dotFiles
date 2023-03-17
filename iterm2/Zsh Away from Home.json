@@ -3,108 +3,108 @@
   "ASCII Ligatures": true,
   "Ambiguous Double Width": false,
   "Ansi 0 Color": {
-    "Green Component": "0",
     "Blue Component": "0",
+    "Green Component": "0",
     "Red Component": "0"
   },
   "Ansi 1 Color": {
-    "Green Component": "0",
     "Blue Component": "0",
+    "Green Component": "0",
     "Red Component": "0.8"
   },
   "Ansi 10 Color": {
-    "Green Component": "0.8862745",
     "Blue Component": "0.2039216",
+    "Green Component": "0.8862745",
     "Red Component": "0.5411764999999999"
   },
   "Ansi 11 Color": {
-    "Green Component": "0.9137255",
     "Blue Component": "0.3098039",
+    "Green Component": "0.9137255",
     "Red Component": "0.9882353"
   },
   "Ansi 12 Color": {
-    "Green Component": "0.6235294",
     "Blue Component": "0.8117647",
+    "Green Component": "0.6235294",
     "Red Component": "0.4470588"
   },
   "Ansi 13 Color": {
-    "Green Component": "0.4980392",
     "Blue Component": "0.6588235",
+    "Green Component": "0.4980392",
     "Red Component": "0.6784314"
   },
   "Ansi 14 Color": {
-    "Green Component": "0.8862745",
     "Blue Component": "0.8862745",
+    "Green Component": "0.8862745",
     "Red Component": "0.2039216"
   },
   "Ansi 15 Color": {
-    "Green Component": "0.9333333",
     "Blue Component": "0.9254902",
+    "Green Component": "0.9333333",
     "Red Component": "0.9333333"
   },
   "Ansi 2 Color": {
-    "Green Component": "0.6039215999999999",
     "Blue Component": "0.02352941",
+    "Green Component": "0.6039215999999999",
     "Red Component": "0.3058824"
   },
   "Ansi 3 Color": {
-    "Green Component": "0.627451",
     "Blue Component": "0",
+    "Green Component": "0.627451",
     "Red Component": "0.7686275"
   },
   "Ansi 4 Color": {
-    "Green Component": "0.3960784",
     "Blue Component": "0.6431373",
+    "Green Component": "0.3960784",
     "Red Component": "0.2039216"
   },
   "Ansi 5 Color": {
-    "Green Component": "0.3137255",
     "Blue Component": "0.4823529",
+    "Green Component": "0.3137255",
     "Red Component": "0.4588235"
   },
   "Ansi 6 Color": {
-    "Green Component": "0.5960785",
     "Blue Component": "0.6039215999999999",
+    "Green Component": "0.5960785",
     "Red Component": "0.02352941"
   },
   "Ansi 7 Color": {
-    "Green Component": "0.8431373",
     "Blue Component": "0.8117647",
+    "Green Component": "0.8431373",
     "Red Component": "0.827451"
   },
   "Ansi 8 Color": {
-    "Green Component": "0.3411765",
     "Blue Component": "0.3254902",
+    "Green Component": "0.3411765",
     "Red Component": "0.3333333"
   },
   "Ansi 9 Color": {
-    "Green Component": "0.1607843",
     "Blue Component": "0.1607843",
+    "Green Component": "0.1607843",
     "Red Component": "0.9372549"
   },
   "BM Growl": true,
   "Background Color": {
-    "Green Component": "0",
     "Blue Component": "0",
+    "Green Component": "0",
     "Red Component": "0"
   },
-  "Background Image Location": "/Users/joecastro/github/dotFiles/terminal_background_red.png",
+  "Background Image Location": "/Users/joecastro/github/dotFiles/iterm2/../terminal_background_red.png",
   "Background Image Mode": 2,
   "Badge Color": {
-    "Red Component": 1,
-    "Color Space": "sRGB",
     "Alpha Component": 0.5,
     "Blue Component": 0,
-    "Green Component": 0.14910027384757996
+    "Color Space": "sRGB",
+    "Green Component": 0.14910027384757996,
+    "Red Component": 1
   },
   "Blend": 0.39601391778476003,
   "Blink Allowed": false,
   "Blinking Cursor": false,
-  "Blur Radius": 10.12213803555103,
   "Blur": true,
+  "Blur Radius": 10.12213803555103,
   "Bold Color": {
-    "Green Component": "1",
     "Blue Component": "1",
+    "Green Component": "1",
     "Red Component": "1"
   },
   "Bound Hosts": [
@@ -115,20 +115,20 @@
   "Columns": 140,
   "Command": "/bin/zsh",
   "Cursor Color": {
-    "Green Component": "1",
     "Blue Component": "1",
+    "Green Component": "1",
     "Red Component": "1"
   },
   "Cursor Guide Color": {
-    "Red Component": 0.7021402716636658,
-    "Color Space": "sRGB",
     "Alpha Component": 0.25,
     "Blue Component": 1,
-    "Green Component": 0.9268137812614441
+    "Color Space": "sRGB",
+    "Green Component": 0.9268137812614441,
+    "Red Component": 0.7021402716636658
   },
   "Cursor Text Color": {
-    "Green Component": "0",
     "Blue Component": "0",
+    "Green Component": "0",
     "Red Component": "0"
   },
   "Custom Command": "Custom Shell",
@@ -138,8 +138,8 @@
   "Disable Window Resizing": true,
   "Flashing Bell": false,
   "Foreground Color": {
-    "Green Component": "1",
     "Blue Component": "1",
+    "Green Component": "1",
     "Red Component": "1"
   },
   "Guid": "3ff1a43d-5362-44d3-a443-5f8bdb57aedc",
@@ -151,11 +151,11 @@
   "Jobs to Ignore": [],
   "Left Option Key Changeable": false,
   "Link Color": {
-    "Red Component": 0,
-    "Color Space": "sRGB",
     "Alpha Component": 1,
     "Blue Component": 0.7342271208763123,
-    "Green Component": 0.35915297269821167
+    "Color Space": "sRGB",
+    "Green Component": 0.35915297269821167,
+    "Red Component": 0
   },
   "Mouse Reporting": true,
   "Name": "Zsh Away from Home",
@@ -169,13 +169,13 @@
   "Screen": -1,
   "Scrollback Lines": 0,
   "Selected Text Color": {
-    "Green Component": "0",
     "Blue Component": "0",
+    "Green Component": "0",
     "Red Component": "0"
   },
   "Selection Color": {
-    "Green Component": "0.8353",
     "Blue Component": "1",
+    "Green Component": "0.8353",
     "Red Component": "0.7098"
   },
   "Send Code When Idle": false,
@@ -192,8 +192,8 @@
     {
       "action": "SetHostnameTrigger",
       "parameter": "\\1@\\2",
-      "regex": "^(\\w+)@([\\w.-]+)",
-      "partial": true
+      "partial": true,
+      "regex": "^(\\w+)@([\\w.-]+)"
     }
   ],
   "Unicode Normalization": 0,

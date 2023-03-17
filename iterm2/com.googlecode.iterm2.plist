@@ -7,7 +7,7 @@
 	<key>AlternateMouseScroll</key>
 	<true/>
 	<key>Command</key>
-	<string>/bin/zsh</string>
+	<string></string>
 	<key>Default Bookmark Guid</key>
 	<string>FA66AC80-6AAA-4A3B-9CFE-B934F789D5EF</string>
 	<key>EnableProxyIcon</key>
@@ -647,7 +647,7 @@
 			<key>Guid</key>
 			<string>3ff1a43d-5362-44d3-a443-5f8bdb57aedc</string>
 			<key>Horizontal Spacing</key>
-			<integer>1</integer>
+			<real>1</real>
 			<key>Icon</key>
 			<integer>1</integer>
 			<key>Idle Code</key>
@@ -759,7 +759,7 @@
 			<key>Use Non-ASCII Font</key>
 			<false/>
 			<key>Vertical Spacing</key>
-			<integer>1</integer>
+			<real>1</real>
 			<key>Visual Bell</key>
 			<true/>
 			<key>Window Type</key>
