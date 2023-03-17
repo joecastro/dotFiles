@@ -88,7 +88,7 @@
     "Green Component": "0",
     "Red Component": "0"
   },
-  "Background Image Location": "/Users/joecastro/github/dotFiles/terminal_background_yellow.png",
+  "Background Image Location": "/Users/joecastro/github/dotFiles/android_army.png",
   "Background Image Mode": 2,
   "Badge Color": {
     "Alpha Component": 0.5,
@@ -107,6 +107,14 @@
     "Green Component": "1",
     "Red Component": "1"
   },
+  "Bound Hosts": [
+    "*.c.googlers.com:/*/master",
+    "*.c.googlers.com:/*/master/*",
+    "*.c.googlers.com:/*/main",
+    "*.c.googlers.com:/*/main/*",
+    "*.c.googlers.com:/*/udc_dev",
+    "*.c.googlers.com:/*/udc_dev/*"
+  ],
   "Character Encoding": 4,
   "Close Sessions On End": true,
   "Columns": 140,
@@ -139,7 +147,7 @@
     "Green Component": "1",
     "Red Component": "1"
   },
-  "Guid": "FA66AC80-6AAA-4A3B-9CFE-B934F789D5EF",
+  "Guid": "c27ac0d7-60ed-4a7a-940e-53d88f9b742f",
   "Horizontal Spacing": 1,
   "Icon": 1,
   "Idle Code": 0,
@@ -155,7 +163,7 @@
     "Red Component": 0
   },
   "Mouse Reporting": true,
-  "Name": "Zsh the Hard Way",
+  "Name": "Work Away from Home",
   "Non-ASCII Anti Aliased": true,
   "Normal Font": "CaskaydiaCoveNerdFontCompleteM-Regular 14",
   "Only The Default BG Color Uses Transparency": false,
@@ -185,6 +193,14 @@
   "Thin Strokes": 3,
   "Title Components": 256,
   "Transparency": 0.20228557180851064,
+  "Triggers": [
+    {
+      "action": "SetHostnameTrigger",
+      "parameter": "\\1@\\2",
+      "partial": true,
+      "regex": "^(\\w+)@([\\w.-]+)"
+    }
+  ],
   "Unicode Normalization": 0,
   "Unlimited Scrollback": true,
   "Use Bold Font": true,

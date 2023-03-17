@@ -1,0 +1,46 @@
+[
+    {
+        "Background Image Location": "/Users/joecastro/github/dotFiles/terminal_background_yellow.png",
+        "Guid": "FA66AC80-6AAA-4A3B-9CFE-B934F789D5EF",
+        "Name": "Zsh the Hard Way"
+    },
+    {
+        "Background Image Location": "/Users/joecastro/github/dotFiles/terminal_background_red.png",
+        "Bound Hosts": [
+            "*.c.googlers.com"
+        ],
+        "Guid": "3ff1a43d-5362-44d3-a443-5f8bdb57aedc",
+        "Name": "Zsh Away from Home",
+        "Title Components": 256,
+        "Triggers": [
+            {
+                "action": "SetHostnameTrigger",
+                "parameter": "\\1@\\2",
+                "partial": true,
+                "regex": "^(\\w+)@([\\w.-]+)"
+            }
+        ]
+    },
+    {
+        "Background Image Location": "/Users/joecastro/github/dotFiles/android_army.jpg",
+        "Bound Hosts": [
+            "*.c.googlers.com:/*/master",
+            "*.c.googlers.com:/*/master/*",
+            "*.c.googlers.com:/*/main",
+            "*.c.googlers.com:/*/main/*",
+            "*.c.googlers.com:/*/udc_dev",
+            "*.c.googlers.com:/*/udc_dev/*"
+        ],
+        "Guid": "c27ac0d7-60ed-4a7a-940e-53d88f9b742f",
+        "Name": "Work Away from Home",
+        "Title Components": 256,
+        "Triggers": [
+            {
+                "action": "SetHostnameTrigger",
+                "parameter": "\\1@\\2",
+                "partial": true,
+                "regex": "^(\\w+)@([\\w.-]+)"
+            }
+        ]
+    }
+]
