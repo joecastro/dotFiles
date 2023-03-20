@@ -7,7 +7,7 @@
 	<key>AlternateMouseScroll</key>
 	<true/>
 	<key>Command</key>
-	<string></string>
+	<string>/bin/zsh</string>
 	<key>Default Bookmark Guid</key>
 	<string>FA66AC80-6AAA-4A3B-9CFE-B934F789D5EF</string>
 	<key>EnableProxyIcon</key>
