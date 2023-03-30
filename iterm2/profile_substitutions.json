@@ -23,7 +23,7 @@
     },
     {
         "Background Image Location": "../wallpaper/android_army.jpg",
-        "Blend": 0.2,
+        "Blend": 0.6,
         "Bound Hosts": [
             "*.c.googlers.com:/*/master",
             "*.c.googlers.com:/*/master/*",
