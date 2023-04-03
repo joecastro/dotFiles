@@ -8,6 +8,10 @@ import sys
 home = str(Path.home())
 cwd = '.'
 
+# There are extra Vim files that would get picked up by pulling directories recursively. E.g.,
+# ./.vim/pack/*
+# ./.vim/.netrwhist
+
 file_maps = [
     ('zsh/zshrc', '.zshrc'),
     ('vim/vimrc', '.vimrc'),
@@ -15,6 +19,7 @@ file_maps = [
 ]
 
 directory_maps = [
+    # ('vim/vim', '.vim'),
     ('vim/vim/colors', '.vim/colors')
 ]
 
@@ -26,6 +31,14 @@ def push_local():
     for (repo_file, dot_file) in file_maps:
         ops.append(['cp', f'{cwd}/{repo_file}', f'{home}/{dot_file}'])
 
+    ops.append(['rm', '-rf', f'{home}/.vim/pack/dist/start/vim-airline'])
+    ops.append(
+        [
+            'git', 'clone',
+            'https://github.com/vim-airline/vim-airline',
+            f'{home}/.vim/pack/dist/start/vim-airline'
+        ])
+
     return ops
 
 def push_remote(host):
@@ -35,6 +48,12 @@ def push_remote(host):
         ops.append(['scp', '-r', f'{cwd}/{repo_dir}/.', f'{host}:{dot_dir}'])
     for (repo_file, dot_file) in file_maps:
         ops.append(['scp', f'{cwd}/{repo_file}', f'{host}:{dot_file}'])
+
+    ops.append([
+        'ssh', host,
+        'rm -rf ./.vim/pack/dist/start/vim-airline && ' +
+        'git clone https://github.com/vim-airline/vim-airline ./.vim/pack/dist/start/vim-airline'
+    ])
 
     # TODO: Check whether the zshrc is actually different?
     # TODO: Source the file through the outer shell?
@@ -47,6 +66,16 @@ def pull_local():
         ops.append(['cp', '-r', f'{home}/{dot_dir}/.', f'{cwd}/{repo_dir}/.'])
     for (repo_file, dot_file) in file_maps:
         ops.append(['cp', f'{home}/{dot_file}', f'{cwd}/{repo_file}'])
+
+    return ops
+
+
+def pull_remote(host):
+    ops = [f'Snapshotting dotFiles from {host}']
+    for (repo_dir, dot_dir) in directory_maps:
+        ops.append(['scp', '-r', f'{host}:{dot_dir}/.', f'{cwd}/{repo_dir}/.'])
+    for (repo_file, dot_file) in file_maps:
+        ops.append(['scp', f'{host}:{dot_file}', f'{cwd}/{repo_file}'])
 
     return ops
 
@@ -72,11 +101,16 @@ def main(args):
         ops.extend(push_local())
         for host in known_hosts:
             ops.extend(push_remote(host))
+    if args[0] == '--push-local':
+        ops.extend(push_local())
     elif args[0] == '--pull':
-        ops.extend(pull_local())
+        if len(args) < 2:
+            ops.extend(pull_local())
+        else:
+            ops.extend(pull_remote(args[1]))
     elif args[0] == '--push-local':
         ops.extend(push_local())
-    elif args[0] == '--bootstrap_iterm2':
+    elif args[0] == '--bootstrap-iterm2':
         ops.extend(bootstrap_iterm2())
     else:
         print('<unknown arg>')
@@ -85,6 +119,7 @@ def main(args):
         if isinstance(entry, str):
             print(entry)
         else:
+            # print("DEBUG": " + " ".join(entry))
             subprocess.run(entry)
 
 if __name__ == "__main__":

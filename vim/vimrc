@@ -63,7 +63,7 @@ filetype plugin on
 filetype indent on
 
 " Set to auto read when a file is changed from the outside
-set autoread 
+set autoread
 
 " Set 7 lines to the cursor - when moving vertically using j/k
 set so=7
@@ -107,6 +107,7 @@ set magic
 
 " Show matching brackets when text indicator is over them
 set showmatch
+
 " How many tenths of a second to blink when matching brackets
 set mat=2
 
@@ -118,7 +119,48 @@ colorscheme molokai
 set cursorline
 set sbr=↪\
 
-" set statusline=%F%m%r%h%w\ [TYPE=Y\ %{&ff]}\ [%l/%L\ (%p%%)]
+" Using vim-airline to manage statusline
+helptags ~/.vim/pack/dist/start/vim-airline/doc
+
+set statusline=%F%m%r%h%w\ [TYPE=%Y\ %{&ff}]\ [%l/%L\ (%p%%)]
+" or:
+" set statusline=
+" set statusline +=%1*\ %n\ %*            buffer number
+" set statusline +=%5*%{&ff}%*            file format
+" set statusline +=%3*%y%*                file type
+" set statusline +=%4*\ %<%F%*            full path
+" set statusline +=%2*%m%*                modified flag
+" set statusline +=%1*%=%5l%*             current line
+" set statusline +=%2*/%L%*               total lines
+" set statusline +=%1*%4v\ %*             virtual column number
+" set statusline +=%2*0x%04B\ %*          character under cursor
+
+let g:airline#extensions#tabline#enabled = 1 " Enable the list of buffers
+
+if !exists('g:airline_symbols')
+  let g:airline_symbols = {}
+endif
+
+" powerline symbols
+let g:airline_left_sep = ''
+let g:airline_left_alt_sep = ''
+let g:airline_right_sep = ''
+let g:airline_right_alt_sep = ''
+let g:airline_symbols.branch = ''
+let g:airline_symbols.readonly = ''
+let g:airline_symbols.linenr = '☰'
+let g:airline_symbols.maxlinenr = ''
+let g:airline_symbols.dirty='⚡'
+
+" let g:airline_left_sep ="\ue0b4"
+" let g:airline_right_sep ="\ue0b6"
+
+let g:airline_section_a = airline#section#create(['mode'])
+let g:airline_section_b = airline#section#create(['%F%m%r%h%2'])
+let g:airline_section_c = airline#section#create([''])
+let g:airline_section_x = airline#section#create([''])
+let g:airline_section_y = airline#section#create(['%3p%%'])
+let g:airline_section_z = airline#section#create(['%{line(".")}', " :", '%{col(".")}'])
 
 function! NumberToggle()
   if(&relativenumber == 1)
