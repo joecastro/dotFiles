@@ -69,7 +69,6 @@ def pull_local():
 
     return ops
 
-
 def pull_remote(host):
     ops = [f'Snapshotting dotFiles from {host}']
     for (repo_dir, dot_dir) in directory_maps:
@@ -98,9 +97,14 @@ known_hosts = [
 def main(args):
     ops = []
     if args[0] == '--push':
-        ops.extend(push_local())
-        for host in known_hosts:
-            ops.extend(push_remote(host))
+        if len(args) < 2:
+            ops.extend(push_local())
+        elif args[1] == '--all':
+            ops.extend(push_local())
+            for host in known_hosts:
+                ops.extend(push_remote(host))
+        else:
+            ops.extend(push_remote(args[1]))
     if args[0] == '--push-local':
         ops.extend(push_local())
     elif args[0] == '--pull':
@@ -108,8 +112,6 @@ def main(args):
             ops.extend(pull_local())
         else:
             ops.extend(pull_remote(args[1]))
-    elif args[0] == '--push-local':
-        ops.extend(push_local())
     elif args[0] == '--bootstrap-iterm2':
         ops.extend(bootstrap_iterm2())
     else:

@@ -156,11 +156,11 @@ let g:airline_symbols.dirty='⚡'
 " let g:airline_right_sep ="\ue0b6"
 
 let g:airline_section_a = airline#section#create(['mode'])
-let g:airline_section_b = airline#section#create(['%F%m%r%h%2'])
-let g:airline_section_c = airline#section#create([''])
+let g:airline_section_b = airline#section#create([''])
+let g:airline_section_c = airline#section#create(['%F%m%r%h%2'])
 let g:airline_section_x = airline#section#create([''])
 let g:airline_section_y = airline#section#create(['%3p%%'])
-let g:airline_section_z = airline#section#create(['%{line(".")}', " :", '%{col(".")}'])
+let g:airline_section_z = airline#section#create(['%{line(".")}', ":", '%{col(".")}'])
 
 function! NumberToggle()
   if(&relativenumber == 1)
