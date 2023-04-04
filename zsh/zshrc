@@ -274,22 +274,24 @@ function __print_git_info() {
         return 0
     fi
 
-    echo "$(echo `git status 2>/dev/null` | grep "HEAD detached" > /dev/null 2>&1
-    if [ "$?" -eq "0" ]; then
-        echo "$(echo `git status 2>/dev/null` | grep "nothing to commit" > /dev/null 2>&1
-        if [ "$?" -eq "0" ]; then
+    git status | grep "HEAD detached" > /dev/null 2>&1
+    IS_DETACHED_HEAD=$?
+    git status | grep "nothing to commit" > /dev/null 2>&1
+    IS_NOTHING_TO_COMMIT=$?
+
+    if [[ "$IS_DETACHED_HEAD" == "0" ]]; then
+        if [[ "$IS_NOTHING_TO_COMMIT" == "0" ]]; then
             echo -e "%{$fg[red]%}"$(__git_ps1 "%s")" "
         else
             echo -e "%{$fg[red]%}"$(__git_ps1 "{%s *}")" "
-        fi)"
+        fi
     else
-        echo "$(echo `git status 2>/dev/null` | grep "nothing to commit" > /dev/null 2>&1
-        if [ "$?" -eq "0" ]; then
+        if [[ "$IS_NOTHING_TO_COMMIT" == "0" ]]; then
             echo -e "%{$fg[green]%}"$(__git_ps1 "(%s)")" "
         else
             echo -e "%{$fg[yellow]%}"$(__git_ps1 "{%s *}")" "
-        fi)"
-    fi)"
+        fi
+    fi
 }
 
 # Use a different color for displaying the host name when we're logged into SSH
