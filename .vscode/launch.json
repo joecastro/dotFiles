@@ -1,0 +1,36 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Push to remote hosts",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/apply.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--push", "--all"
+            ],
+            "justMyCode": true
+        },
+        {
+            "name": "Push to local dotFiles",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/apply.py",
+            "console": "integratedTerminal",
+            "args": ["--push"],
+            "justMyCode": true
+        },
+        {
+            "name": "Pull from local dotFiles",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/apply.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--pull"
+            ],
+            "justMyCode": true
+        }
+    ]
+}

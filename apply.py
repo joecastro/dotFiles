@@ -14,6 +14,10 @@ cwd = '.'
 
 file_maps = [
     ('zsh/zshrc', '.zshrc'),
+    ('zsh/zprofile', '.zprofile'),
+    ('zsh/android_funcs.zsh', '.android_funcs.zsh'),
+    ('zsh/repo_funcs.zsh', '.repo_funcs.zsh'),
+    ('zsh/util_funcs.zsh', '.util_funcs.zsh'),
     ('vim/vimrc', '.vimrc'),
     ('tmux/tmux.conf', '.tmux.conf')
 ]
@@ -21,6 +25,12 @@ file_maps = [
 directory_maps = [
     # ('vim/vim', '.vim'),
     ('vim/vim/colors', '.vim/colors')
+]
+
+vim_pack_repos = [
+    ('https://github.com/rubberduck203/aosp-vim', 'plugins/start/aosp'),
+    ('https://github.com/vim-airline/vim-airline', 'dist/start/vim-airline'),
+    ('https://github.com/udalov/kotlin-vim.git', 'plugins/start/kotlin-vim')
 ]
 
 def push_local():
@@ -31,13 +41,9 @@ def push_local():
     for (repo_file, dot_file) in file_maps:
         ops.append(['cp', f'{cwd}/{repo_file}', f'{home}/{dot_file}'])
 
-    ops.append(['rm', '-rf', f'{home}/.vim/pack/dist/start/vim-airline'])
-    ops.append(
-        [
-            'git', 'clone',
-            'https://github.com/vim-airline/vim-airline',
-            f'{home}/.vim/pack/dist/start/vim-airline'
-        ])
+    for (vim_repo, vim_pack_dir) in vim_pack_repos:
+        ops.append(['rm', '-rf', f'{home}/.vim/pack/{vim_pack_dir}'])
+        ops.append(['git', 'clone', vim_repo, f'{home}/.vim/pack/{vim_pack_dir}'])
 
     return ops
 
@@ -49,11 +55,11 @@ def push_remote(host):
     for (repo_file, dot_file) in file_maps:
         ops.append(['scp', f'{cwd}/{repo_file}', f'{host}:{dot_file}'])
 
-    ops.append([
-        'ssh', host,
-        'rm -rf ./.vim/pack/dist/start/vim-airline && ' +
-        'git clone https://github.com/vim-airline/vim-airline ./.vim/pack/dist/start/vim-airline'
-    ])
+    for (vim_repo, vim_pack_dir) in vim_pack_repos:
+        ops.append([
+            'ssh', host,
+            f'rm -rf ./.vim/pack/{vim_pack_dir} && git clone {vim_repo} ./.vim/pack/{vim_pack_dir}'
+        ])
 
     # TODO: Check whether the zshrc is actually different?
     # TODO: Source the file through the outer shell?
@@ -105,7 +111,7 @@ def main(args):
                 ops.extend(push_remote(host))
         else:
             ops.extend(push_remote(args[1]))
-    if args[0] == '--push-local':
+    elif args[0] == '--push-local':
         ops.extend(push_local())
     elif args[0] == '--pull':
         if len(args) < 2:
@@ -116,6 +122,7 @@ def main(args):
         ops.extend(bootstrap_iterm2())
     else:
         print('<unknown arg>')
+        return 1
 
     for entry in ops:
         if isinstance(entry, str):
@@ -123,9 +130,11 @@ def main(args):
         else:
             # print("DEBUG": " + " ".join(entry))
             subprocess.run(entry)
+    return 0
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print('<missing args>')
+        sys.exit(1)
     else:
-        main(sys.argv[1:])
+        sys.exit(main(sys.argv[1:]))

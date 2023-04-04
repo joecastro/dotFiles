@@ -12,8 +12,8 @@ setopt histignorealldups sharehistory
 # Color cheat sheet: https://jonasjacek.github.io/colors/
 autoload -U colors && colors
 
-export LSCOLORS="Gxfxcxdxbxegedabagacad" 
-zstyle ':completion:*' list-colors ${(s.:.)LS_COLORS}  
+export LSCOLORS="Gxfxcxdxbxegedabagacad"
+zstyle ':completion:*' list-colors ${(s.:.)LS_COLORS}
 
 setopt NO_CASE_GLOB
 setopt AUTO_CD
@@ -44,6 +44,9 @@ bindkey "\e[3~" delete-char
 # Use modern completion system
 autoload -Uz compinit
 compinit
+
+# $PATH is tied to $path - Can use one as an array and the other as a scalar.
+typeset -U path # force unique values.
 
 # zstyle ':completion:*' auto-description 'specify: %d'
 # zstyle ':completion:*' completer _expand _complete _correct _approximate
@@ -107,6 +110,24 @@ zle -N zle-line-init
 # Use beam shape cursor for each new prompt.
 preexec() { _set_cursor_beam }
 
+#start_timer=0
+#end_timer=0
+#elapsed_timer=0
+
+#function __start_timer() {
+#    export start_timer=$(($(gdate +%s%N)/1000000))
+#    echo ""
+#}
+
+#function __complete_timer() {
+#    export end_timer=$(($(gdate +%s%N)/1000000))
+#    export elapsed_timer=$(($end_timer-$start_timer))
+#    echo ""
+#}
+
+#autoload -Uz add-zsh-hook
+#add-zsh-hook precmd __start_timer
+
 function __is_ssh_session() {
     if [ -n "$SSH_CLIENT" ] || [ -n "$SSH_TTY" ] || [ -n "$SSH_CONNECTION" ]; then
         return 0
@@ -114,12 +135,36 @@ function __is_ssh_session() {
     return 1
 }
 
-function wintitle() {
-    if [ -z "$1" ]; then
-        echo "Missing window title"
-    else
-        echo -ne "\e]0;$1\a"
+function __is_in_git_repo() {
+    git branch > /dev/null 2>&1;
+    if [[ "$?" == "0" ]]; then
+        return 0
     fi
+    return 1
+}
+
+function __is_in_git_dir() {
+    git rev-parse --is-inside-git-dir | grep "true" > /dev/null 2>&1;
+    if [[ "$?" == "0" ]]; then
+        return 0
+    fi
+    return 1
+}
+
+function __is_in_repo() {
+    verbose=0
+    if [[ -z "$1" ]]; then
+        unset verbose
+    fi
+
+    repo --show-toplevel > /dev/null 2>&1;
+    if [[ "$?" == "0" ]]; then
+        return 0
+    fi
+    if (( ${+verbose} )); then
+        echo "error: Not in Android repo tree"
+    fi
+    return 1
 }
 
 # emojipedia.org
@@ -134,8 +179,7 @@ OFFICE_ICON=🏢
 ICONS=($ANCHOR_ICON $PIN_ICON $HUT_ICON $HOUSE_ICON $TREE_ICON $DISK_ICON $OFFICE_ICON)
 
 function __cute_pwd() {
-    git branch > /dev/null 2>&1;
-    if [[ "$?" != "0" ]]; then
+    if ! __is_in_git_repo; then
         case "${PWD##*/}" in
             random | rnd)
                 RANDOM=$$$(date +%s)
@@ -159,11 +203,10 @@ function __cute_pwd() {
                 ;;
         esac
     else
-        git rev-parse --is-inside-git-dir | grep "true" > /dev/null 2>&1;
-        if [[ "$?" != "0" ]]; then
+        if ! __is_in_git_dir; then
             # If we're in a git repo then show the current directory relative to the root of that repo.
-            echo "$ANCHOR_ICON$(git rev-parse --show-toplevel | xargs basename)/$(git rev-parse --show-prefix)" 
-        else 
+            echo "$ANCHOR_ICON$(git rev-parse --show-toplevel | xargs basename)/$(git rev-parse --show-prefix)"
+        else
             echo "🚧"
         fi
     fi
@@ -186,8 +229,7 @@ function __print_git_worktree() {
         return 0
     fi
 
-    git branch > /dev/null 2>&1
-    if [[ "$?" != "0" ]]; then
+    if ! __is_in_git_repo; then
         echo ""
         return 0
     fi
@@ -208,23 +250,7 @@ function __print_git_worktree() {
 
     echo 🛶"%{$fg[magenta]%}[${SUBMODULE_WORKTREE##*/}/${ROOT_WORKTREE##*/}] "
     return 0
- 
-}
 
-function __is_in_repo() {
-    verbose=0
-    if [[ -z "$1" ]]; then
-        unset verbose
-    fi
-
-    repo --show-toplevel > /dev/null 2>&1;
-    if [[ "$?" == "0" ]]; then
-        return 0
-    fi
-    if (( ${+verbose} )); then
-        echo "error: Not in Android repo tree"
-    fi
-    return 1
 }
 
 function __print_repo_worktree() {
@@ -238,14 +264,12 @@ function __print_repo_worktree() {
 }
 
 function __print_git_info() {
-    git branch > /dev/null 2>&1;
-    if [[ "$?" != "0" ]]; then
+    if ! __is_in_git_repo; then
         echo ""
         return 0
     fi
 
-    git rev-parse --is-inside-git-dir | grep "true" > /dev/null 2>&1
-    if [[ "$?" == "0" ]]; then
+    if __is_in_git_dir; then
         echo ""
         return 0
     fi
@@ -255,7 +279,7 @@ function __print_git_info() {
         echo "$(echo `git status 2>/dev/null` | grep "nothing to commit" > /dev/null 2>&1
         if [ "$?" -eq "0" ]; then
             echo -e "%{$fg[red]%}"$(__git_ps1 "%s")" "
-        else 
+        else
             echo -e "%{$fg[red]%}"$(__git_ps1 "{%s *}")" "
         fi)"
     else
@@ -267,22 +291,6 @@ function __print_git_info() {
         fi)"
     fi)"
 }
-
-#curl -ocurl -o ~/.git-prompt.sh \
-#    https://raw.githubusercontent.com/git/git/master/contrib/completion/git-prompt.sh
-
-if [ ! -f ~/.git-prompt.sh ]; then
-    echo "Bootstrapping git-prompt installation on new machine through curl"
-    curl -o ~/.git-prompt.sh \
-    https://raw.githubusercontent.com/git/git/master/contrib/completion/git-prompt.sh
-fi
-
-# defines __git_ps1
-source ~/.git-prompt.sh
-
-if command -v brew > /dev/null; then
-    test -e "$(brew --prefix)/opt/zsh-git-prompt/zshrc.sh" && source "$(brew --prefix)/opt/zsh-git-prompt/zshrc.sh"
-fi
 
 # Use a different color for displaying the host name when we're logged into SSH
 if __is_ssh_session; then
@@ -300,18 +308,23 @@ function __virtualenv_info(){
 
 # disable the default virtualenv prompt change
 export VIRTUAL_ENV_DISABLE_PROMPT=1
+SKIP_WORKTREE_IN_ANDROID_REPO=1 # Repo is implemented in terms of worktrees, so this gets noisy.
 
-PROMPT='${white}$(__cute_time_prompt) '
+PROMPT=''
+PROMPT+='${white}$(__cute_time_prompt) '
 # Optional
 PROMPT+='$(__virtualenv_info)'
 PROMPT+='%{$fg[green]%}$USER%{$fg[yellow]%}@%B$HostColor$HostNameDisplay%{$reset_color%} '
 # Optional - spaces are embedded in output suffix if these are non-empty.
 PROMPT+='$(__print_repo_worktree)%{$reset_color%}'
-# Repo is implemented in terms of worktrees, so this gets noisy.
-SKIP_WORKTREE_IN_ANDROID_REPO=1
 PROMPT+='$(__print_git_worktree)$(__print_git_info)%{$reset_color%}'
-PROMPT+='$(__cute_pwd) $ '
+PROMPT+='$(__cute_pwd)'
+PROMPT+=' $ '
 # RPROMPT='%*'
+
+if command -v brew > /dev/null; then
+    test -e "$(brew --prefix)/opt/zsh-git-prompt/zshrc.sh" && source "$(brew --prefix)/opt/zsh-git-prompt/zshrc.sh"
+fi
 
 # if exa is installed prefer that to ls
 # options aren't the same, but I also need it less often...
@@ -324,7 +337,9 @@ else
     alias realls='\ls -FHG'
 fi
 
-alias myip='curl http://ipecho.net/plain; echo'
+if ! command -v code &> /dev/null; then
+    echo "## CLI for VSCode is unavailable. Check https://code.visualstudio.com/docs/setup/mac"
+fi
 
 function __venv_aware_cd() {
     builtin cd "$@"
@@ -356,101 +371,20 @@ function ___venv_aware_cd() {
 
 compdef ___venv_aware_cd __venv_aware_cd
 
-# kill_port_proc <port>
-function kill_port_proc() {
-    readonly port=${1:?"The port must be specified."}
+source ~/.repo_funcs.zsh # Android repo tool utility functions
+source ~/.android_funcs.zsh # Android shell utility functions
+source ~/.util_funcs.zsh
 
-    lsof -i tcp:"$port" | grep LISTEN | awk '{print $2}'
-}
-
-# update_java_home <version>
-function __update_java_home() {
-    readonly jver=${1:?"Version must be specified"}
-    if (( ${+JAVA_HOME} )); then
-        path[$path[(i)$JAVA_HOME/bin]]=()
-    fi
-    export JAVA_HOME=$(/usr/libexec/java_home -v $jver)
-    path=($JAVA_HOME/bin $path)
-}
-
-# $PATH is tied to $path - Can use one as an array and the other as a scalar.
-typeset -U path # force unique values.
-
-if command -v /usr/libexec/java_home &> /dev/null; then
-    __update_java_home 11
-
-    alias chjava='__update_java_home'
+if [ ! -f ~/.git-prompt.sh ]; then
+    echo "Bootstrapping git-prompt installation on new machine through curl"
+    curl -o ~/.git-prompt.sh \
+    https://raw.githubusercontent.com/git/git/master/contrib/completion/git-prompt.sh
 fi
 
-if command -v hub &> /dev/null; then
-    eval "$(hub alias -s)"
-fi
+source ~/.git-prompt.sh # defines __git_ps1
 
-# Android build utilities
-
-function repo_find() {
-    if __is_in_repo; then
-        echo $(repo --show-toplevel)
-    else
-        echo "$(find . -type d -name '.repo' | sed 's#/\.repo$##')"
-    fi
-}
-
-function repo_root() {
-    pushd $(repo_find)
-}
-
-function repo_format() {
-    git diff HEAD^ --name-only | xargs -t ${ANDROID_BUILD_TOP}/external/ktfmt/ktfmt.py
-    git diff HEAD^ --name-only | xargs -t google-java-format -i --aosp
-}
-
-function refresh_build_env() {
-    if ! __is_in_repo -v; then
-        return 1
-    fi
-
-    repo_root
-    source ./build/envsetup.sh
-    popd
-
-    return 0
-}
-
-function repo_clean() {
-    if ! __is_in_repo -v; then
-        return 1
-    fi
-
-    REPO_UPSTREAM_BRANCH=goog/$(repo info -o --outer-manifest -l | grep -i "Manifest branch" | sed 's/^Manifest branch: //')
-    repo forall -vc "git checkout $REPO_UPSTREAM_BRANCH && git reset --hard $REPO_UPSTREAM_BRANCH &&  git clean -xfd"
-}
-
-function repo_pushd() {
-    if ! __is_in_repo -v; then
-        return 1
-    fi
-
-    if [ $# -lt 1 ]; then
-        echo "$funcstack[1] Missing sub-project"
-        return 1
-    fi
-
-    MOUNT_PATHS=($(repo info --outer-manifest -l | grep "Mount path.*$1$" | sed 's/^Mount path: //'))
-    for MOUNT_PATH in "${MOUNT_PATHS[@]}"; do
-        if [[ "${MOUNT_PATH##*/}" == "$1" ]]; then
-            pushd $MOUNT_PATH
-            break
-        fi
-    done
-
-    if [[ "$MOUNT_PATH" == "$PWD" ]]; then
-        return 0
-    fi
-
-    echo "Unknown project"
-    return 1
-}
+command -v hub &> /dev/null && eval "$(hub alias -s)"
+command -v chjava &> /dev/null && chjava 18
 
 LOCAL_TERMINAL_CATEGORY="LOGIN"
 
