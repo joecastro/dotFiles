@@ -1,11 +1,11 @@
 [
     {
-        "Background Image Location": "../wallpaper/terminal_background_yellow.png",
+        "Background Image Location": "wallpaper/terminal_background_yellow.png",
         "Guid": "FA66AC80-6AAA-4A3B-9CFE-B934F789D5EF",
         "Name": "Zsh the Hard Way"
     },
     {
-        "Background Image Location": "../wallpaper/terminal_background_red.png",
+        "Background Image Location": "wallpaper/terminal_background_red.png",
         "Bound Hosts": [
             "*.c.googlers.com"
         ],
@@ -22,7 +22,7 @@
         ]
     },
     {
-        "Background Image Location": "../wallpaper/android_army.jpg",
+        "Background Image Location": "wallpaper/android_army.jpg",
         "Blend": 0.6,
         "Bound Hosts": [
             "*.c.googlers.com:/*/master",

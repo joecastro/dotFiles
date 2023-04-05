@@ -2,6 +2,7 @@ import sublime
 import sublime_plugin
 import subprocess
 
+
 class OpenWithVimCommand(sublime_plugin.WindowCommand):
     def run(self):
         gvim = "C:\\Windows\\gvim.bat"
@@ -15,4 +16,3 @@ class OpenWithVimCommand(sublime_plugin.WindowCommand):
 
         args = [gvim, path]
         subprocess.Popen(args)
-

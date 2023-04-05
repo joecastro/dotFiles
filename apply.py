@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -8,10 +9,16 @@ import sys
 home = str(Path.home())
 cwd = '.'
 
+known_hosts = [
+    # 'localhost'
+    'joec1.c.googlers.com',
+    'joec2.c.googlers.com',
+    'joec3.c.googlers.com'
+]
+
 # There are extra Vim files that would get picked up by pulling directories recursively. E.g.,
 # ./.vim/pack/*
 # ./.vim/.netrwhist
-
 file_maps = [
     ('zsh/zshrc', '.zshrc'),
     ('zsh/zprofile', '.zprofile'),
@@ -33,6 +40,7 @@ vim_pack_repos = [
     ('https://github.com/udalov/kotlin-vim.git', 'plugins/start/kotlin-vim')
 ]
 
+
 def push_local():
     ops = ['Synching dotFiles for localhost']
     for (repo_dir, dot_dir) in directory_maps:
@@ -46,6 +54,7 @@ def push_local():
         ops.append(['git', 'clone', vim_repo, f'{home}/.vim/pack/{vim_pack_dir}'])
 
     return ops
+
 
 def push_remote(host):
     ops = [f'Synching dotFiles for {host}']
@@ -66,6 +75,7 @@ def push_remote(host):
     # print('    run `source ~/.zshrc` to pick up any new changes')
     return ops
 
+
 def pull_local():
     ops = ['Snapshotting dotFiles from localhost']
     for (repo_dir, dot_dir) in directory_maps:
@@ -74,6 +84,7 @@ def pull_local():
         ops.append(['cp', f'{home}/{dot_file}', f'{cwd}/{repo_file}'])
 
     return ops
+
 
 def pull_remote(host):
     ops = [f'Snapshotting dotFiles from {host}']
@@ -84,6 +95,7 @@ def pull_remote(host):
 
     return ops
 
+
 def bootstrap_iterm2():
     # Specify the preferences directory
     os.system('defaults write com.googlecode.iterm2 PrefsCustomFolder - string "$PWD/iterm2"')
@@ -93,12 +105,32 @@ def bootstrap_iterm2():
 
     return []
 
-known_hosts = [
-    # 'localhost'
-    'joec1.c.googlers.com',
-    'joec2.c.googlers.com',
-    'joec3.c.googlers.com'
-]
+
+def generate_iterm2_profiles():
+    with open('iterm2/profile_template.json') as t_file:
+        template_data = json.load(t_file)
+
+    with open('iterm2/profile_substitutions.json') as s_file:
+        sub_data = json.load(s_file)
+
+    for sub in sub_data:
+        profile_name = sub['Name']
+        bg_location = Path(sub['Background Image Location']).absolute()
+        profile = template_data | sub
+        profile['Background Image Location'] = str(bg_location)
+
+        with open("iterm2/" + profile_name + ".json", 'w') as outfile:
+            json.dump(profile, outfile, indent=2, sort_keys=True)
+
+    t_file.close()
+    s_file.close()
+
+
+def push_sublimetext_windows_plugins():
+    return [
+        ['cp', 'sublime_text\\*', '"%APPDATA%\\Sublime Text 2\\Packages\\User"']
+    ]
+
 
 def main(args):
     ops = []
@@ -120,6 +152,10 @@ def main(args):
             ops.extend(pull_remote(args[1]))
     elif args[0] == '--bootstrap-iterm2':
         ops.extend(bootstrap_iterm2())
+    elif args[0] == '--generate-iterm2-profiles':
+        generate_iterm2_profiles()
+    elif args[0] == '--install-sublime-plugins':
+        push_sublimetext_windows_plugins()
     else:
         print('<unknown arg>')
         return 1
@@ -131,6 +167,7 @@ def main(args):
             # print("DEBUG": " + " ".join(entry))
             subprocess.run(entry)
     return 0
+
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:

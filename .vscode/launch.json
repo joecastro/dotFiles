@@ -2,6 +2,16 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Generate iTerm2 profiles",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/apply.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--generate-iterm2-profiles"
+            ]
+        },
+        {
             "name": "Push to remote hosts",
             "type": "python",
             "request": "launch",
@@ -9,8 +19,7 @@
             "console": "integratedTerminal",
             "args": [
                 "--push", "--all"
-            ],
-            "justMyCode": true
+            ]
         },
         {
             "name": "Push to local dotFiles",
@@ -18,8 +27,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/apply.py",
             "console": "integratedTerminal",
-            "args": ["--push"],
-            "justMyCode": true
+            "args": ["--push"]
         },
         {
             "name": "Pull from local dotFiles",
@@ -29,8 +37,7 @@
             "console": "integratedTerminal",
             "args": [
                 "--pull"
-            ],
-            "justMyCode": true
+            ]
         }
     ]
 }

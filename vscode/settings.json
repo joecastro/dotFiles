@@ -1,0 +1,31 @@
+{
+    "cmake.configureOnOpen": true,
+    "diffEditor.codeLens": true,
+    "editor.fontFamily": "caskaydiacove nerd font, Cascadia Code, Consolas",
+    "editor.fontLigatures": true,
+    "editor.renderWhitespace": "all",
+    "files.exclude": {
+        "**/.classpath": true,
+        "**/.factorypath": true,
+        "**/.project": true,
+        "**/.settings": true
+    },
+    "files.trimTrailingWhitespace": true,
+    "git.autofetch": true,
+    "projectManager.git.baseFolders": [
+        "~/source"
+    ],
+    "python.linting.enabled": true,
+    "python.linting.pycodestyleArgs": [
+        "--ignore=E501,E221,E241"
+    ],
+    "python.linting.pycodestyleEnabled": true,
+    "redhat.telemetry.enabled": false,
+    "swapdiff.ClosePreviousDiff": true,
+    "terminal.external.osxExec": "iTerm2.app",
+    "terminal.integrated.defaultProfile.osx": "zsh",
+    "workbench.colorTheme": "Monokai Pro",
+    "workbench.editor.tabCloseButton": "left",
+    "workbench.iconTheme": "Monokai Pro Icons",
+    "workbench.startupEditor": "none"
+}
