@@ -44,7 +44,6 @@ set expandtab
 set list
 set listchars=tab:>-,trail:`
 
-set number
 set relativenumber
 set numberwidth=4
 
@@ -116,6 +115,8 @@ syntax enable
 
 colorscheme molokai
 
+" hi Normal ctermbg=NONE
+
 set cursorline
 set sbr=↪\
 
@@ -162,12 +163,17 @@ let g:airline_section_x = airline#section#create([''])
 let g:airline_section_y = airline#section#create(['%3p%%'])
 let g:airline_section_z = airline#section#create(['%{line(".")}', ":", '%{col(".")}'])
 
-function! NumberToggle()
-  if(&relativenumber == 1)
-    set number
-  else
-    set relativenumber
-  endif
+function! NumberCycle()
+    if &relativenumber
+        set norelativenumber
+        set number
+    elseif &number
+        set norelativenumber
+        set nonumber
+    else
+        set relativenumber
+        set nonumber
+    endif
 endfunc
 
-nnoremap <F2> :call NumberToggle()<CR>
+nnoremap <F2> :call NumberCycle()<CR>

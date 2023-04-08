@@ -324,10 +324,6 @@ PROMPT+='$(__cute_pwd)'
 PROMPT+=' $ '
 # RPROMPT='%*'
 
-if command -v brew > /dev/null; then
-    test -e "$(brew --prefix)/opt/zsh-git-prompt/zshrc.sh" && source "$(brew --prefix)/opt/zsh-git-prompt/zshrc.sh"
-fi
-
 # if exa is installed prefer that to ls
 # options aren't the same, but I also need it less often...
 if ! command -v exa &> /dev/null; then
@@ -339,7 +335,7 @@ else
     alias realls='\ls -FHG'
 fi
 
-if ! command -v code &> /dev/null; then
+if ! __is_ssh_session && ! command -v code &> /dev/null; then
     echo "## CLI for VSCode is unavailable. Check https://code.visualstudio.com/docs/setup/mac"
 fi
 
@@ -410,3 +406,29 @@ if [[ "$LOCAL_TERMINAL_CATEGORY" != "EMBEDDED" ]]; then
 else
      echo "Limiting zsh initialization because inside vscode terminal."
 fi
+
+EFFECTIVE_DISTRIBUTION="Unhandled"
+if grep -qE "(Microsoft|WSL)" /proc/version &> /dev/null ; then
+    EFFECTIVE_DISTRIBUTION="WSL"
+elif [ "$(uname)" == "Darwin" ]; then
+    EFFECTIVE_DISTRIBUTION="OSX"
+elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
+    EFFECTIVE_DISTRIBUTION="Unexpected Linux environment"
+elif [ "$(expr substr $(uname -s) 1 10)" == "MINGW32_NT" ]; then
+    EFFECTIVE_DISTRIBUTION="Unexpected Win32 environment"
+elif [ "$(expr substr $(uname -s) 1 10)" == "MINGW64_NT" ] || [ "$(expr substr $(uname -s) 1 7)" == "MSYS_NT" ]; then
+    EFFECTIVE_DISTRIBUTION="Windows"
+fi
+
+# echo $EFFECTIVE_DISTRIBUTION
+case $EFFECTIVE_DISTRIBUTION in
+    OSX)
+        if command -v brew > /dev/null; then
+            test -e "$(brew --prefix)/opt/zsh-git-prompt/zshrc.sh" && source "$(brew --prefix)/opt/zsh-git-prompt/zshrc.sh"
+        fi
+
+        # https://developer.android.com/tools/variables
+        export ANDROID_HOME ~/Library/Android/sdk
+        path=($path $ANDROID_HOME/tools $ANDROID_HOME/tools/bin $ANDROID_HOME/platform-tools)
+        ;;
+esac
