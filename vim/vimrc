@@ -45,6 +45,7 @@ set list
 set listchars=tab:>-,trail:`
 
 set relativenumber
+set number
 set numberwidth=4
 
 set encoding=utf-8
@@ -139,7 +140,7 @@ set statusline=%F%m%r%h%w\ [TYPE=%Y\ %{&ff}]\ [%l/%L\ (%p%%)]
 let g:airline#extensions#tabline#enabled = 1 " Enable the list of buffers
 
 if !exists('g:airline_symbols')
-  let g:airline_symbols = {}
+    let g:airline_symbols = {}
 endif
 
 " powerline symbols
@@ -172,8 +173,9 @@ function! NumberCycle()
         set nonumber
     else
         set relativenumber
-        set nonumber
+        set number
     endif
 endfunc
 
+" autocmd BufReadPost * call NumberCycle()
 nnoremap <F2> :call NumberCycle()<CR>

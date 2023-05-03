@@ -3,8 +3,13 @@
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
+
+zprof_preamble = '# === BEGIN_DYNAMIC_SECTION ==='
+zprof_conclusion = '# === END_DYNAMIC_SECTION ==='
+zprof_sub = '#<DOTFILES_HOME_SUBST>'
 
 home = str(Path.home())
 cwd = '.'
@@ -16,12 +21,15 @@ known_hosts = [
     'joec3.c.googlers.com'
 ]
 
+# zprofile is handled special after relocation to support dynamic content.
+zprofile_src = 'zsh/zprofile'
+zprofile_dest = '.zprofile'
 # There are extra Vim files that would get picked up by pulling directories recursively. E.g.,
 # ./.vim/pack/*
 # ./.vim/.netrwhist
 file_maps = [
     ('zsh/zshrc', '.zshrc'),
-    ('zsh/zprofile', '.zprofile'),
+    (zprofile_src, zprofile_dest),
     ('zsh/android_funcs.zsh', '.android_funcs.zsh'),
     ('zsh/repo_funcs.zsh', '.repo_funcs.zsh'),
     ('zsh/util_funcs.zsh', '.util_funcs.zsh'),
@@ -41,6 +49,35 @@ vim_pack_repos = [
 ]
 
 
+def fixup_source_zprofile():
+    with open('zsh/zprofile', 'r') as file:
+        content = file.read()
+
+    result = re.search(f'{re.escape(zprof_preamble)}.*{re.escape(zprof_conclusion)}', content, re.DOTALL)
+
+    # This will be None if pulled from a remote host without content substituted in.
+    if result is None:
+        return
+
+    content = content.replace(result.group(0), zprof_sub)
+
+    with open('zsh/zprofile', 'w') as file:
+        file.write(content)
+
+
+def expand_local_zprofile():
+    zprof_dynamic_content = f'''{zprof_preamble}
+DOTFILES_SRC_HOME={os.getcwd()}
+alias dotGo='pushd $DOTFILES_SRC_HOME'
+{zprof_conclusion}'''
+
+    with open(f'{home}/.zprofile', 'r') as file:
+        content = file.read()
+
+    with open(f'{home}/.zprofile', 'w') as file:
+        file.write(content.replace(zprof_sub, zprof_dynamic_content))
+
+
 def push_local():
     ops = ['Synching dotFiles for localhost']
     for (repo_dir, dot_dir) in directory_maps:
@@ -48,6 +85,8 @@ def push_local():
         ops.append(['cp', '-r', f'{cwd}/{repo_dir}/.', f'{home}/{dot_dir}'])
     for (repo_file, dot_file) in file_maps:
         ops.append(['cp', f'{cwd}/{repo_file}', f'{home}/{dot_file}'])
+    # fixup the zprofile to include dynamic content
+    ops.append(expand_local_zprofile)
 
     for (vim_repo, vim_pack_dir) in vim_pack_repos:
         ops.append(['rm', '-rf', f'{home}/.vim/pack/{vim_pack_dir}'])
@@ -63,6 +102,7 @@ def push_remote(host):
         ops.append(['scp', '-r', f'{cwd}/{repo_dir}/.', f'{host}:{dot_dir}'])
     for (repo_file, dot_file) in file_maps:
         ops.append(['scp', f'{cwd}/{repo_file}', f'{host}:{dot_file}'])
+    # Skip any modifications to a remote zprofile.
 
     for (vim_repo, vim_pack_dir) in vim_pack_repos:
         ops.append([
@@ -82,6 +122,8 @@ def pull_local():
         ops.append(['cp', '-r', f'{home}/{dot_dir}/.', f'{cwd}/{repo_dir}/.'])
     for (repo_file, dot_file) in file_maps:
         ops.append(['cp', f'{home}/{dot_file}', f'{cwd}/{repo_file}'])
+    # fixup the zprofile to include dynamic content
+    ops.append(fixup_source_zprofile)
 
     return ops
 
@@ -92,6 +134,8 @@ def pull_remote(host):
         ops.append(['scp', '-r', f'{host}:{dot_dir}/.', f'{cwd}/{repo_dir}/.'])
     for (repo_file, dot_file) in file_maps:
         ops.append(['scp', f'{host}:{dot_file}', f'{cwd}/{repo_file}'])
+    # fixup the zprofile to include dynamic content
+    ops.append(fixup_source_zprofile)
 
     return ops
 
@@ -162,10 +206,15 @@ def main(args):
 
     for entry in ops:
         if isinstance(entry, str):
-            print(entry)
-        else:
+            print(f'>> {entry}')
+        elif isinstance(entry, list):
             # print("DEBUG": " + " ".join(entry))
             subprocess.run(entry)
+        elif callable(entry):
+            # print("DEBUG": invoking function")
+            entry()
+        else:
+            raise 'bad'
     return 0
 
 

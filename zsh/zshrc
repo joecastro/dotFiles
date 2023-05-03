@@ -167,6 +167,10 @@ function __is_in_repo() {
     return 1
 }
 
+# TODO: Similar to below TODO, consider not using unicode glyphs based on something like this...
+unset RESTRICT_ASCII_CHARACTERS
+EXPECT_NERD_FONTS=1
+
 # emojipedia.org
 ANCHOR_ICON=⚓
 PIN_ICON=📌
@@ -175,6 +179,22 @@ HOUSE_ICON=🏠
 TREE_ICON=🌲
 DISK_ICON=💾
 OFFICE_ICON=🏢
+SNAKE_ICON=🐍
+ROBOT_ICON=🤖
+
+NF_VIM_ICON=$(test -n "$EXPECT_NERD_FONTS" && echo "\ue62b" || echo "{vim}")
+NF_ANDROID_ICON=$(test -n "$EXPECT_NERD_FONTS" && echo "\ue70e" || echo "$ROBOT_ICON")
+NF_PYTHON_ICON=$(test -n "$EXPECT_NERD_FONTS" && echo "\ue73c" || echo "$SNAKE_ICON")
+NF_GIT_BRANCH_ICON=$(test -n "$EXPECT_NERD_FONTS" && echo "\ue725" || echo "(b)")
+NF_GIT_COMMIT_ICON=$(test -n "$EXPECT_NERD_FONTS" && echo "\ue729" || echo "(d) ")
+NF_HOME_ICON=\udb84\udcb5
+
+# TODO: I do things like use "(%s)" or "{%s}*" in the git prompt display to indicate statuses.
+# If I have nerdfonts, I can just use some icons as anchors to text rather than embed it inside
+# parentheticals.
+# I think it makes sense to use a function to resolve the string with a fallback to using ()[]{}etc,
+# but it's complicated and invasive enough that I don't want to spend time on it right now.
+# function __nf_resolve() {}
 
 ICONS=($ANCHOR_ICON $PIN_ICON $HUT_ICON $HOUSE_ICON $TREE_ICON $DISK_ICON $OFFICE_ICON)
 
@@ -250,26 +270,20 @@ function __print_git_worktree() {
 
     echo 🛶"%{$fg[magenta]%}[${SUBMODULE_WORKTREE##*/}/${ROOT_WORKTREE##*/}] "
     return 0
-
 }
 
 function __print_repo_worktree() {
     if __is_in_repo; then
         # REPO_ROOT=$(repo --show-toplevel | head -n1 | awk '{print $1;}')
         REPO_ROOT=$(repo info -o --outer-manifest -l | grep -i "Manifest branch" | sed 's/^Manifest branch: //')
-        echo 🤖"%{$fg[red]%}[${REPO_ROOT##*/}] "
+        echo "$NF_ANDROID_ICON%{$fg[red]%}[${REPO_ROOT##*/}] "
     else
         echo ""
     fi
 }
 
 function __print_git_info() {
-    if ! __is_in_git_repo; then
-        echo ""
-        return 0
-    fi
-
-    if __is_in_git_dir; then
+    if ! __is_in_git_repo || __is_in_git_dir; then
         echo ""
         return 0
     fi
@@ -303,9 +317,10 @@ else
      HostNameDisplay=%m
 fi
 
-function __virtualenv_info(){
+function __virtualenv_info() {
     # venv="${VIRTUAL_ENV##*/}"
-    test -n "$VIRTUAL_ENV" && echo "🐍 "
+    test -n "$VIRTUAL_ENV" && echo "$NF_PYTHON_ICON "
+    test -n "$VIMRUNTIME" && echo "$NF_VIM_ICON "
 }
 
 # disable the default virtualenv prompt change
@@ -346,7 +361,7 @@ function __venv_aware_cd() {
     if [[ -n "$VIRTUAL_ENV" ]]; then
         P_DIR="$(dirname "$VIRTUAL_ENV")"
         if [[ "$PWD"/ != "$P_DIR"/* ]]; then
-            echo "🐍 Deactivating venv for $P_DIR"
+            echo "$NF_PYTHON_ICON Deactivating venv for $P_DIR"
             deactivate
         fi
     fi
@@ -355,7 +370,7 @@ function __venv_aware_cd() {
     if [[ -d ./.venv ]]; then
         if [[ -z "$VIRTUAL_ENV" ]]; then
             source ./.venv/bin/activate
-            echo "🐍 Activating venv with $(python --version) for $PWD/.venv"
+            echo "$NF_PYTHON_ICON Activating venv with $(python --version) for $PWD/.venv"
         # else: CONSIDER: test "$PWD" -ef "$VIRUAL_ENV" && "🐍 Avoiding implicit activation of .venv environment because $VIRTUAL_ENV is already active"
         fi
     fi
@@ -403,20 +418,22 @@ fi
 
 if [[ "$LOCAL_TERMINAL_CATEGORY" != "EMBEDDED" ]]; then
     alias cd='__venv_aware_cd'
+
+    interactive_invoke_gcert
 else
      echo "Limiting zsh initialization because inside vscode terminal."
 fi
 
 EFFECTIVE_DISTRIBUTION="Unhandled"
-if grep -qE "(Microsoft|WSL)" /proc/version &> /dev/null ; then
+if grep -qE "(Microsoft|WSL)" /proc/version &> /dev/null; then
     EFFECTIVE_DISTRIBUTION="WSL"
-elif [ "$(uname)" == "Darwin" ]; then
+elif [[ "$(uname)" == "Darwin" ]]; then
     EFFECTIVE_DISTRIBUTION="OSX"
-elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
+elif [[ "$(expr substr $(uname -s) 1 5)" == "Linux" ]]; then
     EFFECTIVE_DISTRIBUTION="Unexpected Linux environment"
-elif [ "$(expr substr $(uname -s) 1 10)" == "MINGW32_NT" ]; then
+elif [[ "$(expr substr $(uname -s) 1 10)" == "MINGW32_NT" ]]; then
     EFFECTIVE_DISTRIBUTION="Unexpected Win32 environment"
-elif [ "$(expr substr $(uname -s) 1 10)" == "MINGW64_NT" ] || [ "$(expr substr $(uname -s) 1 7)" == "MSYS_NT" ]; then
+elif [[ "$(expr substr $(uname -s) 1 10)" == "MINGW64_NT" ]] || [[ "$(expr substr $(uname -s) 1 7)" == "MSYS_NT" ]]; then
     EFFECTIVE_DISTRIBUTION="Windows"
 fi
 
@@ -428,7 +445,7 @@ case $EFFECTIVE_DISTRIBUTION in
         fi
 
         # https://developer.android.com/tools/variables
-        export ANDROID_HOME ~/Library/Android/sdk
+        export ANDROID_HOME=~/Library/Android/sdk
         path=($path $ANDROID_HOME/tools $ANDROID_HOME/tools/bin $ANDROID_HOME/platform-tools)
         ;;
 esac
