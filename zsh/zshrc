@@ -384,7 +384,7 @@ function ___venv_aware_cd() {
 
 compdef ___venv_aware_cd __venv_aware_cd
 
-source ~/.repo_funcs.zsh # Android repo tool utility functions
+source ~/.goog_funcs.zsh # Andro repo tool utility functions
 source ~/.android_funcs.zsh # Android shell utility functions
 source ~/.util_funcs.zsh
 

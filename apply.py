@@ -31,7 +31,7 @@ file_maps = [
     ('zsh/zshrc', '.zshrc'),
     (zprofile_src, zprofile_dest),
     ('zsh/android_funcs.zsh', '.android_funcs.zsh'),
-    ('zsh/repo_funcs.zsh', '.repo_funcs.zsh'),
+    ('zsh/goog_funcs.zsh', '.goog_funcs.zsh'),
     ('zsh/util_funcs.zsh', '.util_funcs.zsh'),
     ('vim/vimrc', '.vimrc'),
     ('tmux/tmux.conf', '.tmux.conf')
@@ -43,8 +43,11 @@ directory_maps = [
 ]
 
 vim_pack_repos = [
+    # Syntax highlighting for AOSP specific files
     ('https://github.com/rubberduck203/aosp-vim', 'plugins/start/aosp'),
+    # Lean & mean status/tabline for vim that's light as air
     ('https://github.com/vim-airline/vim-airline', 'dist/start/vim-airline'),
+    # Kotlin plugin for Vim. Featuring: syntax highlighting, basic indentation, Syntastic support
     ('https://github.com/udalov/kotlin-vim.git', 'plugins/start/kotlin-vim')
 ]
 

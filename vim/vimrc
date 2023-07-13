@@ -51,7 +51,7 @@ set numberwidth=4
 set encoding=utf-8
 
 map <C-t> <Esc>:tabnew<CR>
-map <C-F4> <Esc>:tabclose<CR>
+map <C-w> <Esc>:tabclose<CR>
 
 vmap <TAB> :><cr>gv
 vmap <S-TAB> :<<cr>gv

@@ -10,6 +10,9 @@
         "**/.project": true,
         "**/.settings": true
     },
+    "files.associations": {
+        "vimrc": "viml"
+    },
     "files.trimTrailingWhitespace": true,
     "git.autofetch": true,
     "projectManager.git.baseFolders": [
