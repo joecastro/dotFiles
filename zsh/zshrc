@@ -181,20 +181,14 @@ DISK_ICON=💾
 OFFICE_ICON=🏢
 SNAKE_ICON=🐍
 ROBOT_ICON=🤖
+WINDOWS_ICON=
 
 NF_VIM_ICON=$(test -n "$EXPECT_NERD_FONTS" && echo "\ue62b" || echo "{vim}")
 NF_ANDROID_ICON=$(test -n "$EXPECT_NERD_FONTS" && echo "\ue70e" || echo "$ROBOT_ICON")
 NF_PYTHON_ICON=$(test -n "$EXPECT_NERD_FONTS" && echo "\ue73c" || echo "$SNAKE_ICON")
 NF_GIT_BRANCH_ICON=$(test -n "$EXPECT_NERD_FONTS" && echo "\ue725" || echo "(b)")
-NF_GIT_COMMIT_ICON=$(test -n "$EXPECT_NERD_FONTS" && echo "\ue729" || echo "(d) ")
+NF_GIT_COMMIT_ICON=$(test -n "$EXPECT_NERD_FONTS" && echo "\ue729" || echo "(d)")
 NF_HOME_ICON=\udb84\udcb5
-
-# TODO: I do things like use "(%s)" or "{%s}*" in the git prompt display to indicate statuses.
-# If I have nerdfonts, I can just use some icons as anchors to text rather than embed it inside
-# parentheticals.
-# I think it makes sense to use a function to resolve the string with a fallback to using ()[]{}etc,
-# but it's complicated and invasive enough that I don't want to spend time on it right now.
-# function __nf_resolve() {}
 
 ICONS=($ANCHOR_ICON $PIN_ICON $HUT_ICON $HOUSE_ICON $TREE_ICON $DISK_ICON $OFFICE_ICON)
 
@@ -209,6 +203,9 @@ function __cute_pwd() {
             ${HOME##*/})
                 echo 🏠
                 ;;
+            # ${WIN_USERPROFILE##*/})
+            #    echo $WINDOWS_ICON$HOUSE_ICON
+            #    ;;
             /)
                 echo 🌲
                 ;;
@@ -225,7 +222,8 @@ function __cute_pwd() {
     else
         if ! __is_in_git_dir; then
             # If we're in a git repo then show the current directory relative to the root of that repo.
-            echo "$ANCHOR_ICON$(git rev-parse --show-toplevel | xargs basename)/$(git rev-parse --show-prefix)"
+            # These commands wind up spitting out an extra slash, so backspace to remove it on the console.
+            echo -e "$ANCHOR_ICON$(git rev-parse --show-toplevel | xargs basename)/$(git rev-parse --show-prefix)\b"
         else
             echo "🚧"
         fi
@@ -295,15 +293,19 @@ function __print_git_info() {
 
     if [[ "$IS_DETACHED_HEAD" == "0" ]]; then
         if [[ "$IS_NOTHING_TO_COMMIT" == "0" ]]; then
-            echo -e "%{$fg[red]%}"$(__git_ps1 "%s")" "
+            COMMIT_TEMPLATE_STRING=$(test -n "$EXPECT_NERD_FONTS" && echo "\ue729%s" || echo "%s")
+            echo -e "%{$fg[red]%}"$(__git_ps1 $COMMIT_TEMPLATE_STRING)" "
         else
-            echo -e "%{$fg[red]%}"$(__git_ps1 "{%s *}")" "
+            COMMIT_MOD_TEMPLATE_STRING=$(test -n "$EXPECT_NERD_FONTS" && echo "\ue729*%s" || echo "{%s *}")
+            echo -e "%{$fg[red]%}"$(__git_ps1 $COMMIT_MOD_TEMPLATE_STRING)" "
         fi
     else
         if [[ "$IS_NOTHING_TO_COMMIT" == "0" ]]; then
-            echo -e "%{$fg[green]%}"$(__git_ps1 "(%s)")" "
+            BRANCH_TEMPLATE_STRING=$(test -n "$EXPECT_NERD_FONTS" && echo "\ue725%s" || echo "(%s)")
+            echo -e "%{$fg[green]%}"$(__git_ps1 $BRANCH_TEMPLATE_STRING)" "
         else
-            echo -e "%{$fg[yellow]%}"$(__git_ps1 "{%s *}")" "
+            BRANCH_MOD_TEMPLATE_STRING=$(test -n "$EXPECT_NERD_FONTS" && echo "\ue725*%s" || echo "{%s *}")
+            echo -e "%{$fg[yellow]%}"$(__git_ps1 $BRANCH_MOD_TEMPLATE_STRING)" "
         fi
     fi
 }
@@ -384,7 +386,7 @@ function ___venv_aware_cd() {
 
 compdef ___venv_aware_cd __venv_aware_cd
 
-source ~/.goog_funcs.zsh # Andro repo tool utility functions
+source ~/.goog_funcs.zsh # Android repo tool utility functions
 source ~/.android_funcs.zsh # Android shell utility functions
 source ~/.util_funcs.zsh
 
@@ -399,11 +401,12 @@ source ~/.git-prompt.sh # defines __git_ps1
 command -v hub &> /dev/null && eval "$(hub alias -s)"
 command -v chjava &> /dev/null && chjava 18
 
-LOCAL_TERMINAL_CATEGORY="LOGIN"
-
-if [[ "$TERM_PROGRAM" == "vscode" ]]; then
-    LOCAL_TERMINAL_CATEGORY="EMBEDDED"
-fi
+function __is_embedded_terminal() {
+    if [[ "$TERM_PROGRAM" == "vscode" ]]; then
+        return 0
+    fi
+    return 1
+}
 
 # If using iTerm2, try for shell integration.
 # When in SSH TERM_PROGRAM isn't getting propagated.
@@ -416,7 +419,7 @@ if [[ "iTerm2" == "$LC_TERMINAL" ]]; then
     test -e "${HOME}/.iterm2_shell_integration.zsh" && source "${HOME}/.iterm2_shell_integration.zsh"
 fi
 
-if [[ "$LOCAL_TERMINAL_CATEGORY" != "EMBEDDED" ]]; then
+if ! __is_embedded_terminal; then
     alias cd='__venv_aware_cd'
 
     interactive_invoke_gcert
@@ -447,5 +450,16 @@ case $EFFECTIVE_DISTRIBUTION in
         # https://developer.android.com/tools/variables
         export ANDROID_HOME=~/Library/Android/sdk
         path=($path $ANDROID_HOME/tools $ANDROID_HOME/tools/bin $ANDROID_HOME/platform-tools)
+
+        if ! __is_ssh_session && ! command -v code &> /dev/null; then
+            echo "## CLI for VSCode is unavailable. Check https://code.visualstudio.com/docs/setup/mac"
+        fi
+        ;;
+    WSL)
+        export WIN_USERNAME=$(powershell.exe '$env:UserName')
+        export WIN_USERPROFILE=$(echo $(wslpath $(powershell.exe '$env:UserProfile')) | sed $'s/\r//')
+        # export WIN_USERPROFILE=$(wslpath $(powershell.exe '$env:UserProfile'))
+
+        alias winhome='cd $WIN_USERPROFILE'
         ;;
 esac

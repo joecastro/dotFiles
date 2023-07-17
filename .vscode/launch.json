@@ -38,6 +38,16 @@
             "args": [
                 "--pull"
             ]
+        },
+        {
+            "name": "Bootstrap Windows Environment",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/apply.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--bootstrap-windows"
+            ]
         }
     ]
 }
