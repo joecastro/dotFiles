@@ -167,6 +167,13 @@ function __is_in_repo() {
     return 1
 }
 
+function __is_in_citc() {
+    if test "${PWD##/google/src/cloud/}" != "${PWD}"; then
+        return 0
+    fi
+    return 1
+}
+
 # TODO: Similar to below TODO, consider not using unicode glyphs based on something like this...
 unset RESTRICT_ASCII_CHARACTERS
 EXPECT_NERD_FONTS=1
@@ -181,9 +188,14 @@ DISK_ICON=💾
 OFFICE_ICON=🏢
 SNAKE_ICON=🐍
 ROBOT_ICON=🤖
-WINDOWS_ICON=
 
-NF_VIM_ICON=$(test -n "$EXPECT_NERD_FONTS" && echo "\ue62b" || echo "{vim}")
+#Nerdfonts - https://www.nerdfonts.com/cheat-sheet
+WINDOWS_ICON=
+GITHUB_ICON=
+GOOGLE_ICON=
+VIM_ICON=
+
+NF_VIM_ICON=$(test -n "$EXPECT_NERD_FONTS" && echo $VIM_ICON || echo "{vim}")
 NF_ANDROID_ICON=$(test -n "$EXPECT_NERD_FONTS" && echo "\ue70e" || echo "$ROBOT_ICON")
 NF_PYTHON_ICON=$(test -n "$EXPECT_NERD_FONTS" && echo "\ue73c" || echo "$SNAKE_ICON")
 NF_GIT_BRANCH_ICON=$(test -n "$EXPECT_NERD_FONTS" && echo "\ue725" || echo "(b)")
@@ -193,33 +205,7 @@ NF_HOME_ICON=\udb84\udcb5
 ICONS=($ANCHOR_ICON $PIN_ICON $HUT_ICON $HOUSE_ICON $TREE_ICON $DISK_ICON $OFFICE_ICON)
 
 function __cute_pwd() {
-    if ! __is_in_git_repo; then
-        case "${PWD##*/}" in
-            random | rnd)
-                RANDOM=$$$(date +%s)
-                ix=$(($RANDOM % ${#ICONS[@]}))
-                echo "r$ICONS[$(($ix+1))]d"
-                ;;
-            ${HOME##*/})
-                echo 🏠
-                ;;
-            # ${WIN_USERPROFILE##*/})
-            #    echo $WINDOWS_ICON$HOUSE_ICON
-            #    ;;
-            /)
-                echo 🌲
-                ;;
-            src | source | master | main)
-                echo 💾
-                ;;
-            work)
-                echo 🏢
-                ;;
-            *)
-                echo -n ${PWD##*/}
-                ;;
-        esac
-    else
+    if __is_in_git_repo; then
         if ! __is_in_git_dir; then
             # If we're in a git repo then show the current directory relative to the root of that repo.
             # These commands wind up spitting out an extra slash, so backspace to remove it on the console.
@@ -227,7 +213,49 @@ function __cute_pwd() {
         else
             echo "🚧"
         fi
+        return 0
     fi
+
+    # These should only match if they're exact.
+    case "$PWD" in
+        $HOME)
+            echo 🏠
+            return 0
+            ;;
+        # ${WIN_USERPROFILE##*/})
+        #    echo $WINDOWS_ICON$HOUSE_ICON
+        #    ;;
+        /)
+            echo 🌲
+            return 0
+            ;;
+    esac
+
+    case "${PWD##*/}" in
+        random | rnd)
+            RANDOM=$$$(date +%s)
+            ix=$(($RANDOM % ${#ICONS[@]}))
+            echo "r$ICONS[$(($ix+1))]d"
+            return 0
+            ;;
+        github)
+            echo $GITHUB_ICON
+            return 0
+            ;;
+        src | source | master | main)
+            echo 💾
+            return 0
+            ;;
+        work)
+            echo 🏢
+            return 0
+            ;;
+        *)
+            ;;
+    esac
+
+    echo -n ${PWD##*/}
+    return 0
 }
 
 function __cute_time_prompt() {
@@ -323,6 +351,9 @@ function __virtualenv_info() {
     # venv="${VIRTUAL_ENV##*/}"
     test -n "$VIRTUAL_ENV" && echo "$NF_PYTHON_ICON "
     test -n "$VIMRUNTIME" && echo "$NF_VIM_ICON "
+    if __is_in_citc; then
+        echo "%{$fg[red]%}[$GOOGLE_ICON] "
+    fi
 }
 
 # disable the default virtualenv prompt change
