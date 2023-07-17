@@ -162,13 +162,15 @@ def generate_iterm2_profiles():
     with open('iterm2/profile_substitutions.json') as s_file:
         sub_data = json.load(s_file)
 
+    os.mkdir('out')
+
     for sub in sub_data:
         profile_name = sub['Name']
         bg_location = Path(sub['Background Image Location']).absolute()
         profile = template_data | sub
         profile['Background Image Location'] = str(bg_location)
 
-        with open("iterm2/" + profile_name + ".json", 'w') as outfile:
+        with open("out/" + profile_name + ".json", 'w') as outfile:
             json.dump(profile, outfile, indent=2, sort_keys=True)
 
     t_file.close()

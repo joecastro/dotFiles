@@ -43,5 +43,24 @@
                 "regex": "^(\\w+)@([\\w.-]+)"
             }
         ]
+    },
+    {
+        "Background Image Location": "wallpaper/google_colors.jpg",
+        "Blend": 0.35,
+        "Bound Hosts": [
+            "*.c.googlers.com:/google/src/cloud",
+            "*.c.googlers.com:/google/src/cloud/*"
+        ],
+        "Guid": "6862f8f1-6655-442d-a8a0-f0c576016b6e",
+        "Name": "Cloud Away from Home",
+        "Title Components": 256,
+        "Triggers": [
+            {
+                "action": "SetHostnameTrigger",
+                "parameter": "\\1@\\2",
+                "partial": true,
+                "regex": "^(\\w+)@([\\w.-]+)"
+            }
+        ]
     }
 ]

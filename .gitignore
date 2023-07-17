@@ -2,5 +2,6 @@
 *.swp
 
 iterm2/com.googlecode.iterm2.plist
+out/
 
 vim/vim/pack/
