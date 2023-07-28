@@ -194,13 +194,18 @@ WINDOWS_ICON=
 GITHUB_ICON=
 GOOGLE_ICON=
 VIM_ICON=
+ANDROID_HEAD_ICON=󰀲
+ANDROID_BODY_ICON=
+PYTHON_ICON=
+GIT_BRANCH_ICON=
+GIT_COMMIT_ICON=
+HOME_FOLDER_ICON=󱂵
 
 NF_VIM_ICON=$(test -n "$EXPECT_NERD_FONTS" && echo $VIM_ICON || echo "{vim}")
-NF_ANDROID_ICON=$(test -n "$EXPECT_NERD_FONTS" && echo "\ue70e" || echo "$ROBOT_ICON")
-NF_PYTHON_ICON=$(test -n "$EXPECT_NERD_FONTS" && echo "\ue73c" || echo "$SNAKE_ICON")
-NF_GIT_BRANCH_ICON=$(test -n "$EXPECT_NERD_FONTS" && echo "\ue725" || echo "(b)")
-NF_GIT_COMMIT_ICON=$(test -n "$EXPECT_NERD_FONTS" && echo "\ue729" || echo "(d)")
-NF_HOME_ICON=\udb84\udcb5
+NF_ANDROID_ICON=$(test -n "$EXPECT_NERD_FONTS" && echo "$ANDROID_BODY_ICON" || echo "$ROBOT_ICON")
+NF_PYTHON_ICON=$(test -n "$EXPECT_NERD_FONTS" && echo "$PYTHON_ICON" || echo "$SNAKE_ICON")
+NF_GIT_BRANCH_ICON=$(test -n "$EXPECT_NERD_FONTS" && echo "$GIT_BRANCH_ICON" || echo "(b)")
+NF_GIT_COMMIT_ICON=$(test -n "$EXPECT_NERD_FONTS" && echo "$GIT_COMMIT_ICON" || echo "(d)")
 
 ICONS=($ANCHOR_ICON $PIN_ICON $HUT_ICON $HOUSE_ICON $TREE_ICON $DISK_ICON $OFFICE_ICON)
 
@@ -302,7 +307,7 @@ function __print_repo_worktree() {
     if __is_in_repo; then
         # REPO_ROOT=$(repo --show-toplevel | head -n1 | awk '{print $1;}')
         REPO_ROOT=$(repo info -o --outer-manifest -l | grep -i "Manifest branch" | sed 's/^Manifest branch: //')
-        echo "$NF_ANDROID_ICON%{$fg[red]%}[${REPO_ROOT##*/}] "
+        echo "%{$fg[green]%}$NF_ANDROID_ICON${REPO_ROOT##*/} "
     else
         echo ""
     fi
@@ -321,18 +326,18 @@ function __print_git_info() {
 
     if [[ "$IS_DETACHED_HEAD" == "0" ]]; then
         if [[ "$IS_NOTHING_TO_COMMIT" == "0" ]]; then
-            COMMIT_TEMPLATE_STRING=$(test -n "$EXPECT_NERD_FONTS" && echo "\ue729%s" || echo "%s")
+            COMMIT_TEMPLATE_STRING=$(test -n "$EXPECT_NERD_FONTS" && echo "$GIT_COMMIT_ICON%s" || echo "%s")
             echo -e "%{$fg[red]%}"$(__git_ps1 $COMMIT_TEMPLATE_STRING)" "
         else
-            COMMIT_MOD_TEMPLATE_STRING=$(test -n "$EXPECT_NERD_FONTS" && echo "\ue729*%s" || echo "{%s *}")
+            COMMIT_MOD_TEMPLATE_STRING=$(test -n "$EXPECT_NERD_FONTS" && echo "$GIT_COMMIT_ICON%s*" || echo "{%s *}")
             echo -e "%{$fg[red]%}"$(__git_ps1 $COMMIT_MOD_TEMPLATE_STRING)" "
         fi
     else
         if [[ "$IS_NOTHING_TO_COMMIT" == "0" ]]; then
-            BRANCH_TEMPLATE_STRING=$(test -n "$EXPECT_NERD_FONTS" && echo "\ue725%s" || echo "(%s)")
+            BRANCH_TEMPLATE_STRING=$(test -n "$EXPECT_NERD_FONTS" && echo "$GIT_BRANCH_ICON%s" || echo "(%s)")
             echo -e "%{$fg[green]%}"$(__git_ps1 $BRANCH_TEMPLATE_STRING)" "
         else
-            BRANCH_MOD_TEMPLATE_STRING=$(test -n "$EXPECT_NERD_FONTS" && echo "\ue725*%s" || echo "{%s *}")
+            BRANCH_MOD_TEMPLATE_STRING=$(test -n "$EXPECT_NERD_FONTS" && echo "$GIT_BRANCH_ICON%s*" || echo "{%s *}")
             echo -e "%{$fg[yellow]%}"$(__git_ps1 $BRANCH_MOD_TEMPLATE_STRING)" "
         fi
     fi
@@ -352,7 +357,7 @@ function __virtualenv_info() {
     test -n "$VIRTUAL_ENV" && echo "$NF_PYTHON_ICON "
     test -n "$VIMRUNTIME" && echo "$NF_VIM_ICON "
     if __is_in_citc; then
-        echo "%{$fg[red]%}[$GOOGLE_ICON] "
+        echo "%{$fg[blue]%}[$GOOGLE_ICON] "
     fi
 }
 
@@ -381,10 +386,6 @@ if ! command -v exa &> /dev/null; then
 else
     alias ls=exa
     alias realls='\ls -FHG'
-fi
-
-if ! __is_ssh_session && ! command -v code &> /dev/null; then
-    echo "## CLI for VSCode is unavailable. Check https://code.visualstudio.com/docs/setup/mac"
 fi
 
 function __venv_aware_cd() {
@@ -479,12 +480,12 @@ case $EFFECTIVE_DISTRIBUTION in
         fi
 
         # https://developer.android.com/tools/variables
-        export ANDROID_HOME=~/Library/Android/sdk
-        path=($path $ANDROID_HOME/tools $ANDROID_HOME/tools/bin $ANDROID_HOME/platform-tools)
-
         if ! __is_ssh_session && ! command -v code &> /dev/null; then
             echo "## CLI for VSCode is unavailable. Check https://code.visualstudio.com/docs/setup/mac"
         fi
+
+        export ANDROID_HOME=~/Library/Android/sdk
+        path=($path $ANDROID_HOME/tools $ANDROID_HOME/tools/bin $ANDROID_HOME/platform-tools)
         ;;
     WSL)
         export WIN_USERNAME=$(powershell.exe '$env:UserName')

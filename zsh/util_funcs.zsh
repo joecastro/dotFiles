@@ -31,3 +31,20 @@ function wintitle() {
         echo -ne "\e]0;$1\a"
     fi
 }
+
+function listcolors() {
+    echo "echoti colors - $(echoti colors)"
+    echo "COLORTERM - $COLORTERM"
+
+	for color in {000..015}; do
+		print -nP "%F{$color}$color %f"
+	done
+	printf "\n"
+
+	for color in {016..255}; do
+		print -nP "%F{$color}$color %f"
+		if [ $(($((color-16))%6)) -eq 5 ]; then
+			printf "\n"
+		fi
+	done
+}

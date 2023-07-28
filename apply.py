@@ -144,15 +144,18 @@ def pull_remote(host):
 
     return ops
 
+
 def bootstrap_windows():
-    return[sys_command_prefix + f'''SETX DOTFILES_SRC_DIR {os.getcwd()}''']
+    return [
+        f'{sys_command_prefix}SETX DOTFILES_SRC_DIR {os.getcwd()}']
+
 
 def bootstrap_iterm2():
-    # Specify the preferences directory
     return [
-        sys_command_prefix + 'defaults write com.googlecode.iterm2 PrefsCustomFolder - string "$PWD/iterm2"',
+        # Specify the preferences directory
+        f'{sys_command_prefix}defaults write com.googlecode.iterm2 PrefsCustomFolder - string "$PWD/iterm2"',
         # Tell iTerm2 to use the custom preferences in the directory
-        sys_command_prefix + 'defaults write com.googlecode.iterm2 LoadPrefsFromCustomFolder - bool true']
+        f'{sys_command_prefix}defaults write com.googlecode.iterm2 LoadPrefsFromCustomFolder - bool true']
 
 
 def generate_iterm2_profiles():
@@ -162,7 +165,8 @@ def generate_iterm2_profiles():
     with open('iterm2/profile_substitutions.json') as s_file:
         sub_data = json.load(s_file)
 
-    os.mkdir('out')
+    if not os.path.exists('out'):
+        os.mkdir('out')
 
     for sub in sub_data:
         profile_name = sub['Name']
@@ -170,7 +174,7 @@ def generate_iterm2_profiles():
         profile = template_data | sub
         profile['Background Image Location'] = str(bg_location)
 
-        with open("out/" + profile_name + ".json", 'w') as outfile:
+        with open(f'out/{profile_name}.json', 'w') as outfile:
             json.dump(profile, outfile, indent=2, sort_keys=True)
 
     t_file.close()
@@ -216,15 +220,15 @@ def main(args):
     for entry in ops:
         if isinstance(entry, str):
             if entry.startswith(sys_command_prefix):
-                print("DEBUG SYSCALL:" + entry)
+                # print(f'DEBUG SYSCALL: {entry}')
                 os.system(entry.removeprefix(sys_command_prefix))
             else:
                 print(f'>> {entry}')
         elif isinstance(entry, list):
-            # print("DEBUG: " + " ".join(entry))
+            # print(f'DEBUG: {" ".join(entry)}')
             subprocess.run(entry)
         elif callable(entry):
-            # print("DEBUG: invoking function")
+            # print('DEBUG: invoking function')
             entry()
         else:
             raise 'bad'

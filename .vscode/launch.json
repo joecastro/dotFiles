@@ -1,6 +1,8 @@
 {
     "version": "0.2.0",
     "configurations": [
+
+
         {
             "name": "Generate iTerm2 profiles",
             "type": "python",
@@ -48,6 +50,14 @@
             "args": [
                 "--bootstrap-windows"
             ]
+        },
+        {
+            "name": "Test fonts",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/verify_fonts.py",
+            "console": "integratedTerminal",
+            "args": []
         }
     ]
 }
