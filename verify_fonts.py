@@ -24,12 +24,19 @@ def print_bottom_line(length):
     print(bottom_line_start + (bottom_line_middle * (length - 1)) + bottom_line_end)
 
 
-def print_middle_line(length):
+def print_middle_line(length, next_line_length):
     line_start = f'{bg_color_border}╠═══'
     line_middle = '═══╬═══'
     line_end = f'═══╣{reset_color}'
 
-    print(line_start + (line_middle * (length - 1)) + line_end)
+    bottom_line_middle = '═══╩═══'
+    bottom_line_end = f'═══╝{reset_color}'
+
+    if next_line_length == length:
+        print(line_start + (line_middle * (length - 1)) + line_end)
+    else:
+        print(line_start + (line_middle * next_line_length), end='')
+        print((bottom_line_middle * (length - next_line_length - 1)) + bottom_line_end)
 
 
 def print_codes_line(code_color, char_color, chunk, line_length):
@@ -71,11 +78,12 @@ def print_unicode_range(seq, wrap_at=16):
     color_code = bg_color_code_alt
     color_char = bg_color_char_alt
     first = True
+
     for chunk in chunked_sequences:
         if first:
             first = False
         else:
-            print_middle_line(line_length)
+            print_middle_line(line_length, len(chunk))
 
         if color_code == bg_color_code_alt:
             color_code = bg_color_code
@@ -84,9 +92,9 @@ def print_unicode_range(seq, wrap_at=16):
             color_code = bg_color_code_alt
             color_char = bg_color_char_alt
 
-        print_codes_line(color_code, color_char, chunk, line_length)
+        print_codes_line(color_code, color_char, chunk, len(chunk))
 
-    print_bottom_line(line_length)
+    print_bottom_line(len(chunked_sequences[-1]))
 
 
 def list_to_ranges(lst):

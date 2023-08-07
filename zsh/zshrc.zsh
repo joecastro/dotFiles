@@ -174,6 +174,13 @@ function __is_in_citc() {
     return 1
 }
 
+function __is_in_tmux() {
+    if ! { [ "$TERM" = "screen" ] && [ -n "$TMUX" ]; } then
+        return 0
+    fi
+    return 1
+}
+
 # TODO: Similar to below TODO, consider not using unicode glyphs based on something like this...
 unset RESTRICT_ASCII_CHARACTERS
 EXPECT_NERD_FONTS=1
@@ -200,6 +207,7 @@ PYTHON_ICON=
 GIT_BRANCH_ICON=
 GIT_COMMIT_ICON=
 HOME_FOLDER_ICON=󱂵
+TMUX_ICON=
 
 NF_VIM_ICON=$(test -n "$EXPECT_NERD_FONTS" && echo $VIM_ICON || echo "{vim}")
 NF_ANDROID_ICON=$(test -n "$EXPECT_NERD_FONTS" && echo "$ANDROID_BODY_ICON" || echo "$ROBOT_ICON")
@@ -345,14 +353,21 @@ function __print_git_info() {
 
 # Use a different color for displaying the host name when we're logged into SSH
 if __is_ssh_session; then
-     HostColor=%F{214}
-     HostNameDisplay=%M
+    HostColor=%F{214}
+    if __is_in_tmux; then
+        HostNameDisplay=""
+    else
+        HostNameDisplay=%M
+    fi
 else
-     HostColor=%{$fg[yellow]%}
-     HostNameDisplay=%m
+    HostColor=%{$fg[yellow]%}
+    HostNameDisplay=%m
 fi
 
 function __virtualenv_info() {
+    if __is_in_tmux; then
+        echo "$TMUX_ICON "
+    fi
     # venv="${VIRTUAL_ENV##*/}"
     test -n "$VIRTUAL_ENV" && echo "$NF_PYTHON_ICON "
     test -n "$VIMRUNTIME" && echo "$NF_VIM_ICON "

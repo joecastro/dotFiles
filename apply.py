@@ -4,24 +4,16 @@ import json
 import os
 from pathlib import Path
 import re
-import subprocess
 import sys
+import work_env
+from work_env import known_hosts, sys_command_prefix
 
 zprof_preamble = '# === BEGIN_DYNAMIC_SECTION ==='
 zprof_conclusion = '# === END_DYNAMIC_SECTION ==='
 zprof_sub = '#<DOTFILES_HOME_SUBST>'
 
-sys_command_prefix = 'sys_command: '
-
 home = str(Path.home())
 cwd = '.'
-
-known_hosts = [
-    # 'localhost'
-    'joec1.c.googlers.com',
-    'joec2.c.googlers.com',
-    'joec3.c.googlers.com'
-]
 
 # zprofile is handled special after relocation to support dynamic content.
 zprofile_src = 'zsh/zprofile.zsh'
@@ -224,21 +216,7 @@ def main(args):
         print('<unknown arg>')
         return 1
 
-    for entry in ops:
-        if isinstance(entry, str):
-            if entry.startswith(sys_command_prefix):
-                # print(f'DEBUG SYSCALL: {entry}')
-                os.system(entry.removeprefix(sys_command_prefix))
-            else:
-                print(f'>> {entry}')
-        elif isinstance(entry, list):
-            # print(f'DEBUG: {" ".join(entry)}')
-            subprocess.run(entry)
-        elif callable(entry):
-            # print('DEBUG: invoking function')
-            entry()
-        else:
-            raise 'bad'
+    work_env.run_ops(ops)
     return 0
 
 
