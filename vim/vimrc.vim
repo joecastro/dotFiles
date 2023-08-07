@@ -121,6 +121,8 @@ colorscheme molokai
 set cursorline
 set sbr=↪\
 
+" Airline config
+
 " Using vim-airline to manage statusline
 helptags ~/.vim/pack/dist/start/vim-airline/doc
 
@@ -165,6 +167,17 @@ function! SetAirlinePrompt()
     let g:airline_section_y = airline#section#create(['%3p%%'])
     let g:airline_section_z = airline#section#create(['%{line(".")}', ":", '%{col(".")}'])
 endfunc
+
+" Nerdtree config
+
+map <F5> :NERDTreeToggle<CR>
+
+" Floaterm config
+
+let g:floaterm_keymap_toggle = '<F12>'
+
+let g:floaterm_width = 0.9
+" let g:floaterm_height = 0.9
 
 function! NumberCycle()
     if &relativenumber

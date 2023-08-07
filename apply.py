@@ -35,7 +35,7 @@ file_maps = [
     ('zsh/android_funcs.zsh', '.android_funcs.zsh'),
     ('zsh/goog_funcs.zsh', '.goog_funcs.zsh'),
     ('zsh/util_funcs.zsh', '.util_funcs.zsh'),
-    ('vim/vimrc', '.vimrc'),
+    ('vim/vimrc.vim', '.vimrc'),
     ('tmux/tmux.conf', '.tmux.conf')
 ]
 
@@ -50,9 +50,13 @@ vim_pack_repos = [
     # Lean & mean status/tabline for vim that's light as air
     ('https://github.com/vim-airline/vim-airline', 'dist/start/vim-airline'),
     # Kotlin plugin for Vim. Featuring: syntax highlighting, basic indentation, Syntastic support
-    ('https://github.com/udalov/kotlin-vim.git', 'plugins/start/kotlin-vim')
+    ('https://github.com/udalov/kotlin-vim.git', 'plugins/start/kotlin-vim'),
+    # NERDTree
+    ('https://github.com/preservim/nerdtree.git', '/vendor/start/nerdtree'),
+    # Git Gutter
+    ('https://github.com/airblade/vim-gitgutter.git', '/airblade/start/vim-gitgutter'),
+    ('https://github.com/voldikss/vim-floaterm.git', '/voldikss/start/vim-floaterm')
 ]
-
 
 def fixup_source_zprofile():
     with open('zsh/zprofile', 'r') as file:
@@ -96,6 +100,9 @@ def push_local():
     for (vim_repo, vim_pack_dir) in vim_pack_repos:
         ops.append(['rm', '-rf', f'{home}/.vim/pack/{vim_pack_dir}'])
         ops.append(['git', 'clone', vim_repo, f'{home}/.vim/pack/{vim_pack_dir}'])
+        if os.path.exists(f'{home}/.vim/pack/{vim_pack_dir}/doc'):
+            ops.append(f'Adding helptags for {vim_pack_dir}')
+            ops.append([ 'vim', '-u', 'NONE', '-c', f'helptags ~/.vim/pack/{vim_pack_dir}/doc', '-c', 'q' ])
 
     return ops
 
