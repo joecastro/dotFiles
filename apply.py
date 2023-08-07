@@ -24,13 +24,13 @@ known_hosts = [
 ]
 
 # zprofile is handled special after relocation to support dynamic content.
-zprofile_src = 'zsh/zprofile'
+zprofile_src = 'zsh/zprofile.zsh'
 zprofile_dest = '.zprofile'
 # There are extra Vim files that would get picked up by pulling directories recursively. E.g.,
 # ./.vim/pack/*
 # ./.vim/.netrwhist
 file_maps = [
-    ('zsh/zshrc', '.zshrc'),
+    ('zsh/zshrc.zsh', '.zshrc'),
     (zprofile_src, zprofile_dest),
     ('zsh/android_funcs.zsh', '.android_funcs.zsh'),
     ('zsh/goog_funcs.zsh', '.goog_funcs.zsh'),
