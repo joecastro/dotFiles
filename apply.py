@@ -22,33 +22,34 @@ zprofile_dest = '.zprofile'
 # ./.vim/pack/*
 # ./.vim/.netrwhist
 file_maps = [
+    ('bash/bashrc.sh', '.bashrc'),
+    ('bash/profile.sh', '.profile'),
+    ('bash/bash_profile.sh', '.bash_profile'),
     ('zsh/zshrc.zsh', '.zshrc'),
     (zprofile_src, zprofile_dest),
     ('zsh/android_funcs.zsh', '.android_funcs.zsh'),
     ('zsh/goog_funcs.zsh', '.goog_funcs.zsh'),
     ('zsh/util_funcs.zsh', '.util_funcs.zsh'),
     ('vim/vimrc.vim', '.vimrc'),
+    ('vim/colors/molokai.vim', '.vim/colors/molokai.vim'),
     ('tmux/tmux.conf', '.tmux.conf')
 ]
 
-directory_maps = [
-    # ('vim/vim', '.vim'),
-    ('vim/vim/colors', '.vim/colors')
+vim_pack_plugin_repos = [
+    # Syntax highlighting for AOSP specific files
+    ('https://github.com/rubberduck203/aosp-vim', 'aosp'),
+    # Lean & mean status/tabline for vim that's light as air
+    ('https://github.com/vim-airline/vim-airline', 'vim-airline'),
+    # Kotlin plugin for Vim. Featuring: syntax highlighting, basic indentation, Syntastic support
+    ('https://github.com/udalov/kotlin-vim.git', 'kotlin-vim'),
+    # A tree explorer plugin for vim.
+    ('https://github.com/preservim/nerdtree.git', 'nerdtree'),
+    # A Vim plugin which shows git diff markers in the sign column and stages/previews/undoes hunks and partial hunks.
+    ('https://github.com/airblade/vim-gitgutter.git', 'vim-gitgutter'),
+    # 💻 Terminal manager for (neo)vim
+    ('https://github.com/voldikss/vim-floaterm.git', 'vim-floaterm')
 ]
 
-vim_pack_repos = [
-    # Syntax highlighting for AOSP specific files
-    ('https://github.com/rubberduck203/aosp-vim', 'plugins/start/aosp'),
-    # Lean & mean status/tabline for vim that's light as air
-    ('https://github.com/vim-airline/vim-airline', 'dist/start/vim-airline'),
-    # Kotlin plugin for Vim. Featuring: syntax highlighting, basic indentation, Syntastic support
-    ('https://github.com/udalov/kotlin-vim.git', 'plugins/start/kotlin-vim'),
-    # NERDTree
-    ('https://github.com/preservim/nerdtree.git', '/vendor/start/nerdtree'),
-    # Git Gutter
-    ('https://github.com/airblade/vim-gitgutter.git', '/airblade/start/vim-gitgutter'),
-    ('https://github.com/voldikss/vim-floaterm.git', '/voldikss/start/vim-floaterm')
-]
 
 def fixup_source_zprofile():
     with open('zsh/zprofile', 'r') as file:
@@ -81,38 +82,32 @@ alias dotGo='pushd $DOTFILES_SRC_HOME'
 
 def push_local():
     ops = ['Synching dotFiles for localhost']
-    for (repo_dir, dot_dir) in directory_maps:
-        ops.append(['mkdir', '-p', f'{home}/{dot_dir}'])
-        ops.append(['cp', '-r', f'{cwd}/{repo_dir}/.', f'{home}/{dot_dir}'])
-    for (repo_file, dot_file) in file_maps:
-        ops.append(['cp', f'{cwd}/{repo_file}', f'{home}/{dot_file}'])
+    ops.extend([['mkdir', '-p', f'{home}/{os.path.dirname(d[1])}'] for d in file_maps if os.path.dirname(d[1])])
+    ops.extend([['cp', f'{cwd}/{repo_file}', f'{home}/{dot_file}'] for (repo_file, dot_file) in file_maps])
+
     # fixup the zprofile to include dynamic content
     ops.append(expand_local_zprofile)
 
-    for (vim_repo, vim_pack_dir) in vim_pack_repos:
-        ops.append(['rm', '-rf', f'{home}/.vim/pack/{vim_pack_dir}'])
-        ops.append(['git', 'clone', vim_repo, f'{home}/.vim/pack/{vim_pack_dir}'])
-        if os.path.exists(f'{home}/.vim/pack/{vim_pack_dir}/doc'):
-            ops.append(f'Adding helptags for {vim_pack_dir}')
-            ops.append([ 'vim', '-u', 'NONE', '-c', f'helptags ~/.vim/pack/{vim_pack_dir}/doc', '-c', 'q' ])
+    pack_root = f'{home}/.vim/pack'
+    plugin_infix = 'plugins/start'
+    ops.append(['rm', '-rf', pack_root])
+    ops.extend([['git', 'clone', plugin_repo, f'{pack_root}/{plugin_infix}/{plugin_dir}']
+                for (plugin_repo, plugin_dir) in vim_pack_plugin_repos])
 
     return ops
 
 
 def push_remote(host):
     ops = [f'Synching dotFiles for {host}']
-    for (repo_dir, dot_dir) in directory_maps:
-        ops.append(['ssh', host, f'mkdir -p ~/{dot_dir}'])
-        ops.append(['scp', '-r', f'{cwd}/{repo_dir}/.', f'{host}:{dot_dir}'])
-    for (repo_file, dot_file) in file_maps:
-        ops.append(['scp', f'{cwd}/{repo_file}', f'{host}:{dot_file}'])
+    ops.extend([['ssh', host, f'mkdir -p ./{os.path.dirname(d[1])}'] for d in file_maps if os.path.dirname(d[1])])
+    ops.extend([['scp', f'{cwd}/{repo_file}', f'{host}:{dot_file}'] for (repo_file, dot_file) in file_maps])
     # Skip any modifications to a remote zprofile.
 
-    for (vim_repo, vim_pack_dir) in vim_pack_repos:
-        ops.append([
-            'ssh', host,
-            f'rm -rf ./.vim/pack/{vim_pack_dir} && git clone {vim_repo} ./.vim/pack/{vim_pack_dir}'
-        ])
+    pack_root = './.vim/pack'
+    plugin_infix = 'plugins/start'
+    ops.append(['ssh', host, f'rm -rf {pack_root}'])
+    ops.extend([['ssh', host, f'git clone {plugin_repo} {pack_root}/{plugin_infix}/{plugin_dir}']
+                for (plugin_repo, plugin_dir) in vim_pack_plugin_repos])
 
     # TODO: Check whether the zshrc is actually different?
     # TODO: Source the file through the outer shell?
@@ -122,8 +117,6 @@ def push_remote(host):
 
 def pull_local():
     ops = ['Snapshotting dotFiles from localhost']
-    for (repo_dir, dot_dir) in directory_maps:
-        ops.append(['cp', '-r', f'{home}/{dot_dir}/.', f'{cwd}/{repo_dir}/.'])
     for (repo_file, dot_file) in file_maps:
         ops.append(['cp', f'{home}/{dot_file}', f'{cwd}/{repo_file}'])
     # fixup the zprofile to include dynamic content
@@ -134,10 +127,8 @@ def pull_local():
 
 def pull_remote(host):
     ops = [f'Snapshotting dotFiles from {host}']
-    for (repo_dir, dot_dir) in directory_maps:
-        ops.append(['scp', '-r', f'{host}:{dot_dir}/.', f'{cwd}/{repo_dir}/.'])
-    for (repo_file, dot_file) in file_maps:
-        ops.append(['scp', f'{host}:{dot_file}', f'{cwd}/{repo_file}'])
+    ops.extend([['scp', f'{host}:{dot_file}', f'{cwd}/{repo_file}'] for (repo_file, dot_file) in file_maps])
+
     # fixup the zprofile to include dynamic content
     ops.append(fixup_source_zprofile)
 

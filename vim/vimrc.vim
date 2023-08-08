@@ -121,10 +121,9 @@ colorscheme molokai
 set cursorline
 set sbr=↪\
 
-" Airline config
+helptags ALL
 
-" Using vim-airline to manage statusline
-helptags ~/.vim/pack/dist/start/vim-airline/doc
+" Airline config
 
 set statusline=%F%m%r%h%w\ [TYPE=%Y\ %{&ff}]\ [%l/%L\ (%p%%)]
 " or:

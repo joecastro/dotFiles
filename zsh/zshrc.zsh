@@ -175,7 +175,9 @@ function __is_in_citc() {
 }
 
 function __is_in_tmux() {
-    if ! { [ "$TERM" = "screen" ] && [ -n "$TMUX" ]; } then
+    if [ "$TERM" = "screen" ]; then
+        return 1
+    elif [ -n "$TMUX" ]; then
         return 0
     fi
     return 1
