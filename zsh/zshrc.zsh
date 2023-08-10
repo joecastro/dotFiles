@@ -374,15 +374,12 @@ else
 fi
 
 function __virtualenv_info() {
-    if __is_in_tmux; then
-        echo "$TMUX_ICON "
-    fi
+    if __is_in_tmux; then echo -n "%{$fg[white]%}$TMUX_ICON "; fi
     # venv="${VIRTUAL_ENV##*/}"
-    test -n "$VIRTUAL_ENV" && echo "$NF_PYTHON_ICON "
-    test -n "$VIMRUNTIME" && echo "$NF_VIM_ICON "
-    if __is_in_citc; then
-        echo "%{$fg[blue]%}$GOOGLE_ICON "
-    fi
+    if test -n "$VIRTUAL_ENV"; then echo -n "%{$fg[green]%}$NF_PYTHON_ICON "; fi
+    if test -n "$VIMRUNTIME"; then echo -n "%{$fg[green]%}$NF_VIM_ICON "; fi
+    if __is_in_citc; then echo -n "%{$fg[blue]%}$GOOGLE_ICON "; fi
+    echo "%{$reset_color%}"
 }
 
 # disable the default virtualenv prompt change
