@@ -32,7 +32,7 @@ function wintitle() {
     fi
 }
 
-function listcolors() {
+function list_colors() {
     echo "echoti colors - $(echoti colors)"
     echo "COLORTERM - $COLORTERM"
 

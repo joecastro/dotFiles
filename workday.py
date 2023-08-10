@@ -6,7 +6,7 @@ import work_env
 
 def init_gcert(host):
     ops = [f'Initializing gcert (interactive) for {host}']
-    ops.append(['ssh', '-t', host, f'gcert'])
+    ops.append(['ssh', '-t', host, 'gcertstatus --check_loas2 --quiet || gcert'])
 
     return ops
 
@@ -18,7 +18,7 @@ def sync_repo(host, repo_path):
     return ops
 
 
-def main(args):
+def main():
     hosts = work_env.workstation_infos.keys()
 
     ops = []
@@ -33,4 +33,4 @@ def main(args):
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:]))
+    sys.exit(main())

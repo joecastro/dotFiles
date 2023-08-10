@@ -6,29 +6,26 @@ from pathlib import Path
 import re
 import sys
 import work_env
-from work_env import known_hosts, sys_command_prefix
 
-zprof_preamble = '# === BEGIN_DYNAMIC_SECTION ==='
-zprof_conclusion = '# === END_DYNAMIC_SECTION ==='
-zprof_sub = '#<DOTFILES_HOME_SUBST>'
+ZPROF_PREAMBLE = '# === BEGIN_DYNAMIC_SECTION ==='
+ZPROF_CONCLUSION = '# === END_DYNAMIC_SECTION ==='
+ZPROF_SUB = '#<DOTFILES_HOME_SUBST>'
 
-home = str(Path.home())
-cwd = '.'
+HOME = str(Path.home())
+CWD = '.'
 
 # zprofile is handled special after relocation to support dynamic content.
-zprofile_src = 'zsh/zprofile.zsh'
-zprofile_dest = '.zprofile'
-# There are extra Vim files that would get picked up by pulling directories recursively. E.g.,
-# ./.vim/pack/*
-# ./.vim/.netrwhist
+ZPROFILE_SRC = 'zsh/zprofile.zsh'
+ZPROFILE_DEST = '.zprofile'
+
 file_maps = [
     ('bash/bashrc.sh', '.bashrc'),
     ('bash/profile.sh', '.profile'),
     ('bash/bash_profile.sh', '.bash_profile'),
     ('zsh/zshrc.zsh', '.zshrc'),
-    (zprofile_src, zprofile_dest),
+    (ZPROFILE_SRC, ZPROFILE_DEST),
     ('zsh/android_funcs.zsh', '.android_funcs.zsh'),
-    ('zsh/goog_funcs.zsh', '.goog_funcs.zsh'),
+    ('zsh/osx_funcs.zsh', '.osx_funcs.zsh'),
     ('zsh/util_funcs.zsh', '.util_funcs.zsh'),
     ('vim/vimrc.vim', '.vimrc'),
     ('vim/colors/molokai.vim', '.vim/colors/molokai.vim'),
@@ -37,62 +34,72 @@ file_maps = [
 
 vim_pack_plugin_repos = [
     # Syntax highlighting for AOSP specific files
-    ('https://github.com/rubberduck203/aosp-vim', 'aosp'),
+    'https://github.com/rubberduck203/aosp-vim.git',
     # Lean & mean status/tabline for vim that's light as air
-    ('https://github.com/vim-airline/vim-airline', 'vim-airline'),
+    'https://github.com/vim-airline/vim-airline.git',
     # Kotlin plugin for Vim. Featuring: syntax highlighting, basic indentation, Syntastic support
-    ('https://github.com/udalov/kotlin-vim.git', 'kotlin-vim'),
+    'https://github.com/udalov/kotlin-vim.git',
     # A tree explorer plugin for vim.
-    ('https://github.com/preservim/nerdtree.git', 'nerdtree'),
+    'https://github.com/preservim/nerdtree.git',
     # A Vim plugin which shows git diff markers in the sign column and stages/previews/undoes hunks and partial hunks.
-    ('https://github.com/airblade/vim-gitgutter.git', 'vim-gitgutter'),
+    'https://github.com/airblade/vim-gitgutter.git',
     # 💻 Terminal manager for (neo)vim
-    ('https://github.com/voldikss/vim-floaterm.git', 'vim-floaterm')
+    'https://github.com/voldikss/vim-floaterm.git',
+    # Check syntax in Vim asynchronously and fix files, with Language Server Protocol (LSP) support
+    'https://github.com/dense-analysis/ale.git'
 ]
 
 
 def fixup_source_zprofile():
-    with open('zsh/zprofile', 'r') as file:
+    with open(ZPROFILE_SRC, 'r', encoding='utf-8') as file:
         content = file.read()
 
-    result = re.search(f'{re.escape(zprof_preamble)}.*{re.escape(zprof_conclusion)}', content, re.DOTALL)
+    result = re.search(f'{re.escape(ZPROF_PREAMBLE)}.*{re.escape(ZPROF_CONCLUSION)}', content, re.DOTALL)
 
     # This will be None if pulled from a remote host without content substituted in.
     if result is None:
         return
 
-    content = content.replace(result.group(0), zprof_sub)
+    content = content.replace(result.group(0), ZPROF_SUB)
 
-    with open('zsh/zprofile', 'w') as file:
+    with open(ZPROFILE_SRC, 'w', encoding='utf-8') as file:
         file.write(content)
 
 
 def expand_local_zprofile():
-    zprof_dynamic_content = f'''{zprof_preamble}
+    zprof_dynamic_content = f'''{ZPROF_PREAMBLE}
 DOTFILES_SRC_HOME={os.getcwd()}
 alias dotGo='pushd $DOTFILES_SRC_HOME'
-{zprof_conclusion}'''
+{ZPROF_CONCLUSION}'''
 
-    with open(f'{home}/.zprofile', 'r') as file:
+    with open(f'{HOME}/{ZPROFILE_DEST}', 'r', encoding='utf-8') as file:
         content = file.read()
 
-    with open(f'{home}/.zprofile', 'w') as file:
-        file.write(content.replace(zprof_sub, zprof_dynamic_content))
+    with open(f'{HOME}/{ZPROFILE_DEST}', 'w', encoding='utf-8') as file:
+        file.write(content.replace(ZPROF_SUB, zprof_dynamic_content))
+
+
+def install_vim_plugin_ops(host):
+    ops = [f'Cloning {len(vim_pack_plugin_repos)} Vim plugins for {host if host else "localhost"}']
+    pack_root = f'{HOME}/.vim/pack' if not host else './.vim/pack'
+    ops.append(['rm', '-rf', pack_root])
+    pattern = re.compile("([^/]+)\\.git$")
+    ops.extend([['git', 'clone', '--quiet', plugin_repo, f'{pack_root}/plugins/start/{pattern.search(plugin_repo).group(1)}']
+                for plugin_repo in vim_pack_plugin_repos])
+
+    return ops if not host else [['ssh', host, ' '.join(op)] if isinstance(op, list) else op for op in ops]
 
 
 def push_local():
     ops = ['Synching dotFiles for localhost']
-    ops.extend([['mkdir', '-p', f'{home}/{os.path.dirname(d[1])}'] for d in file_maps if os.path.dirname(d[1])])
-    ops.extend([['cp', f'{cwd}/{repo_file}', f'{home}/{dot_file}'] for (repo_file, dot_file) in file_maps])
+    ops.extend([['mkdir', '-p', f'{HOME}/{os.path.dirname(d[1])}'] for d in file_maps if os.path.dirname(d[1])])
+    ops.append(f'Copying {len(file_maps)} files to local home directory')
+    ops.extend([['cp', f'{CWD}/{repo_file}', f'{HOME}/{dot_file}'] for (repo_file, dot_file) in file_maps])
 
     # fixup the zprofile to include dynamic content
     ops.append(expand_local_zprofile)
 
-    pack_root = f'{home}/.vim/pack'
-    plugin_infix = 'plugins/start'
-    ops.append(['rm', '-rf', pack_root])
-    ops.extend([['git', 'clone', plugin_repo, f'{pack_root}/{plugin_infix}/{plugin_dir}']
-                for (plugin_repo, plugin_dir) in vim_pack_plugin_repos])
+    ops.extend(install_vim_plugin_ops(None))
 
     return ops
 
@@ -100,25 +107,19 @@ def push_local():
 def push_remote(host):
     ops = [f'Synching dotFiles for {host}']
     ops.extend([['ssh', host, f'mkdir -p ./{os.path.dirname(d[1])}'] for d in file_maps if os.path.dirname(d[1])])
-    ops.extend([['scp', f'{cwd}/{repo_file}', f'{host}:{dot_file}'] for (repo_file, dot_file) in file_maps])
+    ops.append(f'Copying {len(file_maps)} files to local home directory')
+    ops.extend([['scp', f'{CWD}/{repo_file}', f'{host}:{dot_file}'] for (repo_file, dot_file) in file_maps])
     # Skip any modifications to a remote zprofile.
 
-    pack_root = './.vim/pack'
-    plugin_infix = 'plugins/start'
-    ops.append(['ssh', host, f'rm -rf {pack_root}'])
-    ops.extend([['ssh', host, f'git clone {plugin_repo} {pack_root}/{plugin_infix}/{plugin_dir}']
-                for (plugin_repo, plugin_dir) in vim_pack_plugin_repos])
+    ops.extend(install_vim_plugin_ops(host))
 
-    # TODO: Check whether the zshrc is actually different?
-    # TODO: Source the file through the outer shell?
-    # print('    run `source ~/.zshrc` to pick up any new changes')
     return ops
 
 
 def pull_local():
     ops = ['Snapshotting dotFiles from localhost']
     for (repo_file, dot_file) in file_maps:
-        ops.append(['cp', f'{home}/{dot_file}', f'{cwd}/{repo_file}'])
+        ops.append(['cp', f'{HOME}/{dot_file}', f'{CWD}/{repo_file}'])
     # fixup the zprofile to include dynamic content
     ops.append(fixup_source_zprofile)
 
@@ -127,7 +128,7 @@ def pull_local():
 
 def pull_remote(host):
     ops = [f'Snapshotting dotFiles from {host}']
-    ops.extend([['scp', f'{host}:{dot_file}', f'{cwd}/{repo_file}'] for (repo_file, dot_file) in file_maps])
+    ops.extend([['scp', f'{host}:{dot_file}', f'{CWD}/{repo_file}'] for (repo_file, dot_file) in file_maps])
 
     # fixup the zprofile to include dynamic content
     ops.append(fixup_source_zprofile)
@@ -137,22 +138,22 @@ def pull_remote(host):
 
 def bootstrap_windows():
     return [
-        f'{sys_command_prefix}SETX DOTFILES_SRC_DIR {os.getcwd()}']
+        work_env.make_sys_op(f'SETX DOTFILES_SRC_DIR {os.getcwd()}')]
 
 
 def bootstrap_iterm2():
     return [
         # Specify the preferences directory
-        f'{sys_command_prefix}defaults write com.googlecode.iterm2 PrefsCustomFolder - string "$PWD/iterm2"',
+        work_env.make_sys_op('defaults write com.googlecode.iterm2 PrefsCustomFolder - string "$PWD/iterm2"'),
         # Tell iTerm2 to use the custom preferences in the directory
-        f'{sys_command_prefix}defaults write com.googlecode.iterm2 LoadPrefsFromCustomFolder - bool true']
+        work_env.make_sys_op('defaults write com.googlecode.iterm2 LoadPrefsFromCustomFolder - bool true')]
 
 
 def generate_iterm2_profiles():
-    with open('iterm2/profile_template.json') as t_file:
+    with open('iterm2/profile_template.json', encoding='utf-8') as t_file:
         template_data = json.load(t_file)
 
-    with open('iterm2/profile_substitutions.json') as s_file:
+    with open('iterm2/profile_substitutions.json', encoding='utf-8') as s_file:
         sub_data = json.load(s_file)
 
     if not os.path.exists('out'):
@@ -164,7 +165,7 @@ def generate_iterm2_profiles():
         profile = template_data | sub
         profile['Background Image Location'] = str(bg_location)
 
-        with open(f'out/{profile_name}.json', 'w') as outfile:
+        with open(f'out/{profile_name}.json', 'w', encoding='utf-8') as outfile:
             json.dump(profile, outfile, indent=2, sort_keys=True)
 
     t_file.close()
@@ -184,7 +185,7 @@ def main(args):
             ops.extend(push_local())
         elif args[1] == '--all':
             ops.extend(push_local())
-            for host in known_hosts:
+            for host in work_env.known_hosts:
                 ops.extend(push_remote(host))
         else:
             ops.extend(push_remote(args[1]))
@@ -207,6 +208,7 @@ def main(args):
         print('<unknown arg>')
         return 1
 
+    # work_env.print_ops(ops)
     work_env.run_ops(ops)
     return 0
 

@@ -167,6 +167,13 @@ function __is_in_repo() {
     return 1
 }
 
+function __is_interactive() {
+    if [[ $- == *i* ]]; then
+        return 0
+    fi
+    return 1
+}
+
 function __is_in_citc() {
     if test "${PWD##/google/src/cloud/}" != "${PWD}"; then
         return 0
@@ -374,7 +381,7 @@ function __virtualenv_info() {
     test -n "$VIRTUAL_ENV" && echo "$NF_PYTHON_ICON "
     test -n "$VIMRUNTIME" && echo "$NF_VIM_ICON "
     if __is_in_citc; then
-        echo "%{$fg[blue]%}[$GOOGLE_ICON] "
+        echo "%{$fg[blue]%}$GOOGLE_ICON "
     fi
 }
 
@@ -435,7 +442,6 @@ function ___venv_aware_cd() {
 
 compdef ___venv_aware_cd __venv_aware_cd
 
-source ~/.goog_funcs.zsh # Android repo tool utility functions
 source ~/.android_funcs.zsh # Android shell utility functions
 source ~/.util_funcs.zsh
 
@@ -457,6 +463,24 @@ function __is_embedded_terminal() {
     return 1
 }
 
+function __effective_distribution() {
+    if [[ "$(hostname -d)" == "c.googlers.com" ]]; then
+        echo "GLinux"
+    elif grep -qE "(Microsoft|WSL)" /proc/version &> /dev/null; then
+        echo "WSL"
+    elif [[ "$(uname)" == "Darwin" ]]; then
+        echo "OSX"
+    elif [[ "$(expr substr $(uname -s) 1 5)" == "Linux" ]]; then
+        echo "Unexpected Linux environment"
+    elif [[ "$(expr substr $(uname -s) 1 10)" == "MINGW32_NT" ]]; then
+        echo "Unexpected Win32 environment"
+    elif [[ "$(expr substr $(uname -s) 1 10)" == "MINGW64_NT" ]] || [[ "$(expr substr $(uname -s) 1 7)" == "MSYS_NT" ]]; then
+        echo "Windows"
+    else
+        echo "Unhandled"
+    fi
+}
+
 # If using iTerm2, try for shell integration.
 # When in SSH TERM_PROGRAM isn't getting propagated.
 # iTerm profile switching requires shell_integration to be installed anyways.
@@ -470,37 +494,37 @@ fi
 
 if ! __is_embedded_terminal; then
     alias cd='__venv_aware_cd'
-
-    interactive_invoke_gcert
 else
      echo "Limiting zsh initialization because inside vscode terminal."
 fi
 
-EFFECTIVE_DISTRIBUTION="Unhandled"
-if grep -qE "(Microsoft|WSL)" /proc/version &> /dev/null; then
-    EFFECTIVE_DISTRIBUTION="WSL"
-elif [[ "$(uname)" == "Darwin" ]]; then
-    EFFECTIVE_DISTRIBUTION="OSX"
-elif [[ "$(expr substr $(uname -s) 1 5)" == "Linux" ]]; then
-    EFFECTIVE_DISTRIBUTION="Unexpected Linux environment"
-elif [[ "$(expr substr $(uname -s) 1 10)" == "MINGW32_NT" ]]; then
-    EFFECTIVE_DISTRIBUTION="Unexpected Win32 environment"
-elif [[ "$(expr substr $(uname -s) 1 10)" == "MINGW64_NT" ]] || [[ "$(expr substr $(uname -s) 1 7)" == "MSYS_NT" ]]; then
-    EFFECTIVE_DISTRIBUTION="Windows"
-fi
+# echo "Welcome to $(__effective_distribution)!"
+case "$(__effective_distribution)" in
+    GLinux)
+        # This isn't on every workstation
+        test -e "/etc/bash_completion.d/g4d" && source "/etc/bash_completion.d/g4d"
 
-# echo $EFFECTIVE_DISTRIBUTION
-case $EFFECTIVE_DISTRIBUTION in
+        gcertstatus --check_loas2 --nocheck_ssh --check_remaining=2h --quiet
+        if [[ "$?" != "0" ]]; then
+            echo ">> gcert has expired. Invoking gcert flow."
+            gcert
+        fi
+
+        ;;
     OSX)
+        source ~/.osx_funcs.zsh
+
+        # RPROMPT='$(battery_charge)'
+
         if command -v brew > /dev/null; then
             test -e "$(brew --prefix)/opt/zsh-git-prompt/zshrc.sh" && source "$(brew --prefix)/opt/zsh-git-prompt/zshrc.sh"
         fi
 
-        # https://developer.android.com/tools/variables
         if ! __is_ssh_session && ! command -v code &> /dev/null; then
             echo "## CLI for VSCode is unavailable. Check https://code.visualstudio.com/docs/setup/mac"
         fi
 
+        # https://developer.android.com/tools/variables
         export ANDROID_HOME=~/Library/Android/sdk
         path=($path $ANDROID_HOME/tools $ANDROID_HOME/tools/bin $ANDROID_HOME/platform-tools)
         ;;

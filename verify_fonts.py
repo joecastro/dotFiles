@@ -4,33 +4,33 @@ import sys
 
 # Inspired by https://raw.githubusercontent.com/ryanoasis/nerd-fonts/master/bin/scripts/test-fonts.sh
 
-reset_color = '\033[0m'
-bg_color_border = '\033[48;5;8m'
+RESET_COLOR = '\033[0m'
+BG_COLOR_BORDER = '\033[48;5;8m'
 
 
 def print_top_line(length):
-    top_line_start = f'{bg_color_border}╔═══'
+    top_line_start = f'{BG_COLOR_BORDER}╔═══'
     top_line_middle = "═══╦═══"
-    top_line_end = f'═══╗{reset_color}'
+    top_line_end = f'═══╗{RESET_COLOR}'
 
     print(top_line_start + (top_line_middle * (length - 1)) + top_line_end)
 
 
 def print_bottom_line(length):
-    bottom_line_start = f'{bg_color_border}╚═══'
+    bottom_line_start = f'{BG_COLOR_BORDER}╚═══'
     bottom_line_middle = '═══╩═══'
-    bottom_line_end = f'═══╝{reset_color}'
+    bottom_line_end = f'═══╝{RESET_COLOR}'
 
     print(bottom_line_start + (bottom_line_middle * (length - 1)) + bottom_line_end)
 
 
 def print_middle_line(length, next_line_length):
-    line_start = f'{bg_color_border}╠═══'
+    line_start = f'{BG_COLOR_BORDER}╠═══'
     line_middle = '═══╬═══'
-    line_end = f'═══╣{reset_color}'
+    line_end = f'═══╣{RESET_COLOR}'
 
     bottom_line_middle = '═══╩═══'
-    bottom_line_end = f'═══╝{reset_color}'
+    bottom_line_end = f'═══╝{RESET_COLOR}'
 
     if next_line_length == length:
         print(line_start + (line_middle * (length - 1)) + line_end)
@@ -40,18 +40,18 @@ def print_middle_line(length, next_line_length):
 
 
 def print_codes_line(code_color, char_color, chunk, line_length):
-    bar = f'{bg_color_border}║{reset_color}'
+    vertical_bar = f'{BG_COLOR_BORDER}║{RESET_COLOR}'
     underline = '\033[4m'
 
     header_line = [(f'{n:x}', chr(n)) for n in chunk]
     # add fillers to array to maintain table:
     header_line.extend([('', ' ')] * (line_length - len(chunk)))
 
-    all_codes = bar
-    all_chars = bar
+    all_codes = vertical_bar
+    all_chars = vertical_bar
     for (code, char) in header_line:
-        all_codes += f'{code_color}{" " * (5 - len(code))}{underline}{code}{reset_color}{code_color} {bar}'
-        all_chars += f'{char_color}  {char}   {bar}'
+        all_codes += f'{code_color}{" " * (5 - len(code))}{underline}{code}{RESET_COLOR}{code_color} {vertical_bar}'
+        all_chars += f'{char_color}  {char}   {vertical_bar}'
 
     print(f'{all_codes}\n{all_chars}')
 
@@ -106,7 +106,7 @@ def list_to_ranges(lst):
     return ranges
 
 
-def main(args):
+def main():
     categories = {
         'ASCII': [32, 128],
         'Nerd Fonts - Pomicons': [0xe000, 0xe00e],
@@ -132,4 +132,4 @@ def main(args):
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:]))
+    sys.exit(main())

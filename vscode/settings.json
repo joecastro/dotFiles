@@ -1,34 +1,50 @@
 {
+    "[java]": {
+        "editor.rulers": [
+            80
+        ]
+    },
+    "[kotlin]": {
+        "editor.rulers": [
+            100
+        ]
+    },
+    "[python]": {
+        "editor.formatOnType": true
+    },
     "cmake.configureOnOpen": true,
     "diffEditor.codeLens": true,
     "editor.fontFamily": "caskaydiacove nerd font, Cascadia Code, Consolas",
     "editor.fontLigatures": true,
     "editor.renderWhitespace": "all",
+    "editor.rulers": [
+        120
+    ],
+    "files.associations": {
+        "vimrc": "viml"
+    },
     "files.exclude": {
         "**/.classpath": true,
         "**/.factorypath": true,
         "**/.project": true,
         "**/.settings": true
     },
-    "files.associations": {
-        "vimrc": "viml"
-    },
     "files.trimTrailingWhitespace": true,
     "git.autofetch": true,
-    "projectManager.git.baseFolders": [
-        "~/source"
-    ],
     "python.linting.enabled": true,
     "python.linting.pycodestyleArgs": [
         "--ignore=E501,E221,E241"
     ],
     "python.linting.pycodestyleEnabled": true,
     "redhat.telemetry.enabled": false,
+    "shellcheck.ignorePatterns": {
+        "**/bash/*": true
+    },
     "swapdiff.ClosePreviousDiff": true,
     "terminal.external.osxExec": "iTerm2.app",
     "terminal.integrated.defaultProfile.osx": "zsh",
-    "workbench.colorTheme": "Monokai Pro",
+    "workbench.colorTheme": "Modern Purple Theme Dark",
     "workbench.editor.tabCloseButton": "left",
-    "workbench.iconTheme": "Monokai Pro Icons",
+    "workbench.iconTheme": "material-icon-theme",
     "workbench.startupEditor": "none"
 }
