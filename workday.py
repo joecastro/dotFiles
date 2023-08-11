@@ -1,34 +1,30 @@
 #!/usr/bin/python
 
+import subprocess
 import sys
 import work_env
 
 
-def init_gcert(host):
-    ops = [f'Initializing gcert (interactive) for {host}']
-    ops.append(['ssh', '-t', host, 'gcertstatus --check_loas2 --quiet || gcert'])
-
-    return ops
-
-
-def sync_repo(host, repo_path):
-    ops = [f'Synching repo {repo_path} for {host}']
-    ops.append(['ssh', '-t', host, f'cd {repo_path} && repo sync'])
-
-    return ops
-
-
 def main():
     hosts = work_env.workstation_infos.keys()
-
-    ops = []
+    try:
+        subprocess.run(['gcertstatus', '--check_loas2', '--quiet'], check=True)
+    except subprocess.CalledProcessError:
+        print('>> gcert has expired. Invoking gcert login flow.')
+        subprocess.run(['gcert'], check=True)
     for host in hosts:
-        ops.extend(init_gcert(host))
+        try:
+            subprocess.run(['ssh', host, 'gcertstatus', '--check_loas2', '--quiet'], check=True)
+        except subprocess.CalledProcessError:
+            print(f'>> gcert has expired on {host}. Invoking gcert login flow.')
+            # "Shared connection ... closed" gets written to stderr because of the psuedo-tty
+            subprocess.run(['ssh', '-t', host, 'gcert'], check=True, stderr=subprocess.DEVNULL)
 
     for host in hosts:
-        ops.extend(sync_repo(host, work_env.workstation_infos[host]))
+        repo_path = work_env.workstation_infos[host]
+        print(f'>> Synching repo {repo_path} for {host}.')
+        subprocess.run(['ssh', host, f'cd {repo_path} && repo sync'], check=False)
 
-    work_env.run_ops(ops)
     return 0
 
 

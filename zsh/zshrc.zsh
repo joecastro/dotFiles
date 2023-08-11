@@ -231,7 +231,9 @@ function __cute_pwd() {
         if ! __is_in_git_dir; then
             # If we're in a git repo then show the current directory relative to the root of that repo.
             # These commands wind up spitting out an extra slash, so backspace to remove it on the console.
-            echo -e "$ANCHOR_ICON$(git rev-parse --show-toplevel | xargs basename)/$(git rev-parse --show-prefix)\b"
+            # Because this messes with the shell's perception of where the cursor is, make the anchor icon
+            # appear like an escape sequence instead of a printed character.
+            echo -e "%{$ANCHOR_ICON%}$(git rev-parse --show-toplevel | xargs basename)/$(git rev-parse --show-prefix)\b"
         else
             echo "🚧"
         fi
