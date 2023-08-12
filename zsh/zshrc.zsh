@@ -227,8 +227,6 @@ NF_PYTHON_ICON=$(test -n "$EXPECT_NERD_FONTS" && echo "$PYTHON_ICON" || echo "$S
 NF_GIT_BRANCH_ICON=$(test -n "$EXPECT_NERD_FONTS" && echo "$GIT_BRANCH_ICON" || echo "(b)")
 NF_GIT_COMMIT_ICON=$(test -n "$EXPECT_NERD_FONTS" && echo "$GIT_COMMIT_ICON" || echo "(d)")
 
-ICONS=($ANCHOR_ICON $PIN_ICON $HUT_ICON $HOUSE_ICON $TREE_ICON $DISK_ICON $OFFICE_ICON)
-
 function __cute_pwd() {
     if __is_in_git_repo; then
         if ! __is_in_git_dir; then
@@ -245,7 +243,7 @@ function __cute_pwd() {
 
     # These should only match if they're exact.
     case "$PWD" in
-        $HOME)
+        "$HOME")
             echo 🏠
             return 0
             ;;
@@ -259,13 +257,7 @@ function __cute_pwd() {
     esac
 
     case "${PWD##*/}" in
-        random | rnd)
-            RANDOM=$$$(date +%s)
-            ix=$(($RANDOM % ${#ICONS[@]}))
-            echo "r$ICONS[$(($ix+1))]d"
-            return 0
-            ;;
-        github)
+        "github")
             echo $GITHUB_ICON
             return 0
             ;;
@@ -273,7 +265,7 @@ function __cute_pwd() {
             echo 💾
             return 0
             ;;
-        work)
+        "work")
             echo 🏢
             return 0
             ;;
@@ -308,14 +300,14 @@ function __print_git_worktree() {
     fi
 
     ROOT_WORKTREE=$(git worktree list | head -n1 | awk '{print $1;}')
-    ACTIVE_WORKTREE=$(git worktree list | grep "$(echo `git rev-parse --show-toplevel`)" | head -n1 | awk '{print $1;}')
+    ACTIVE_WORKTREE=$(git worktree list | grep "$(git rev-parse --show-toplevel)" | head -n1 | awk '{print $1;}')
 
     if [[ "$ROOT_WORKTREE" == "$ACTIVE_WORKTREE" ]]; then
         echo ""
         return 0
     fi
 
-    SUBMODULE_WORKTREE=$(echo `git rev-parse --show-superproject-working-tree`)
+    SUBMODULE_WORKTREE=$(git rev-parse --show-superproject-working-tree)
     if [[ "$SUBMODULE_WORKTREE" == "" ]]; then
         echo 🌲"%{$fg[green]%}[${ROOT_WORKTREE##*/}/${ACTIVE_WORKTREE##*/}] "
         return 0
@@ -397,8 +389,8 @@ fi
 function __virtualenv_info() {
     if __is_in_tmux; then echo -n "%{$fg[white]%}$TMUX_ICON "; fi
     # venv="${VIRTUAL_ENV##*/}"
-    if test -n "$VIRTUAL_ENV"; then echo -n "%{$fg[green]%}$NF_PYTHON_ICON "; fi
-    if test -n "$VIMRUNTIME"; then echo -n "%{$fg[green]%}$NF_VIM_ICON "; fi
+    if (( ${+VIRTUAL_ENV} )); then echo -n "%{$fg[green]%}$NF_PYTHON_ICON "; fi
+    if (( ${+VIMRUNTIME} )); then echo -n "%{$fg[green]%}$NF_VIM_ICON "; fi
     echo -n "%{$reset_color%}"
 }
 
