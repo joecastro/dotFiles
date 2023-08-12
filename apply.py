@@ -228,8 +228,8 @@ def main(args):
         elif args[1] == '--all':
             ops.extend(push_local())
             with open('hosts.json', encoding='utf-8') as hosts_file:
-               for host in json.load(hosts_file):
-                   ops.extend(push_remote(host))
+                for host in json.load(hosts_file):
+                    ops.extend(push_remote(host))
         else:
             ops.extend(push_remote(args[1]))
     elif args[0] == '--push-local':
