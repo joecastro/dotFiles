@@ -53,6 +53,10 @@ set encoding=utf-8
 map <C-t> <Esc>:tabnew<CR>
 map <C-w> <Esc>:tabclose<CR>
 
+" move among buffers with CTRL
+map <C-j> :bnext<CR>
+map <C-K> :bprev<CR>
+
 vmap <TAB> :><cr>gv
 vmap <S-TAB> :<<cr>gv
 

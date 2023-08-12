@@ -128,6 +128,8 @@ preexec() { _set_cursor_beam }
 #autoload -Uz add-zsh-hook
 #add-zsh-hook precmd __start_timer
 
+export GIT_EDITOR=vim
+
 function __is_ssh_session() {
     if [ -n "$SSH_CLIENT" ] || [ -n "$SSH_TTY" ] || [ -n "$SSH_CONNECTION" ]; then
         return 0
@@ -174,17 +176,17 @@ function __is_interactive() {
     return 1
 }
 
-function __is_in_citc() {
-    if test "${PWD##/google/src/cloud/}" != "${PWD}"; then
+function __is_in_tmux() {
+    if [ "$TERM" = "screen" ]; then
+        return 1
+    elif [ -n "$TMUX" ]; then
         return 0
     fi
     return 1
 }
 
-function __is_in_tmux() {
-    if [ "$TERM" = "screen" ]; then
-        return 1
-    elif [ -n "$TMUX" ]; then
+function __is_embedded_terminal() {
+    if [[ "$TERM_PROGRAM" == "vscode" ]]; then
         return 0
     fi
     return 1
@@ -362,6 +364,22 @@ function __print_git_info() {
     fi
 }
 
+function __effective_distribution() {
+    if grep -qE "(Microsoft|WSL)" /proc/version &> /dev/null; then
+        echo "WSL"
+    elif [[ "$(uname)" == "Darwin" ]]; then
+        echo "OSX"
+    elif [[ "$(expr substr $(uname -s) 1 5)" == "Linux" ]]; then
+        echo "Unexpected Linux environment"
+    elif [[ "$(expr substr $(uname -s) 1 10)" == "MINGW32_NT" ]]; then
+        echo "Unexpected Win32 environment"
+    elif [[ "$(expr substr $(uname -s) 1 10)" == "MINGW64_NT" ]] || [[ "$(expr substr $(uname -s) 1 7)" == "MSYS_NT" ]]; then
+        echo "Windows"
+    else
+        echo "Unhandled"
+    fi
+}
+
 # Use a different color for displaying the host name when we're logged into SSH
 if __is_ssh_session; then
     HostColor=%F{214}
@@ -380,8 +398,7 @@ function __virtualenv_info() {
     # venv="${VIRTUAL_ENV##*/}"
     if test -n "$VIRTUAL_ENV"; then echo -n "%{$fg[green]%}$NF_PYTHON_ICON "; fi
     if test -n "$VIMRUNTIME"; then echo -n "%{$fg[green]%}$NF_VIM_ICON "; fi
-    if __is_in_citc; then echo -n "%{$fg[blue]%}$GOOGLE_ICON "; fi
-    echo "%{$reset_color%}"
+    echo -n "%{$reset_color%}"
 }
 
 # disable the default virtualenv prompt change
@@ -441,6 +458,7 @@ function ___venv_aware_cd() {
 
 compdef ___venv_aware_cd __venv_aware_cd
 
+test -e ~/.google_funcs.zsh && source ~/.google_funcs.zsh
 source ~/.android_funcs.zsh # Android shell utility functions
 source ~/.util_funcs.zsh
 
@@ -455,31 +473,6 @@ source ~/.git-prompt.sh # defines __git_ps1
 command -v hub &> /dev/null && eval "$(hub alias -s)"
 command -v chjava &> /dev/null && chjava 18
 
-function __is_embedded_terminal() {
-    if [[ "$TERM_PROGRAM" == "vscode" ]]; then
-        return 0
-    fi
-    return 1
-}
-
-function __effective_distribution() {
-    if [[ "$(hostname -d)" == "c.googlers.com" ]]; then
-        echo "GLinux"
-    elif grep -qE "(Microsoft|WSL)" /proc/version &> /dev/null; then
-        echo "WSL"
-    elif [[ "$(uname)" == "Darwin" ]]; then
-        echo "OSX"
-    elif [[ "$(expr substr $(uname -s) 1 5)" == "Linux" ]]; then
-        echo "Unexpected Linux environment"
-    elif [[ "$(expr substr $(uname -s) 1 10)" == "MINGW32_NT" ]]; then
-        echo "Unexpected Win32 environment"
-    elif [[ "$(expr substr $(uname -s) 1 10)" == "MINGW64_NT" ]] || [[ "$(expr substr $(uname -s) 1 7)" == "MSYS_NT" ]]; then
-        echo "Windows"
-    else
-        echo "Unhandled"
-    fi
-}
-
 # If using iTerm2, try for shell integration.
 # When in SSH TERM_PROGRAM isn't getting propagated.
 # iTerm profile switching requires shell_integration to be installed anyways.
@@ -488,7 +481,7 @@ if [[ "iTerm2" == "$LC_TERMINAL" ]]; then
         echo "Bootstrapping iTerm2 Shell Integration on a new machine through curl"
         curl -L https://iterm2.com/shell_integration/zsh -o ~/.iterm2_shell_integration.zsh
     fi
-    test -e "${HOME}/.iterm2_shell_integration.zsh" && source "${HOME}/.iterm2_shell_integration.zsh"
+    test -e ~/.iterm2_shell_integration.zsh && source ~/.iterm2_shell_integration.zsh
 fi
 
 if ! __is_embedded_terminal; then
@@ -500,14 +493,7 @@ fi
 # echo "Welcome to $(__effective_distribution)!"
 case "$(__effective_distribution)" in
     GLinux)
-        # This isn't on every workstation
-        test -e "/etc/bash_completion.d/g4d" && source "/etc/bash_completion.d/g4d"
-
-        gcertstatus --check_loas2 --nocheck_ssh --check_remaining=2h --quiet
-        if [[ "$?" != "0" ]]; then
-            echo ">> gcert has expired. Invoking gcert flow."
-            gcert
-        fi
+        __finalize_glinux_init
 
         ;;
     OSX)

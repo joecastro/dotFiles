@@ -4,8 +4,8 @@ import json
 import os
 from pathlib import Path
 import re
+import subprocess
 import sys
-import work_env
 
 ZPROF_PREAMBLE = '# === BEGIN_DYNAMIC_SECTION ==='
 ZPROF_CONCLUSION = '# === END_DYNAMIC_SECTION ==='
@@ -49,6 +49,42 @@ vim_pack_plugin_repos = [
     'https://github.com/dense-analysis/ale.git'
 ]
 
+
+SYS_COMMAND_PREFIX = 'sys_command: '
+
+
+def make_sys_op(command):
+    return SYS_COMMAND_PREFIX + command
+
+
+def print_ops(ops):
+    for entry in ops:
+        if isinstance(entry, str):
+            if entry.startswith(SYS_COMMAND_PREFIX):
+                print(f'DEBUG SYSCALL: {entry}')
+            else:
+                print(f'>> {entry}')
+        elif isinstance(entry, list):
+            print(f'DEBUG: {" ".join(entry)}')
+        elif callable(entry):
+            print(f'DEBUG: invoking function {entry}')
+        else:
+            raise TypeError('Bad operation type')
+
+
+def run_ops(ops):
+    for entry in ops:
+        if isinstance(entry, str):
+            if entry.startswith(SYS_COMMAND_PREFIX):
+                os.system(entry.removeprefix(SYS_COMMAND_PREFIX))
+            else:
+                print(f'>> {entry}')
+        elif isinstance(entry, list):
+            subprocess.run(entry, check=False)
+        elif callable(entry):
+            entry()
+        else:
+            raise TypeError('Bad operation type')
 
 def fixup_source_zprofile():
     with open(ZPROFILE_SRC, 'r', encoding='utf-8') as file:
@@ -138,15 +174,15 @@ def pull_remote(host):
 
 def bootstrap_windows():
     return [
-        work_env.make_sys_op(f'SETX DOTFILES_SRC_DIR {os.getcwd()}')]
+        make_sys_op(f'SETX DOTFILES_SRC_DIR {os.getcwd()}')]
 
 
 def bootstrap_iterm2():
     return [
         # Specify the preferences directory
-        work_env.make_sys_op('defaults write com.googlecode.iterm2 PrefsCustomFolder - string "$PWD/iterm2"'),
+        make_sys_op('defaults write com.googlecode.iterm2 PrefsCustomFolder - string "$PWD/iterm2"'),
         # Tell iTerm2 to use the custom preferences in the directory
-        work_env.make_sys_op('defaults write com.googlecode.iterm2 LoadPrefsFromCustomFolder - bool true')]
+        make_sys_op('defaults write com.googlecode.iterm2 LoadPrefsFromCustomFolder - bool true')]
 
 
 def generate_iterm2_profiles():
@@ -155,6 +191,12 @@ def generate_iterm2_profiles():
 
     with open('iterm2/profile_substitutions.json', encoding='utf-8') as s_file:
         sub_data = json.load(s_file)
+
+    try:
+        with open('iterm2/profile_substitutions_ex.json', encoding='utf-8') as s_ex_file:
+            sub_data.extend(json.load(s_ex_file))
+    except FileNotFoundError:
+        pass
 
     if not os.path.exists('out'):
         os.mkdir('out')
@@ -185,8 +227,9 @@ def main(args):
             ops.extend(push_local())
         elif args[1] == '--all':
             ops.extend(push_local())
-            for host in work_env.known_hosts:
-                ops.extend(push_remote(host))
+            with open('hosts.json', encoding='utf-8') as hosts_file:
+               for host in json.load(hosts_file):
+                   ops.extend(push_remote(host))
         else:
             ops.extend(push_remote(args[1]))
     elif args[0] == '--push-local':
@@ -208,12 +251,19 @@ def main(args):
         print('<unknown arg>')
         return 1
 
-    # work_env.print_ops(ops)
-    work_env.run_ops(ops)
+    # print_ops(ops)
+    run_ops(ops)
     return 0
 
 
 if __name__ == "__main__":
+    try:
+        with open('file_maps_ex.json', encoding='utf-8') as file_maps_ex_file:
+            print('>> Including additional file maps')
+            file_maps.extend([(src, dest) for (src, dest) in json.load(file_maps_ex_file).items()])
+    except FileNotFoundError:
+        pass
+
     if len(sys.argv) < 2:
         print('<missing args>')
         sys.exit(1)

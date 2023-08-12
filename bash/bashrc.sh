@@ -109,13 +109,6 @@ function __is_in_repo() {
     return 1
 }
 
-function __is_in_citc() {
-    if test "${PWD##/google/src/cloud/}" != "${PWD}"; then
-        return 0
-    fi
-    return 1
-}
-
 function __is_in_tmux() {
     if [ "$TERM" = "screen" ]; then
         return 1
@@ -241,14 +234,11 @@ fi
 
 function __virtualenv_info() {
     if __is_in_tmux; then
-        echo "$TMUX_ICON "
+        echo -n "$TMUX_ICON "
     fi
     # venv="${VIRTUAL_ENV##*/}"
     test -n "$VIRTUAL_ENV" && echo "$NF_PYTHON_ICON "
     test -n "$VIMRUNTIME" && echo "$NF_VIM_ICON "
-    if __is_in_citc; then
-        echo "$GOOGLE_ICON "
-    fi
 }
 
 # disable the default virtualenv prompt change
