@@ -320,7 +320,7 @@ function __print_git_worktree() {
         return 0
     fi
 
-    echo 🛶"%{$fg[magenta]%}[${SUBMODULE_WORKTREE##*/}/${ROOT_WORKTREE##*/}] "
+    echo 🛶"%{%F{207}%}[${SUBMODULE_WORKTREE##*/}/${ROOT_WORKTREE##*/}] "
     return 0
 }
 
