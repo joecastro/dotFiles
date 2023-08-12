@@ -128,6 +128,7 @@ preexec() { _set_cursor_beam }
 #autoload -Uz add-zsh-hook
 #add-zsh-hook precmd __start_timer
 
+export EDITOR=vim
 export GIT_EDITOR=vim
 
 function __is_ssh_session() {
