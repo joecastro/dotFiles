@@ -118,7 +118,7 @@ set mat=2
 " Enable syntax highlighting
 syntax enable
 
-colorscheme molokai
+colorscheme onedark
 
 " hi Normal ctermbg=NONE
 
@@ -158,6 +158,8 @@ let g:airline_symbols.readonly = ''
 let g:airline_symbols.linenr = '☰'
 let g:airline_symbols.maxlinenr = ''
 let g:airline_symbols.dirty='⚡'
+
+let g:airline_theme='onedark'
 
 " let g:airline_left_sep ="\ue0b4"
 " let g:airline_right_sep ="\ue0b6"

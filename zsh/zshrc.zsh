@@ -128,71 +128,6 @@ preexec() { _set_cursor_beam }
 #autoload -Uz add-zsh-hook
 #add-zsh-hook precmd __start_timer
 
-export EDITOR=vim
-export GIT_EDITOR=vim
-
-function __is_ssh_session() {
-    if [ -n "$SSH_CLIENT" ] || [ -n "$SSH_TTY" ] || [ -n "$SSH_CONNECTION" ]; then
-        return 0
-    fi
-    return 1
-}
-
-function __is_in_git_repo() {
-    git branch > /dev/null 2>&1;
-    if [[ "$?" == "0" ]]; then
-        return 0
-    fi
-    return 1
-}
-
-function __is_in_git_dir() {
-    git rev-parse --is-inside-git-dir | grep "true" > /dev/null 2>&1;
-    if [[ "$?" == "0" ]]; then
-        return 0
-    fi
-    return 1
-}
-
-function __is_in_repo() {
-    verbose=0
-    if [[ -z "$1" ]]; then
-        unset verbose
-    fi
-
-    repo --show-toplevel > /dev/null 2>&1;
-    if [[ "$?" == "0" ]]; then
-        return 0
-    fi
-    if (( ${+verbose} )); then
-        echo "error: Not in Android repo tree"
-    fi
-    return 1
-}
-
-function __is_interactive() {
-    if [[ $- == *i* ]]; then
-        return 0
-    fi
-    return 1
-}
-
-function __is_in_tmux() {
-    if [ "$TERM" = "screen" ]; then
-        return 1
-    elif [ -n "$TMUX" ]; then
-        return 0
-    fi
-    return 1
-}
-
-function __is_embedded_terminal() {
-    if [[ "$TERM_PROGRAM" == "vscode" ]]; then
-        return 0
-    fi
-    return 1
-}
-
 # TODO: Similar to below TODO, consider not using unicode glyphs based on something like this...
 unset RESTRICT_ASCII_CHARACTERS
 EXPECT_NERD_FONTS=1
@@ -250,7 +185,7 @@ function __cute_pwd() {
         # ${WIN_USERPROFILE##*/})
         #    echo $WINDOWS_ICON$HOUSE_ICON
         #    ;;
-        /)
+        "/")
             echo 🌲
             return 0
             ;;
@@ -261,7 +196,7 @@ function __cute_pwd() {
             echo $GITHUB_ICON
             return 0
             ;;
-        src | source | master | main)
+        src | source)
             echo 💾
             return 0
             ;;
@@ -357,22 +292,6 @@ function __print_git_info() {
     fi
 }
 
-function __effective_distribution() {
-    if grep -qE "(Microsoft|WSL)" /proc/version &> /dev/null; then
-        echo "WSL"
-    elif [[ "$(uname)" == "Darwin" ]]; then
-        echo "OSX"
-    elif [[ "$(expr substr $(uname -s) 1 5)" == "Linux" ]]; then
-        echo "Unexpected Linux environment"
-    elif [[ "$(expr substr $(uname -s) 1 10)" == "MINGW32_NT" ]]; then
-        echo "Unexpected Win32 environment"
-    elif [[ "$(expr substr $(uname -s) 1 10)" == "MINGW64_NT" ]] || [[ "$(expr substr $(uname -s) 1 7)" == "MSYS_NT" ]]; then
-        echo "Windows"
-    else
-        echo "Unhandled"
-    fi
-}
-
 # Use a different color for displaying the host name when we're logged into SSH
 if __is_ssh_session; then
     HostColor=%F{214}
@@ -395,7 +314,7 @@ function __virtualenv_info() {
 }
 
 # disable the default virtualenv prompt change
-export VIRTUAL_ENV_DISABLE_PROMPT=1
+VIRTUAL_ENV_DISABLE_PROMPT=1
 SKIP_WORKTREE_IN_ANDROID_REPO=1 # Repo is implemented in terms of worktrees, so this gets noisy.
 
 PROMPT=''
@@ -486,7 +405,7 @@ fi
 # echo "Welcome to $(__effective_distribution)!"
 case "$(__effective_distribution)" in
     GLinux)
-        __finalize_glinux_init
+        __on_glinux_zshrc_load_complete
 
         ;;
     OSX)
