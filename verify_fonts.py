@@ -107,8 +107,12 @@ def list_to_ranges(lst):
 
 
 def main():
+    zsh_used_nerdfont_icons = ['', '', '', '', '', '󰀲', '', '', '', '', '󱂵', '']
+    zsh_used_nerdfont_icons.sort()
+    zsh_used_nerdfont_icon_ranges = list(sum([(ord(c), ord(c)+1) for c in zsh_used_nerdfont_icons], ()))
     categories = {
-        'ASCII': [32, 128],
+        # 'ASCII control codes': [0, 32, 127, 128],
+        'ASCII': [32, 127],
         'Nerd Fonts - Pomicons': [0xe000, 0xe00e],
         'Nerd Fonts - Powerline': [0xe0a0, 0xe0a3, 0xe0b0, 0xe0b4],
         'Nerd Fonts - Powerline Extra': [0xe0a3, 0xe0a4, 0xe0b4, 0xe0c9, 0xe0cc, 0xe0d3, 0xe0d4, 0xe0d5],
@@ -120,7 +124,8 @@ def main():
         'Nerd Fonts - Font Logos': [0xf300, 0xf330],
         'Nerd Fonts - Font Power Symbols': [0x23fb, 0x23ff, 0x2b58, 0x2b59],
         'Nerd Fonts - Material Design Icons (first few)': [0xf0001, 0xf0011],
-        'Nerd Fonts - Weather Icons': [0xe300, 0xe3ec]
+        'Nerd Fonts - Weather Icons': [0xe300, 0xe3ec],
+        'Nerd Fonts - ZSH Prompt Icons': zsh_used_nerdfont_icon_ranges
     }
 
     for name, range_list in categories.items():

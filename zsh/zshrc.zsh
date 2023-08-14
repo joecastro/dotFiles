@@ -260,9 +260,9 @@ function __print_repo_worktree() {
         return 0
     fi
 
-    if (( ${+ANDROID_ROOT_PATH} )); then
-        if test "${PWD##$ANDROID_ROOT_PATH}" != "${PWD}"; then
-            REPO_ROOT=$ANDROID_ROOT_BRANCH
+    if (( ${+ANDROID_REPO_PATH} )); then
+        if test "${PWD##$ANDROID_REPO_PATH}" != "${PWD}"; then
+            REPO_ROOT=$ANDROID_REPO_BRANCH
         fi
     fi
 

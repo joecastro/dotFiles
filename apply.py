@@ -24,8 +24,8 @@ hosts = {
             f"DOTFILES_SRC_HOME={os.getcwd()}",
             "alias dotGo='pushd $DOTFILES_SRC_HOME'",
             "",
-            "ANDROID_ROOT_BRANCH=main",
-            f"ANDROID_ROOT_PATH={HOME}/source/android"
+            "ANDROID_REPO_BRANCH=main",
+            f"ANDROID_REPO_PATH={HOME}/source/android"
         ],
         'exclude_paths': [
             'bash/'

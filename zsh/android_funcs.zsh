@@ -1,14 +1,12 @@
 #! /bin/zsh
 
-#! /bin/zsh
-
 function repo_find() {
     if __is_in_repo; then
         echo $(repo --show-toplevel)
     elif (( ${+ANDROID_REPO_ROOT} )); then
         echo $ANDROID_REPO_ROOT
     else
-        echo "$(find . -type d -name '.repo' | sed 's#/\.repo$##')"
+        echo "$(find . -type d -name '.repo' -print -quit | sed 's#/\.repo$##')"
     fi
 }
 
