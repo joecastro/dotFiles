@@ -72,7 +72,7 @@ set autoread
 " Set 7 lines to the cursor - when moving vertically using j/k
 set so=7
 
-" Turn on the WiLd menu
+" Turn on the Wild menu
 set wildmenu
 
 " Ignore compiled files
@@ -90,6 +90,13 @@ set hid
 " Configure backspace so it acts as it should act
 set backspace=eol,start,indent
 set whichwrap+=<,>,h,l
+
+" Make the escape key more responsive by decreasing the wait time for an
+" escape sequence (e.g., arrow keys).
+if !has('nvim') && &ttimeoutlen == -1
+  set ttimeout
+  set ttimeoutlen=100
+endif
 
 " Ignore case when searching
 set ignorecase
@@ -118,6 +125,7 @@ set mat=2
 " Enable syntax highlighting
 syntax enable
 
+packadd! onedark.vim
 colorscheme onedark
 
 " hi Normal ctermbg=NONE

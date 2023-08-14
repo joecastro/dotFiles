@@ -22,7 +22,10 @@ hosts = {
     'localhost': {
         'zshenv_sub': [
             f"DOTFILES_SRC_HOME={os.getcwd()}",
-            "alias dotGo='pushd $DOTFILES_SRC_HOME'"
+            "alias dotGo='pushd $DOTFILES_SRC_HOME'",
+            "",
+            "ANDROID_ROOT_BRANCH=main",
+            f"ANDROID_ROOT_PATH={HOME}/source/android"
         ],
         'exclude_paths': [
             'bash/'
@@ -45,7 +48,7 @@ file_maps = [
     ('tmux/tmux.conf', '.tmux.conf')
 ]
 
-vim_pack_plugin_repos = [
+vim_pack_plugin_start_repos = [
     # Syntax highlighting for AOSP specific files
     'https://github.com/rubberduck203/aosp-vim.git',
     # Lean & mean status/tabline for vim that's light as air
@@ -59,7 +62,10 @@ vim_pack_plugin_repos = [
     # 💻 Terminal manager for (neo)vim
     'https://github.com/voldikss/vim-floaterm.git',
     # Check syntax in Vim asynchronously and fix files, with Language Server Protocol (LSP) support
-    'https://github.com/dense-analysis/ale.git',
+    'https://github.com/dense-analysis/ale.git'
+]
+
+vim_pack_plugin_opt_repos = [
     # A dark Vim/Neovim color scheme inspired by Atom's One Dark syntax theme.
     'https://github.com/joshdick/onedark.vim.git'
 ]
@@ -136,12 +142,13 @@ def expand_zshenv(host, target_file):
 
 
 def install_vim_plugin_ops(host):
-    ops = [f'Cloning {len(vim_pack_plugin_repos)} Vim plugins for {host}']
+    ops = [f'Cloning {len(vim_pack_plugin_start_repos) + len(vim_pack_plugin_opt_repos)} Vim plugins for {host}']
     pack_root = f'{HOME}/.vim/pack' if host == 'localhost' else './.vim/pack'
     ops.append(['rm', '-rf', pack_root])
     pattern = re.compile("([^/]+)\\.git$")
-    ops.extend([['git', 'clone', '--quiet', plugin_repo, f'{pack_root}/plugins/start/{pattern.search(plugin_repo).group(1)}']
-                for plugin_repo in vim_pack_plugin_repos])
+    for (infix, repos) in [('plugins/start', vim_pack_plugin_start_repos), ('plugins/opt', vim_pack_plugin_opt_repos)]:
+        ops.extend([['git', 'clone', '--quiet', plugin_repo, f'{pack_root}/{infix}/{pattern.search(plugin_repo).group(1)}']
+                    for plugin_repo in repos])
 
     if host == 'localhost':
         return ops
@@ -264,9 +271,13 @@ def extend_config(cfg):
     if extended_hosts is not None:
         hosts.update(extended_hosts)
 
-    extended_vim_plugins = cfg.get('vim_plugin_repos')
-    if extended_vim_plugins is not None:
-        vim_pack_plugin_repos.extend(extended_vim_plugins)
+    extended_vim_start_plugins = cfg.get('vim_plugin_start_repos')
+    if extended_vim_start_plugins is not None:
+        vim_pack_plugin_start_repos.extend(extended_vim_start_plugins)
+
+    extended_vim_opt_plugins = cfg.get('vim_plugin_opt_repos')
+    if extended_vim_opt_plugins is not None:
+        vim_pack_plugin_opt_repos.extend(extended_vim_opt_plugins)
 
     extended_iterm_substitutions = cfg.get('iterm_substitutions')
     if extended_iterm_substitutions is not None:

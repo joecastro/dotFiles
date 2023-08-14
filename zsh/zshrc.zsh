@@ -145,6 +145,7 @@ ROBOT_ICON=🤖
 
 #Nerdfonts - https://www.nerdfonts.com/cheat-sheet
 WINDOWS_ICON=
+LINUX_PENGUIN_ICON=
 GITHUB_ICON=
 GOOGLE_ICON=
 VIM_ICON=
@@ -179,12 +180,13 @@ function __cute_pwd() {
     # These should only match if they're exact.
     case "$PWD" in
         "$HOME")
-            echo 🏠
+            echo $HOUSE_ICON
             return 0
             ;;
-        # ${WIN_USERPROFILE##*/})
-        #    echo $WINDOWS_ICON$HOUSE_ICON
-        #    ;;
+        "$WIN_USERPROFILE")
+            echo $WINDOWS_ICON$HOUSE_ICON
+            return 0
+            ;;
         "/")
             echo 🌲
             return 0
@@ -253,13 +255,22 @@ function __print_git_worktree() {
 }
 
 function __print_repo_worktree() {
-    if __is_in_repo; then
-        # REPO_ROOT=$(repo --show-toplevel | head -n1 | awk '{print $1;}')
-        REPO_ROOT=$(repo info -o --outer-manifest -l | grep -i "Manifest branch" | sed 's/^Manifest branch: //')
-        echo "%{$fg[green]%}$NF_ANDROID_ICON${REPO_ROOT##*/} "
-    else
+    if ! __is_in_repo; then
         echo ""
+        return 0
     fi
+
+    if (( ${+ANDROID_ROOT_PATH} )); then
+        if test "${PWD##$ANDROID_ROOT_PATH}" != "${PWD}"; then
+            REPO_ROOT=$ANDROID_ROOT_BRANCH
+        fi
+    fi
+
+    if ! (( ${+REPO_ROOT} )); then
+        REPO_ROOT=$(repo info -o --outer-manifest -l | grep -i "Manifest branch" | sed 's/^Manifest branch: //')
+    fi
+
+    echo "%{$fg[green]%}$NF_ANDROID_ICON${REPO_ROOT##*/} "
 }
 
 function __print_git_info() {
@@ -306,10 +317,14 @@ else
 fi
 
 function __virtualenv_info() {
-    if __is_in_tmux; then echo -n "%{$fg[white]%}$TMUX_ICON "; fi
+    if __is_in_tmux; then echo -n "%{$fg[white]%}$TMUX_ICON"; fi
     # venv="${VIRTUAL_ENV##*/}"
-    if (( ${+VIRTUAL_ENV} )); then echo -n "%{$fg[green]%}$NF_PYTHON_ICON "; fi
-    if (( ${+VIMRUNTIME} )); then echo -n "%{$fg[green]%}$NF_VIM_ICON "; fi
+    if __is_in_wsl; then
+        if __is_in_windows_drive; then echo -n "%{$fg[blue]%}$WINDOWS_ICON";
+        else; echo -n "%{$fg[blue]%}$LINUX_PENGUIN_ICON"; fi
+    fi
+    if (( ${+VIRTUAL_ENV} )); then echo -n "%{$fg[green]%}$NF_PYTHON_ICON"; fi
+    if (( ${+VIMRUNTIME} )); then echo -n "%{$fg[green]%}$NF_VIM_ICON"; fi
     echo -n "%{$reset_color%}"
 }
 
@@ -319,15 +334,17 @@ SKIP_WORKTREE_IN_ANDROID_REPO=1 # Repo is implemented in terms of worktrees, so 
 
 PROMPT=''
 PROMPT+='${white}$(__cute_time_prompt) '
-# Optional
-PROMPT+='$(__virtualenv_info)'
 PROMPT+='%{$fg[green]%}$USER%{$fg[yellow]%}@%B$HostColor$HostNameDisplay%{$reset_color%} '
 # Optional - spaces are embedded in output suffix if these are non-empty.
 PROMPT+='$(__print_repo_worktree)%{$reset_color%}'
 PROMPT+='$(__print_git_worktree)$(__print_git_info)%{$reset_color%}'
 PROMPT+='$(__cute_pwd)'
 PROMPT+=' $ '
-# RPROMPT='%*'
+
+RPROMPT=''
+RPOMPT+='%* '
+# Optional
+RPROMPT+='$(__virtualenv_info)'
 
 # if exa is installed prefer that to ls
 # options aren't the same, but I also need it less often...
@@ -422,14 +439,13 @@ case "$(__effective_distribution)" in
         fi
 
         # https://developer.android.com/tools/variables
-        export ANDROID_HOME=~/Library/Android/sdk
+        ANDROID_HOME=~/Library/Android/sdk
         path=($path $ANDROID_HOME/tools $ANDROID_HOME/tools/bin $ANDROID_HOME/platform-tools)
         ;;
     WSL)
-        export WIN_USERNAME=$(powershell.exe '$env:UserName')
-        export WIN_USERPROFILE=$(echo $(wslpath $(powershell.exe '$env:UserProfile')) | sed $'s/\r//')
+
         # export WIN_USERPROFILE=$(wslpath $(powershell.exe '$env:UserProfile'))
 
-        alias winhome='cd $WIN_USERPROFILE'
+        alias winGo='pushd $WIN_USERPROFILE'
         ;;
 esac
