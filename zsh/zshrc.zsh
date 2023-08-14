@@ -1,5 +1,8 @@
 #! /bin/zsh
 
+PRAGMA_FILE_NAME="PRAGMA_${"${(%):-%1N}"//\./_}"
+[ -n "${(P)PRAGMA_FILE_NAME}" ] && return; declare $PRAGMA_FILE_NAME=0; #pragma once 
+
 # Useful reference: https://scriptingosx.com/2019/07/moving-to-zsh-part-7-miscellanea/
 
 # autoload -Uz promptinit

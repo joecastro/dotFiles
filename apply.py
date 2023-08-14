@@ -147,7 +147,7 @@ def install_vim_plugin_ops(host):
     ops.append(['rm', '-rf', pack_root])
     pattern = re.compile("([^/]+)\\.git$")
     for (infix, repos) in [('plugins/start', vim_pack_plugin_start_repos), ('plugins/opt', vim_pack_plugin_opt_repos)]:
-        ops.extend([['git', 'clone', '--quiet', plugin_repo, f'{pack_root}/{infix}/{pattern.search(plugin_repo).group(1)}']
+        ops.extend([['git', 'clone', plugin_repo, f'{pack_root}/{infix}/{pattern.search(plugin_repo).group(1)}']
                     for plugin_repo in repos])
 
     if host == 'localhost':
