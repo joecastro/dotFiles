@@ -21,6 +21,8 @@ ZSHENV_DEST = '.zshenv'
 hosts = {
     'localhost': {
         'zshenv_sub': [
+            "LOCALHOST_PREFERRED_DISPLAY="
+                + ("workbook" if os.uname().nodename.startswith('joecastro-macbookpro') else ""),
             f"DOTFILES_SRC_HOME={os.getcwd()}",
             "alias dotGo='pushd $DOTFILES_SRC_HOME'",
             "",
@@ -45,7 +47,8 @@ file_maps = [
     ('zsh/util_funcs.zsh', '.util_funcs.zsh'),
     ('vim/vimrc.vim', '.vimrc'),
     ('vim/colors/molokai.vim', '.vim/colors/molokai.vim'),
-    ('tmux/tmux.conf', '.tmux.conf')
+    ('tmux/tmux.conf', '.tmux.conf'),
+    ('verify_fonts.py', 'dotScripts/verify_fonts.py')
 ]
 
 vim_pack_plugin_start_repos = [
@@ -166,7 +169,7 @@ def copy_files_local(source_root, source_files, dest_root, dest_files):
 
     return ops
 
-def push_local():
+def push_local(shallow):
     staging_dir = 'out/localhost-dot'
     ops = ['Synching dotFiles for localhost']
 
@@ -179,12 +182,13 @@ def push_local():
     ops.extend(copy_files_local(staging_dir, [k for (k, _) in file_maps], HOME, [v for (_, v) in file_maps]))
     ops.append(['rm', '-rf', staging_dir])
 
-    ops.extend(install_vim_plugin_ops('localhost'))
+    if not shallow:
+        ops.extend(install_vim_plugin_ops('localhost'))
 
     return ops
 
 
-def push_remote(host):
+def push_remote(host, shallow):
     staging_dir = f'out/{host}-dot'
     ops = [f'Synching dotFiles for {host}']
     ops.extend(copy_files_local(CWD, [k for (k, _) in file_maps], staging_dir, [k for (k, _) in file_maps]))
@@ -192,13 +196,15 @@ def push_remote(host):
     # fixup the zshenv to include dynamic content
     ops.append(lambda: expand_zshenv(host, f'{staging_dir}/{ZSHENV_SRC}'))
 
-    dest_subfolders = set([os.path.dirname(d) for d in [k for (k, _) in file_maps] if os.path.dirname(d)])
+    dest_subfolders = set([os.path.dirname(d) for d in [v for (_, v) in file_maps] if os.path.dirname(d)])
     ops.extend([['ssh', host, f'mkdir -p ./{sub}'] for sub in dest_subfolders])
 
     ops.append(f'Copying {len(file_maps)} files to local home directory')
     ops.extend([['scp', f'{staging_dir}/{repo_file}', f'{host}:{dot_file}'] for (repo_file, dot_file) in file_maps])
     ops.append(['rm', '-rf', staging_dir])
-    ops.extend(install_vim_plugin_ops(host))
+
+    if not shallow:
+        ops.extend(install_vim_plugin_ops(host))
 
     return ops
 
@@ -289,19 +295,23 @@ def main(args):
     if '--dry-run' in args:
         print_only = True
         args.remove('--dry-run')
+    shallow = False
+    if '--shallow' in args:
+        shallow = True
+        args.remove('--shallow')
 
     ops = []
     if args[0] == '--push':
         if len(args) < 2:
-            ops.extend(push_local())
+            ops.extend(push_local(shallow))
         elif args[1] == '--all':
-            ops.extend(push_local())
+            ops.extend(push_local(shallow))
             for host in [h for h in hosts if h != 'localhost']:
-                ops.extend(push_remote(host))
+                ops.extend(push_remote(host, shallow))
         else:
-            ops.extend(push_remote(args[1]))
+            ops.extend(push_remote(args[1], shallow))
     elif args[0] == '--push-local':
-        ops.extend(push_local())
+        ops.extend(push_local(shallow))
     elif args[0] == '--pull':
         if len(args) < 2:
             ops.extend(pull_local())

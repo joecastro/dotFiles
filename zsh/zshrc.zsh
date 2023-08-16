@@ -1,7 +1,10 @@
 #! /bin/zsh
 
+#pragma once
 PRAGMA_FILE_NAME="PRAGMA_${"${(%):-%1N}"//\./_}"
-[ -n "${(P)PRAGMA_FILE_NAME}" ] && return; declare $PRAGMA_FILE_NAME=0; #pragma once 
+[ -n "${(P)PRAGMA_FILE_NAME}" ] && unset PRAGMA_FILE_NAME && return;
+declare $PRAGMA_FILE_NAME=0
+unset PRAGMA_FILE_NAME
 
 # Useful reference: https://scriptingosx.com/2019/07/moving-to-zsh-part-7-miscellanea/
 
@@ -316,13 +319,17 @@ if __is_ssh_session; then
     fi
 else
     HostColor=%{$fg[yellow]%}
-    HostNameDisplay=%m
+    if [[ -n $LOCALHOST_PREFERRED_DISPLAY ]]; then
+        HostNameDisplay=$LOCALHOST_PREFERRED_DISPLAY
+    else
+        HostNameDisplay=%m
+    fi
 fi
 
 function __virtualenv_info() {
     if __is_in_tmux; then echo -n "%{$fg[white]%}$TMUX_ICON"; fi
     # venv="${VIRTUAL_ENV##*/}"
-    if __is_in_wsl; then
+    if __is_on_wsl; then
         if __is_in_windows_drive; then echo -n "%{$fg[blue]%}$WINDOWS_ICON";
         else; echo -n "%{$fg[blue]%}$LINUX_PENGUIN_ICON"; fi
     fi
@@ -345,7 +352,7 @@ PROMPT+='$(__cute_pwd)'
 PROMPT+=' $ '
 
 RPROMPT=''
-RPOMPT+='%* '
+# RPOMPT+='%* '
 # Optional
 RPROMPT+='$(__virtualenv_info)'
 
@@ -424,11 +431,13 @@ fi
 
 # echo "Welcome to $(__effective_distribution)!"
 case "$(__effective_distribution)" in
-    GLinux)
+    "GLinux")
+        # echo "GLinux zshrc load complete"
         __on_glinux_zshrc_load_complete
 
         ;;
-    OSX)
+    "OSX")
+        # echo "OSX zshrc load complete"
         source ~/.osx_funcs.zsh
 
         # RPROMPT='$(battery_charge)'
@@ -445,7 +454,11 @@ case "$(__effective_distribution)" in
         ANDROID_HOME=~/Library/Android/sdk
         path=($path $ANDROID_HOME/tools $ANDROID_HOME/tools/bin $ANDROID_HOME/platform-tools)
         ;;
-    WSL)
+    "WSL")
+        WIN_SYSTEM_DRIVE=$(powershell.exe '$env:SystemDrive')
+        WIN_SYSTEM_ROOT="/mnt/${WIN_SYSTEM_DRIVE:0:1:l}"
+        WIN_USERNAME=$(powershell.exe '$env:UserName')
+        WIN_USERPROFILE=$(echo $(wslpath $(powershell.exe '$env:UserProfile')) | sed $'s/\r//')
 
         # export WIN_USERPROFILE=$(wslpath $(powershell.exe '$env:UserProfile'))
 

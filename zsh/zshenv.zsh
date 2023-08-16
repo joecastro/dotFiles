@@ -1,7 +1,10 @@
 #!/bin/zsh
 
+#pragma once
 PRAGMA_FILE_NAME="PRAGMA_${"${(%):-%1N}"//\./_}"
-[ -n "${(P)PRAGMA_FILE_NAME}" ] && return; declare $PRAGMA_FILE_NAME=0; #pragma once
+[ -n "${(P)PRAGMA_FILE_NAME}" ] && unset PRAGMA_FILE_NAME && return;
+declare $PRAGMA_FILE_NAME=0
+unset PRAGMA_FILE_NAME
 
 EDITOR=vim
 GIT_EDITOR=vim
@@ -61,7 +64,7 @@ function __is_in_tmux() {
     return 1
 }
 
-function __is_in_wsl() {
+function __is_on_wsl() {
     grep -qE "(Microsoft|WSL)" /proc/version &> /dev/null
 }
 
@@ -74,6 +77,34 @@ function __is_in_windows_drive() {
     return 1
 }
 
+function __is_on_osx() {
+    if [[ "$(uname)" == "Darwin" ]]; then
+        return 0
+    fi
+    return 1
+}
+
+function __is_on_windows() {
+    if [[ "$(uname -s)" = "MINGW64_NT"* ]] || [[ "$(uname -s)" = "MSYS_NT"* ]]; then
+        return 0
+    fi
+    return 1
+}
+
+function __is_on_unexpected_windows() {
+    if [[ "$(uname -s)" = "MINGW32_NT"* ]]; then
+        return 0
+    fi
+    return 1
+}
+
+function __is_on_unexpected_linux() {
+    if [[ "$(uname -s)" = "Linux"* ]]; then
+        return 0
+    fi
+    return 1
+}
+
 function __is_embedded_terminal() {
     if [[ "$TERM_PROGRAM" == "vscode" ]]; then
         return 0
@@ -81,28 +112,27 @@ function __is_embedded_terminal() {
     return 1
 }
 
+typeset -A DISTRIBUTION_ID_FUNCS=( \
+    ["WSL"]="__is_on_wsl" \
+    ["OSX"]="__is_on_osx" \
+    ["Windows"]="__is_on_windows" )
+
 function __effective_distribution() {
-    if __is_in_wsl; then
-        echo "WSL"
-    elif [[ "$(uname)" == "Darwin" ]]; then
-        echo "OSX"
-    elif [[ "$(expr substr $(uname -s) 1 5)" == "Linux" ]]; then
-        echo "Unexpected Linux environment"
-    elif [[ "$(expr substr $(uname -s) 1 10)" == "MINGW32_NT" ]]; then
+    for distro func in ${(kv)DISTRIBUTION_ID_FUNCS}; do
+        if $func; then
+            echo $distro
+            return 0
+        fi
+    done
+    if __is_on_unexpected_linux; then
+       echo "Unexpected Linux environment"
+    elif __is_on_unexpected_windows; then
         echo "Unexpected Win32 environment"
-    elif [[ "$(expr substr $(uname -s) 1 10)" == "MINGW64_NT" ]] || [[ "$(expr substr $(uname -s) 1 7)" == "MSYS_NT" ]]; then
-        echo "Windows"
     else
         echo "Unhandled"
     fi
+    return 1
 }
-
-if __is_in_wsl; then
-    WIN_SYSTEM_DRIVE=$(powershell.exe '$env:SystemDrive')
-    WIN_SYSTEM_ROOT="/mnt/${WIN_ROOT:0:1:l}"
-    WIN_USERNAME=$(powershell.exe '$env:UserName')
-    WIN_USERPROFILE=$(echo $(wslpath $(powershell.exe '$env:UserProfile')) | sed $'s/\r//')
-fi
 
 test -e ~/.google_funcs.zsh && source ~/.google_funcs.zsh
 source ~/.android_funcs.zsh # Android shell utility functions

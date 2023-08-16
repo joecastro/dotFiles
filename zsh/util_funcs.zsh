@@ -1,5 +1,11 @@
 #! /bin/zsh
 
+#pragma once
+PRAGMA_FILE_NAME="PRAGMA_${"${(%):-%1N}"//\./_}"
+[ -n "${(P)PRAGMA_FILE_NAME}" ] && unset PRAGMA_FILE_NAME && return;
+declare $PRAGMA_FILE_NAME=0
+unset PRAGMA_FILE_NAME
+
 alias myip='curl http://ipecho.net/plain; echo'
 
 # kill_port_proc <port>
@@ -47,4 +53,9 @@ function list_colors() {
 			printf "\n"
 		fi
 	done
+}
+
+function clear_pragmas() {
+    # Undoes the pragma once guards in my source files.
+    unset -m "PRAGMA_*"
 }
