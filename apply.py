@@ -18,8 +18,9 @@ CWD = '.'
 ZSHENV_SRC = 'zsh/zshenv.zsh'
 ZSHENV_DEST = '.zshenv'
 
-hosts = {
-    'localhost': {
+hosts = [
+    {
+        'hostname': 'localhost',
         'zshenv_sub': [
             "LOCALHOST_PREFERRED_DISPLAY="
                 + ("workbook" if os.uname().nodename.startswith('joecastro-macbookpro') else ""),
@@ -29,11 +30,14 @@ hosts = {
             "ANDROID_REPO_BRANCH=main",
             f"ANDROID_REPO_PATH={HOME}/source/android"
         ],
-        'exclude_paths': [
-            'bash/'
+        'file_maps_exclude': [
+            'bash/',
+            'verify_fonts.py'
         ]
     }
-}
+]
+
+local_host = hosts[0]
 
 file_maps = [
     ('bash/bashrc.sh', '.bashrc'),
@@ -128,12 +132,11 @@ def fixup_source_zshenv():
 
 
 def expand_zshenv(host, target_file):
-    host_config = hosts.get(host)
-    if not host_config or not host_config.get('zshenv_sub'):
+    if not host.get('zshenv_sub'):
         return
 
     zshenv_dynamic_content = ZSHENV_PREAMBLE
-    for line in host_config['zshenv_sub']:
+    for line in host['zshenv_sub']:
         zshenv_dynamic_content += '\n' + line
     zshenv_dynamic_content += '\n' + ZSHENV_CONCLUSION
 
@@ -145,18 +148,18 @@ def expand_zshenv(host, target_file):
 
 
 def install_vim_plugin_ops(host):
-    ops = [f'Cloning {len(vim_pack_plugin_start_repos) + len(vim_pack_plugin_opt_repos)} Vim plugins for {host}']
-    pack_root = f'{HOME}/.vim/pack' if host == 'localhost' else './.vim/pack'
+    ops = [f'Cloning {len(vim_pack_plugin_start_repos) + len(vim_pack_plugin_opt_repos)} Vim plugins for {host["hostname"]}']
+    pack_root = f'{HOME}/.vim/pack' if host == local_host else './.vim/pack'
     ops.append(['rm', '-rf', pack_root])
     pattern = re.compile("([^/]+)\\.git$")
     for (infix, repos) in [('plugins/start', vim_pack_plugin_start_repos), ('plugins/opt', vim_pack_plugin_opt_repos)]:
         ops.extend([['git', 'clone', plugin_repo, f'{pack_root}/{infix}/{pattern.search(plugin_repo).group(1)}']
                     for plugin_repo in repos])
 
-    if host == 'localhost':
+    if host == local_host:
         return ops
 
-    return [['ssh', host, ' '.join(op)] if isinstance(op, list) else op for op in ops]
+    return [['ssh', host['hostname'], ' '.join(op)] if isinstance(op, list) else op for op in ops]
 
 
 def copy_files_local(source_root, source_files, dest_root, dest_files):
@@ -176,31 +179,34 @@ def push_local(shallow):
     ops.extend(copy_files_local(CWD, [k for (k, _) in file_maps], staging_dir, [k for (k, _) in file_maps]))
 
     # fixup the zshenv to include dynamic content
-    ops.append(lambda: expand_zshenv('localhost', f'{staging_dir}/{ZSHENV_SRC}'))
+    ops.append(lambda: expand_zshenv(local_host, f'{staging_dir}/{ZSHENV_SRC}'))
 
     ops.append(f'Copying {len(file_maps)} files to local home directory')
     ops.extend(copy_files_local(staging_dir, [k for (k, _) in file_maps], HOME, [v for (_, v) in file_maps]))
     ops.append(['rm', '-rf', staging_dir])
 
     if not shallow:
-        ops.extend(install_vim_plugin_ops('localhost'))
+        ops.extend(install_vim_plugin_ops(local_host))
 
     return ops
 
 
 def push_remote(host, shallow):
-    staging_dir = f'out/{host}-dot'
-    ops = [f'Synching dotFiles for {host}']
+    if host == local_host:
+        return push_local(shallow)
+
+    staging_dir = f'out/{host["hostname"]}-dot'
+    ops = [f'Synching dotFiles for {host["hostname"]}']
     ops.extend(copy_files_local(CWD, [k for (k, _) in file_maps], staging_dir, [k for (k, _) in file_maps]))
 
     # fixup the zshenv to include dynamic content
     ops.append(lambda: expand_zshenv(host, f'{staging_dir}/{ZSHENV_SRC}'))
 
     dest_subfolders = set([os.path.dirname(d) for d in [v for (_, v) in file_maps] if os.path.dirname(d)])
-    ops.extend([['ssh', host, f'mkdir -p ./{sub}'] for sub in dest_subfolders])
+    ops.extend([['ssh', host['hostname'], f'mkdir -p ./{sub}'] for sub in dest_subfolders])
 
     ops.append(f'Copying {len(file_maps)} files to local home directory')
-    ops.extend([['scp', f'{staging_dir}/{repo_file}', f'{host}:{dot_file}'] for (repo_file, dot_file) in file_maps])
+    ops.extend([['scp', f'{staging_dir}/{repo_file}', f'{host["hostname"]}:{dot_file}'] for (repo_file, dot_file) in file_maps])
     ops.append(['rm', '-rf', staging_dir])
 
     if not shallow:
@@ -220,8 +226,8 @@ def pull_local():
 
 
 def pull_remote(host):
-    ops = [f'Snapshotting dotFiles from {host}']
-    ops.extend([['scp', f'{host}:{dot_file}', f'{CWD}/{repo_file}'] for (repo_file, dot_file) in file_maps])
+    ops = [f'Snapshotting dotFiles from {host["hostname"]}']
+    ops.extend([['scp', f'{host["hostname"]}:{dot_file}', f'{CWD}/{repo_file}'] for (repo_file, dot_file) in file_maps])
 
     # fixup the zshenv to exclude the dynamic content
     ops.append(fixup_source_zshenv)
@@ -242,26 +248,6 @@ def bootstrap_iterm2():
         make_sys_op('defaults write com.googlecode.iterm2 LoadPrefsFromCustomFolder - bool true')]
 
 
-def generate_iterm2_profiles():
-    with open('iterm2/profile_template.json', encoding='utf-8') as t_file:
-        template_data = json.load(t_file)
-
-    with open('iterm2/profile_substitutions.json', encoding='utf-8') as s_file:
-        iterm_substitutions.extend(json.load(s_file))
-
-    if not os.path.exists('out'):
-        os.mkdir('out')
-
-    for sub in iterm_substitutions:
-        profile_name = sub['Name']
-        bg_location = Path(sub['Background Image Location']).absolute()
-        profile = template_data | sub
-        profile['Background Image Location'] = str(bg_location)
-
-        with open(f'out/{profile_name}.json', 'w', encoding='utf-8') as outfile:
-            json.dump(profile, outfile, indent=2, sort_keys=True)
-
-
 def push_sublimetext_windows_plugins():
     return [
         ['cp', 'sublime_text\\*', '"%APPDATA%\\Sublime Text 2\\Packages\\User"']
@@ -275,7 +261,7 @@ def extend_config(cfg):
 
     extended_hosts = cfg.get('hosts')
     if extended_hosts is not None:
-        hosts.update(extended_hosts)
+        hosts.extend(extended_hosts)
 
     extended_vim_start_plugins = cfg.get('vim_plugin_start_repos')
     if extended_vim_start_plugins is not None:
@@ -284,10 +270,6 @@ def extend_config(cfg):
     extended_vim_opt_plugins = cfg.get('vim_plugin_opt_repos')
     if extended_vim_opt_plugins is not None:
         vim_pack_plugin_opt_repos.extend(extended_vim_opt_plugins)
-
-    extended_iterm_substitutions = cfg.get('iterm_substitutions')
-    if extended_iterm_substitutions is not None:
-        iterm_substitutions.extend(extended_iterm_substitutions)
 
 
 def main(args):
@@ -305,8 +287,7 @@ def main(args):
         if len(args) < 2:
             ops.extend(push_local(shallow))
         elif args[1] == '--all':
-            ops.extend(push_local(shallow))
-            for host in [h for h in hosts if h != 'localhost']:
+            for host in hosts:
                 ops.extend(push_remote(host, shallow))
         else:
             ops.extend(push_remote(args[1], shallow))
@@ -321,8 +302,6 @@ def main(args):
         ops.extend(bootstrap_iterm2())
     elif args[0] == '--bootstrap-windows':
         ops.extend(bootstrap_windows())
-    elif args[0] == '--generate-iterm2-profiles':
-        generate_iterm2_profiles()
     elif args[0] == '--install-sublime-plugins':
         push_sublimetext_windows_plugins()
     else:
@@ -338,7 +317,7 @@ def main(args):
 
 if __name__ == "__main__":
     try:
-        with open('extended_config.json', encoding='utf-8') as config:
+        with open('out/apply_configs.json', encoding='utf-8') as config:
             print('>> Including additional configurations')
             extend_config(json.load(config))
     except FileNotFoundError:
