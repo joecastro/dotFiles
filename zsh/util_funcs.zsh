@@ -30,6 +30,11 @@ if command -v /usr/libexec/java_home &> /dev/null; then
     alias chjava='__update_java_home'
 fi
 
+function make_python_venv() {
+    python3 -m venv ./.venv
+    cd .
+}
+
 function wintitle() {
     if [ -z "$1" ]; then
         echo "Missing window title"
