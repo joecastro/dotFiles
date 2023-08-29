@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+# pylint: disable=too-many-arguments, missing-module-docstring, missing-function-docstring, line-too-long
+
 import json
 import os
 from pathlib import Path
@@ -67,7 +69,8 @@ vim_pack_plugin_start_repos = [
     'https://github.com/udalov/kotlin-vim.git',
     # A tree explorer plugin for vim.
     'https://github.com/preservim/nerdtree.git',
-    # A Vim plugin which shows git diff markers in the sign column and stages/previews/undoes hunks and partial hunks.
+    # A Vim plugin which shows git diff markers in the sign column
+    # and stages/previews/undoes hunks and partial hunks.
     'https://github.com/airblade/vim-gitgutter.git',
     # 💻 Terminal manager for (neo)vim
     'https://github.com/voldikss/vim-floaterm.git',
@@ -124,7 +127,8 @@ def fixup_source_zshenv():
     with open(ZSHENV_SRC, 'r', encoding='utf-8') as file:
         content = file.read()
 
-    result = re.search(f'{re.escape(ZSHENV_PREAMBLE)}.*{re.escape(ZSHENV_CONCLUSION)}', content, re.DOTALL)
+    zshenv_re_sub = f'{re.escape(ZSHENV_PREAMBLE)}.*{re.escape(ZSHENV_CONCLUSION)}'
+    result = re.search(zshenv_re_sub, content, re.DOTALL)
 
     # This will be None if pulled from a remote host without content substituted in.
     if result is None:
@@ -159,7 +163,8 @@ def install_vim_plugin_ops(host):
     pack_root = f'{HOME}/.vim/pack' if host == local_host else './.vim/pack'
     ops.append(['rm', '-rf', pack_root])
     pattern = re.compile("([^/]+)\\.git$")
-    for (infix, repos) in [('plugins/start', vim_pack_plugin_start_repos), ('plugins/opt', vim_pack_plugin_opt_repos)]:
+    for (infix, repos) in [('plugins/start', vim_pack_plugin_start_repos),
+                           ('plugins/opt', vim_pack_plugin_opt_repos)]:
         ops.extend([['git', 'clone', plugin_repo, f'{pack_root}/{infix}/{pattern.search(plugin_repo).group(1)}']
                     for plugin_repo in repos])
 
@@ -199,7 +204,8 @@ def copy_files(source_host, source_root, source_files, dest_host, dest_root, des
     else:
         ops.extend(mkdir_ops)
 
-    ops.extend([['scp', f'{source_prefix}/{repo_file}', f'{dest_prefix}/{dot_file}'] for (repo_file, dot_file) in zip(source_files, dest_files)])
+    ops.extend([['scp', f'{source_prefix}/{repo_file}', f'{dest_prefix}/{dot_file}']
+                 for (repo_file, dot_file) in zip(source_files, dest_files)])
 
     return ops
 
@@ -256,11 +262,13 @@ def pull_remote(host):
 
 
 def bootstrap_windows():
+    ''' Apply environment settings for a new Windows machine. '''
     return [
         make_sys_op(f'SETX DOTFILES_SRC_DIR {os.getcwd()}')]
 
 
 def bootstrap_iterm2():
+    ''' Associate the plist for iTerm2 with the dotFiles. '''
     return [
         # Specify the preferences directory
         make_sys_op('defaults write com.googlecode.iterm2 PrefsCustomFolder - string "$PWD/iterm2"'),
@@ -269,15 +277,17 @@ def bootstrap_iterm2():
 
 
 def push_sublimetext_windows_plugins():
+    ''' Setup any Sublime Text plugins for Windows. '''
     return [
         ['cp', 'sublime_text\\*', '"%APPDATA%\\Sublime Text 2\\Packages\\User"']
     ]
 
 
 def extend_config(cfg):
+    ''' Augment the current configuration with external extensions. '''
     extended_file_maps = cfg.get('file_maps')
     if extended_file_maps is not None:
-        global_file_maps.extend([(src, dest) for (src, dest) in extended_file_maps.items()])
+        global_file_maps.extend(extended_file_maps)
 
     extended_hosts = cfg.get('hosts')
     if extended_hosts is not None:
@@ -292,22 +302,19 @@ def extend_config(cfg):
         vim_pack_plugin_opt_repos.extend(extended_vim_opt_plugins)
 
 
-def finalize_config():
-    # Fixup the file_maps based on host overrides
-    for host in hosts:
-        if not host.get('file_maps'):
-            host['file_maps'] = {}
-        else:
-            # Convert from a list to a dictionary. It's easier to not compute key names in jsonnet.
-            host['file_maps'] = {k: v for (k, v) in host['file_maps']}
-        host['file_maps'] |= {k: v for (k, v) in global_file_maps}
-        if host.get('file_maps_exclude'):
-            orig_maps = host['file_maps']
-            host['file_maps'] = {k: orig_maps[k] for k in orig_maps.keys()
-                                 if not any(k.startswith(p) for p in host['file_maps_exclude'])}
+def finalize_config(host):
+    ''' Fixup the file_maps based on host overrides '''
+
+    # Convert from a list to a dictionary. It's easier to not compute key names in jsonnet.
+    new_file_maps = dict(host.get('file_maps', [])) | dict(global_file_maps)
+    new_file_maps = {k: v for (k, v) in new_file_maps.items()
+                     if not any(k.startswith(p) for p in host.get('file_maps_exclude', []))}
+
+    host['file_maps'] = new_file_maps
 
 
 def main(args):
+    ''' Apply dotFiles operations '''
     print_only = False
     if '--dry-run' in args:
         print_only = True
@@ -318,30 +325,31 @@ def main(args):
         args.remove('--shallow')
 
     ops = []
-    if args[0] == '--push':
-        if len(args) < 2:
+    match args[0]:
+        case '--push':
+            if len(args) < 2:
+                ops.extend(push_remote(local_host, shallow))
+            elif args[1] == '--all':
+                for host in hosts:
+                    ops.extend(push_remote(host, shallow))
+            else:
+                ops.extend(push_remote(args[1], shallow))
+        case '--push-local':
             ops.extend(push_remote(local_host, shallow))
-        elif args[1] == '--all':
-            for host in hosts:
-                ops.extend(push_remote(host, shallow))
-        else:
-            ops.extend(push_remote(args[1], shallow))
-    elif args[0] == '--push-local':
-        ops.extend(push_remote(local_host, shallow))
-    elif args[0] == '--pull':
-        if len(args) < 2:
-            ops.extend(pull_remote(local_host))
-        else:
-            ops.extend(pull_remote(args[1]))
-    elif args[0] == '--bootstrap-iterm2':
-        ops.extend(bootstrap_iterm2())
-    elif args[0] == '--bootstrap-windows':
-        ops.extend(bootstrap_windows())
-    elif args[0] == '--install-sublime-plugins':
-        push_sublimetext_windows_plugins()
-    else:
-        print('<unknown arg>')
-        return 1
+        case '--pull':
+            if len(args) < 2:
+                ops.extend(pull_remote(local_host))
+            else:
+                ops.extend(pull_remote(args[1]))
+        case '--bootstrap-iterm2':
+            ops.extend(bootstrap_iterm2())
+        case '--bootstrap-windows':
+            ops.extend(bootstrap_windows())
+        case '--install-sublime-plugins':
+            push_sublimetext_windows_plugins()
+        case _:
+            print('<unknown arg>')
+            return 1
 
     if print_only:
         print_ops(ops)
@@ -369,13 +377,16 @@ if __name__ == "__main__":
         pass
 
     process_jsonnet_configs()
-    finalize_config()
+
     try:
         with open('out/apply_configs.json', encoding='utf-8') as config:
             print('>> Including additional configurations')
             extend_config(json.load(config))
     except FileNotFoundError:
         pass
+
+    for h in hosts:
+        finalize_config(h)
 
     if len(sys.argv) < 2:
         print('<missing args>')
