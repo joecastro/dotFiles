@@ -425,6 +425,9 @@ if [[ "iTerm2" == "$LC_TERMINAL" ]]; then
     test -e ~/.iterm2_shell_integration.zsh && source ~/.iterm2_shell_integration.zsh
 fi
 
+test -e ~/.zshext/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh && \
+    source ~/.zshext/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+
 if ! __is_embedded_terminal; then
     alias cd='__venv_aware_cd'
 else

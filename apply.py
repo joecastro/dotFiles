@@ -83,6 +83,11 @@ vim_pack_plugin_opt_repos = [
     'https://github.com/joshdick/onedark.vim.git'
 ]
 
+zsh_plugin_repos = [
+    # Fish shell like syntax highlighting for Zsh.
+    'https://github.com/zsh-users/zsh-syntax-highlighting.git'
+]
+
 iterm_substitutions = []
 
 SYS_COMMAND_PREFIX = 'sys_command: '
@@ -154,6 +159,22 @@ def expand_zshenv(host, target_file):
 
     with open(target_file, 'w', encoding='utf-8') as file:
         file.write(content.replace(ZSHENV_SUB, zshenv_dynamic_content))
+
+
+def install_zsh_plugin_ops(host):
+    hostname = host['hostname']
+
+    ops = [f'Cloning {len(zsh_plugin_repos)} Zsh plugins for {hostname}']
+    plugin_root = f'{HOME}/.zshext' if host == local_host else './.zshext'
+    ops.append(['rm', '-rf', plugin_root])
+    pattern = re.compile("([^/]+)\\.git$")
+    for repo in zsh_plugin_repos:
+        ops.append(['git', 'clone', repo, f'{plugin_root}/{pattern.search(repo).group(1)}'])
+
+    if host == local_host:
+        return ops
+
+    return [['ssh', hostname, ' '.join(op)] if isinstance(op, list) else op for op in ops]
 
 
 def install_vim_plugin_ops(host):
@@ -244,6 +265,7 @@ def push_remote(host, shallow):
 
     if not shallow:
         ops.extend(install_vim_plugin_ops(host))
+        ops.extend(install_zsh_plugin_ops(host))
 
     return ops
 
