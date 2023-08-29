@@ -194,6 +194,7 @@ local wallpapers = import '../wallpaper/wallpapers.jsonnet';
         "Terminal Type": "xterm-256color",
         "Thin Strokes": 3,
         "Transparency": 0,
+        "Triggers": [],
         "Unicode Normalization": 0,
         "Unlimited Scrollback": true,
         "Use Bold Font": true,
