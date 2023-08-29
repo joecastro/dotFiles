@@ -1,5 +1,12 @@
 local wallpapers = import '../wallpaper/wallpapers.jsonnet';
 {
+    ItermProfileTrigger(regex, action, parameter, partial=false)::
+    {
+        action : action,
+        parameter : parameter,
+        regex : regex,
+        [if partial then "partial"]: true,
+    },
     ItermProfile(profile_name, guid, wallpaper)::
     {
         "ASCII Anti Aliased": true,
