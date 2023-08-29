@@ -1,10 +1,6 @@
-local BackgroundImageNode(file_name, blend_percent=0.4) =
+local wallpapers = import '../wallpaper/wallpapers.jsonnet';
 {
-    full_path: std.extVar('dot_files_root') + "/wallpaper/" + file_name,
-    blend: blend_percent,
-};
-{
-    ItermProfile(profile_name, wallpaper, guid)::
+    ItermProfile(profile_name, guid, wallpaper)::
     {
         "ASCII Anti Aliased": true,
         "ASCII Ligatures": true,
@@ -95,7 +91,7 @@ local BackgroundImageNode(file_name, blend_percent=0.4) =
             "Green Component": "0",
             "Red Component": "0"
         },
-        "Background Image Location": wallpaper.full_path,
+        "Background Image Location": std.extVar("dot_files_root") + "/wallpaper/" + wallpaper.path,
         "Background Image Mode": 2,
         "Badge Color": {
             "Alpha Component": 0.5,
@@ -201,20 +197,7 @@ local BackgroundImageNode(file_name, blend_percent=0.4) =
         "Visual Bell": true,
         "Window Type": 0
     },
-    wallpapers:: {
-        abstract_blue: BackgroundImageNode("abstract_blue.png"),
-        abstract_red: BackgroundImageNode("abstract_red.png"),
-        abstract_gray: BackgroundImageNode("abstract_gray.png"),
-        abstract_colorful: BackgroundImageNode("abstract_colorful.png"),
-        abstract_purple_blue: BackgroundImageNode("abstract_purple_blue.jpg", 0.7),
-        android_army: BackgroundImageNode("android_army.jpg", 0.6),
-        android_backpack: BackgroundImageNode("android_backpack.jpg"),
-        android_colorful: BackgroundImageNode("android_colorful.jpg"),
-        android_umbrella: BackgroundImageNode("android_umbrella.jph"),
-        android_wood: BackgroundImageNode("android_wood.jpg", 0.6),
-        google_colors: BackgroundImageNode("google_colors.jpg", 0.35),
-    },
     Profiles: [
-        self.ItermProfile("Zsh the Hard Way", self.wallpapers.abstract_colorful, "FA66AC80-6AAA-4A3B-9CFE-B934F789D5EF")
+        self.ItermProfile("Zsh the Hard Way", "FA66AC80-6AAA-4A3B-9CFE-B934F789D5EF", wallpapers.abstract_colorful)
     ],
 }

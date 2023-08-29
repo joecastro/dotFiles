@@ -11,6 +11,8 @@ ZSHENV_PREAMBLE = '# === BEGIN_DYNAMIC_SECTION ==='
 ZSHENV_CONCLUSION = '# === END_DYNAMIC_SECTION ==='
 ZSHENV_SUB = '#<DOTFILES_HOME_SUBST>'
 
+LOCAL_DEBUG_PREFIX = 'local: '
+
 HOME = str(Path.home())
 CWD = '.'
 
@@ -32,6 +34,7 @@ hosts = [
         ],
         'file_maps_exclude': [
             'bash/',
+            'konsole/',
             'verify_fonts.py'
         ]
     }
@@ -39,20 +42,20 @@ hosts = [
 
 local_host = hosts[0]
 
-file_maps = [
-    ('bash/bashrc.sh', '.bashrc'),
-    ('bash/profile.sh', '.profile'),
-    ('bash/bash_profile.sh', '.bash_profile'),
-    ('zsh/zshrc.zsh', '.zshrc'),
-    ('zsh/zprofile.zsh', '.zprofile'),
-    (ZSHENV_SRC, ZSHENV_DEST),
-    ('zsh/android_funcs.zsh', '.android_funcs.zsh'),
-    ('zsh/osx_funcs.zsh', '.osx_funcs.zsh'),
-    ('zsh/util_funcs.zsh', '.util_funcs.zsh'),
-    ('vim/vimrc.vim', '.vimrc'),
-    ('vim/colors/molokai.vim', '.vim/colors/molokai.vim'),
-    ('tmux/tmux.conf', '.tmux.conf'),
-    ('verify_fonts.py', 'dotScripts/verify_fonts.py')
+global_file_maps = [
+    ['bash/bashrc.sh', '.bashrc'],
+    ['bash/profile.sh', '.profile'],
+    ['bash/bash_profile.sh', '.bash_profile'],
+    ['zsh/zshrc.zsh', '.zshrc'],
+    ['zsh/zprofile.zsh', '.zprofile'],
+    [ZSHENV_SRC, ZSHENV_DEST],
+    ['zsh/android_funcs.zsh', '.android_funcs.zsh'],
+    ['zsh/osx_funcs.zsh', '.osx_funcs.zsh'],
+    ['zsh/util_funcs.zsh', '.util_funcs.zsh'],
+    ['vim/vimrc.vim', '.vimrc'],
+    ['vim/colors/molokai.vim', '.vim/colors/molokai.vim'],
+    ['tmux/tmux.conf', '.tmux.conf'],
+    ['verify_fonts.py', 'dotScripts/verify_fonts.py']
 ]
 
 vim_pack_plugin_start_repos = [
@@ -107,7 +110,9 @@ def run_ops(ops):
             if entry.startswith(SYS_COMMAND_PREFIX):
                 os.system(entry.removeprefix(SYS_COMMAND_PREFIX))
             else:
-                print(f'>> {entry}')
+                if not entry.startswith('local'):
+                    entry = '>> ' + entry
+                print(entry)
         elif isinstance(entry, list):
             subprocess.run(entry, check=False)
         elif callable(entry):
@@ -148,7 +153,9 @@ def expand_zshenv(host, target_file):
 
 
 def install_vim_plugin_ops(host):
-    ops = [f'Cloning {len(vim_pack_plugin_start_repos) + len(vim_pack_plugin_opt_repos)} Vim plugins for {host["hostname"]}']
+    hostname = host['hostname']
+
+    ops = [f'Cloning {len(vim_pack_plugin_start_repos) + len(vim_pack_plugin_opt_repos)} Vim plugins for {hostname}']
     pack_root = f'{HOME}/.vim/pack' if host == local_host else './.vim/pack'
     ops.append(['rm', '-rf', pack_root])
     pattern = re.compile("([^/]+)\\.git$")
@@ -159,54 +166,74 @@ def install_vim_plugin_ops(host):
     if host == local_host:
         return ops
 
-    return [['ssh', host['hostname'], ' '.join(op)] if isinstance(op, list) else op for op in ops]
+    return [['ssh', hostname, ' '.join(op)] if isinstance(op, list) else op for op in ops]
 
 
-def copy_files_local(source_root, source_files, dest_root, dest_files):
+def copy_files(source_host, source_root, source_files, dest_host, dest_root, dest_files, annotate=False):
+    if dest_host != local_host and dest_root == HOME:
+        dest_root = CWD
+    if source_host != local_host and source_root == HOME:
+        source_root = CWD
+
+    is_remote_target = dest_host != local_host
+
+    if not is_remote_target and source_host == local_host:
+        return copy_files_local(source_root, source_files, dest_root, dest_files, annotate)
+
+    if source_host == local_host:
+        source_prefix = source_root
+    else:
+        source_prefix = source_host['hostname'] + ':' + source_root
+
+    if not is_remote_target:
+        dest_prefix = dest_root
+    else:
+        dest_prefix = dest_host['hostname'] + ':' + dest_root
+
+    ops = []
+
+    dest_subfolders = set([os.path.dirname(d) for d in dest_files if os.path.dirname(d)])
+    mkdir_ops = [['mkdir', '-p', f'{dest_root}/{sub}'] for sub in dest_subfolders]
+    if is_remote_target:
+        ops.extend([['ssh', dest_host['hostname'], ' '.join(op)] for op in mkdir_ops])
+    else:
+        ops.extend(mkdir_ops)
+
+    ops.extend([['scp', f'{source_prefix}/{repo_file}', f'{dest_prefix}/{dot_file}'] for (repo_file, dot_file) in zip(source_files, dest_files)])
+
+    return ops
+
+def copy_files_local(source_root, source_files, dest_root, dest_files, annotate: bool = False):
     ops = []
     ops.append(['mkdir', '-p', dest_root])
 
     dest_subfolders = set([os.path.dirname(d) for d in dest_files if os.path.dirname(d)])
     ops.extend([['mkdir', '-p', f'{dest_root}/{sub}'] for sub in dest_subfolders])
-    ops.extend([['cp', f'{source_root}/{repo_file}', f'{dest_root}/{dot_file}'] for (repo_file, dot_file) in zip(source_files, dest_files)])
-
-    return ops
-
-def push_local(shallow):
-    staging_dir = 'out/localhost-dot'
-    ops = ['Synching dotFiles for localhost']
-
-    ops.extend(copy_files_local(CWD, [k for (k, _) in file_maps], staging_dir, [k for (k, _) in file_maps]))
-
-    # fixup the zshenv to include dynamic content
-    ops.append(lambda: expand_zshenv(local_host, f'{staging_dir}/{ZSHENV_SRC}'))
-
-    ops.append(f'Copying {len(file_maps)} files to local home directory')
-    ops.extend(copy_files_local(staging_dir, [k for (k, _) in file_maps], HOME, [v for (_, v) in file_maps]))
-    ops.append(['rm', '-rf', staging_dir])
-
-    if not shallow:
-        ops.extend(install_vim_plugin_ops(local_host))
+    for (repo_file, dot_file) in zip(source_files, dest_files):
+        copy_op = ['cp', f'{source_root}/{repo_file}', f'{dest_root}/{dot_file}']
+        if annotate:
+            ops.append(LOCAL_DEBUG_PREFIX + ' '.join(copy_op))
+        ops.append(copy_op)
 
     return ops
 
 
 def push_remote(host, shallow):
-    if host == local_host:
-        return push_local(shallow)
+    if isinstance(host, str):
+        host = [h for h in hosts if h['hostname'] == host][0]
 
-    staging_dir = f'out/{host["hostname"]}-dot'
-    ops = [f'Synching dotFiles for {host["hostname"]}']
-    ops.extend(copy_files_local(CWD, [k for (k, _) in file_maps], staging_dir, [k for (k, _) in file_maps]))
+    hostname = host['hostname']
+    file_maps = host['file_maps']
+
+    staging_dir = f'{CWD}/out/{host["hostname"]}-dot'
+    ops = [f'Synching dotFiles for {hostname}']
+    ops.extend(copy_files_local(CWD, file_maps.keys(), staging_dir, file_maps.keys()))
 
     # fixup the zshenv to include dynamic content
     ops.append(lambda: expand_zshenv(host, f'{staging_dir}/{ZSHENV_SRC}'))
 
-    dest_subfolders = set([os.path.dirname(d) for d in [v for (_, v) in file_maps] if os.path.dirname(d)])
-    ops.extend([['ssh', host['hostname'], f'mkdir -p ./{sub}'] for sub in dest_subfolders])
-
-    ops.append(f'Copying {len(file_maps)} files to local home directory')
-    ops.extend([['scp', f'{staging_dir}/{repo_file}', f'{host["hostname"]}:{dot_file}'] for (repo_file, dot_file) in file_maps])
+    ops.append(f'Copying {len(file_maps)} files to {hostname} home directory')
+    ops.extend(copy_files(local_host, staging_dir, file_maps.keys(), host, HOME, file_maps.values(), annotate=True))
     ops.append(['rm', '-rf', staging_dir])
 
     if not shallow:
@@ -215,19 +242,12 @@ def push_remote(host, shallow):
     return ops
 
 
-def pull_local():
-    ops = ['Snapshotting dotFiles from localhost']
-    for (repo_file, dot_file) in file_maps:
-        ops.append(['cp', f'{HOME}/{dot_file}', f'{CWD}/{repo_file}'])
-    # fixup the zshenv to exclude the dynamic content
-    ops.append(fixup_source_zshenv)
-
-    return ops
-
-
 def pull_remote(host):
-    ops = [f'Snapshotting dotFiles from {host["hostname"]}']
-    ops.extend([['scp', f'{host["hostname"]}:{dot_file}', f'{CWD}/{repo_file}'] for (repo_file, dot_file) in file_maps])
+    hostname = host['hostname']
+    file_maps = host['file_maps']
+
+    ops = [f'Snapshotting dotFiles from {hostname}']
+    ops.extend(copy_files(host, HOME, file_maps.values(), local_host, CWD, file_maps.keys()))
 
     # fixup the zshenv to exclude the dynamic content
     ops.append(fixup_source_zshenv)
@@ -257,7 +277,7 @@ def push_sublimetext_windows_plugins():
 def extend_config(cfg):
     extended_file_maps = cfg.get('file_maps')
     if extended_file_maps is not None:
-        file_maps.extend([(src, dest) for (src, dest) in extended_file_maps.items()])
+        global_file_maps.extend([(src, dest) for (src, dest) in extended_file_maps.items()])
 
     extended_hosts = cfg.get('hosts')
     if extended_hosts is not None:
@@ -270,6 +290,21 @@ def extend_config(cfg):
     extended_vim_opt_plugins = cfg.get('vim_plugin_opt_repos')
     if extended_vim_opt_plugins is not None:
         vim_pack_plugin_opt_repos.extend(extended_vim_opt_plugins)
+
+
+def finalize_config():
+    # Fixup the file_maps based on host overrides
+    for host in hosts:
+        if not host.get('file_maps'):
+            host['file_maps'] = {}
+        else:
+            # Convert from a list to a dictionary. It's easier to not compute key names in jsonnet.
+            host['file_maps'] = {k: v for (k, v) in host['file_maps']}
+        host['file_maps'] |= {k: v for (k, v) in global_file_maps}
+        if host.get('file_maps_exclude'):
+            orig_maps = host['file_maps']
+            host['file_maps'] = {k: orig_maps[k] for k in orig_maps.keys()
+                                 if not any(k.startswith(p) for p in host['file_maps_exclude'])}
 
 
 def main(args):
@@ -285,17 +320,17 @@ def main(args):
     ops = []
     if args[0] == '--push':
         if len(args) < 2:
-            ops.extend(push_local(shallow))
+            ops.extend(push_remote(local_host, shallow))
         elif args[1] == '--all':
             for host in hosts:
                 ops.extend(push_remote(host, shallow))
         else:
             ops.extend(push_remote(args[1], shallow))
     elif args[0] == '--push-local':
-        ops.extend(push_local(shallow))
+        ops.extend(push_remote(local_host, shallow))
     elif args[0] == '--pull':
         if len(args) < 2:
-            ops.extend(pull_local())
+            ops.extend(pull_remote(local_host))
         else:
             ops.extend(pull_remote(args[1]))
     elif args[0] == '--bootstrap-iterm2':
@@ -315,7 +350,26 @@ def main(args):
     return 0
 
 
+def process_jsonnet_configs():
+    ''' Process any config files that need to be initialized. '''
+    try:
+        os.remove('out/apply_configs.json')
+    except FileNotFoundError:
+        pass
+
+    if Path.is_file(Path.joinpath(Path.cwd(), 'apply_configs.jsonnet')):
+        with open('out/apply_configs.json', encoding='utf-8', mode='w') as processed_config:
+            subprocess.run(['jsonnet', 'apply_configs.jsonnet'], check=True, stdout=processed_config)
+
+
 if __name__ == "__main__":
+    try:
+        os.mkdir('out')
+    except FileExistsError:
+        pass
+
+    process_jsonnet_configs()
+    finalize_config()
     try:
         with open('out/apply_configs.json', encoding='utf-8') as config:
             print('>> Including additional configurations')
