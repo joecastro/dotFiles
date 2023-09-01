@@ -1,10 +1,11 @@
 #! /bin/zsh
 
+# Keep this repeatedly sourceable.
 #pragma once
-PRAGMA_FILE_NAME="PRAGMA_${"${(%):-%1N}"//\./_}"
-[ -n "${(P)PRAGMA_FILE_NAME}" ] && unset PRAGMA_FILE_NAME && return;
-declare $PRAGMA_FILE_NAME=0
-unset PRAGMA_FILE_NAME
+# PRAGMA_FILE_NAME="PRAGMA_${"${(%):-%1N}"//\./_}"
+# [ -n "${(P)PRAGMA_FILE_NAME}" ] && unset PRAGMA_FILE_NAME && return;
+# declare $PRAGMA_FILE_NAME=0
+# unset PRAGMA_FILE_NAME
 
 # Useful reference: https://scriptingosx.com/2019/07/moving-to-zsh-part-7-miscellanea/
 
@@ -163,7 +164,17 @@ PYTHON_ICON=
 GIT_BRANCH_ICON=
 GIT_COMMIT_ICON=
 HOME_FOLDER_ICON=󱂵
+SUBMODULE_FOLDER_ICON=
 TMUX_ICON=
+VS_CODE_ICON=󰨞
+COD_PINNED_ICON=
+COD_TOOLS_ICON=
+COD_TAG_ICON=
+COD_PACKAGE_ICON=
+COD_SAVE_ICON=
+FAE_TREE_ICON=
+MD_SUBMARINE_ICON=󱕬
+MD_GREATER_THAN_ICON=󰥭
 
 NF_VIM_ICON=$(test -n "$EXPECT_NERD_FONTS" && echo $VIM_ICON || echo "{vim}")
 NF_ANDROID_ICON=$(test -n "$EXPECT_NERD_FONTS" && echo "$ANDROID_BODY_ICON" || echo "$ROBOT_ICON")
@@ -178,7 +189,7 @@ function __cute_pwd() {
             # These commands wind up spitting out an extra slash, so backspace to remove it on the console.
             # Because this messes with the shell's perception of where the cursor is, make the anchor icon
             # appear like an escape sequence instead of a printed character.
-            echo -e "%{$ANCHOR_ICON%}$(git rev-parse --show-toplevel | xargs basename)/$(git rev-parse --show-prefix)\b"
+            echo -e "%{$COD_PINNED_ICON %}$(git rev-parse --show-toplevel | xargs basename)/$(git rev-parse --show-prefix)\b"
         else
             echo "🚧"
         fi
@@ -254,11 +265,11 @@ function __print_git_worktree() {
 
     SUBMODULE_WORKTREE=$(git rev-parse --show-superproject-working-tree)
     if [[ "$SUBMODULE_WORKTREE" == "" ]]; then
-        echo 🌲"%{$fg[green]%}[${ROOT_WORKTREE##*/}/${ACTIVE_WORKTREE##*/}] "
+        echo "%{$fg[green]%}$FAE_TREE_ICON %{%F{207}%}${ROOT_WORKTREE##*/}:%{$fg[green]%}${ACTIVE_WORKTREE##*/} "
         return 0
     fi
 
-    echo 🛶"%{%F{207}%}[${SUBMODULE_WORKTREE##*/}/${ROOT_WORKTREE##*/}] "
+    echo "%{%F{207}%}$MD_SUBMARINE_ICON ${SUBMODULE_WORKTREE##*/} "
     return 0
 }
 
@@ -329,34 +340,41 @@ else
 fi
 
 function __virtualenv_info() {
-    if __is_in_tmux; then echo -n "%{$fg[white]%}$TMUX_ICON"; fi
+    local HAS_VIRTUALENV=1
+    if __is_in_tmux; then echo -n "%{$fg[white]%}$TMUX_ICON" && HAS_VIRTUALENV=0; fi
     # venv="${VIRTUAL_ENV##*/}"
     if __is_on_wsl; then
         if __is_in_windows_drive; then echo -n "%{$fg[blue]%}$WINDOWS_ICON";
         else; echo -n "%{$fg[blue]%}$LINUX_PENGUIN_ICON"; fi
+        HAS_VIRTUALENV=0
     fi
-    if (( ${+VIRTUAL_ENV} )); then echo -n "%{$fg[green]%}$NF_PYTHON_ICON"; fi
-    if (( ${+VIMRUNTIME} )); then echo -n "%{$fg[green]%}$NF_VIM_ICON"; fi
-    echo -n "%{$reset_color%}"
+    if (( ${+VIRTUAL_ENV} )); then echo -n "%{$fg[green]%}$NF_PYTHON_ICON" && HAS_VIRTUALENV=0; fi
+    if (( ${+VIMRUNTIME} )); then echo -n "%{$fg[green]%}$NF_VIM_ICON" && HAS_VIRTUALENV=0; fi
+    if [[ "$HAS_VIRTUALENV" == "0" ]]; then
+        echo -n "%{$reset_color%} "
+    fi
 }
 
 # disable the default virtualenv prompt change
 VIRTUAL_ENV_DISABLE_PROMPT=1
 SKIP_WORKTREE_IN_ANDROID_REPO=1 # Repo is implemented in terms of worktrees, so this gets noisy.
 
+END_OF_PROMPT_ICON="$"
+
 PROMPT=''
 PROMPT+='${white}$(__cute_time_prompt) '
+PROMPT+='$(__virtualenv_info)'
 PROMPT+='%{$fg[green]%}$USER%{$fg[yellow]%}@%B$HostColor$HostNameDisplay%{$reset_color%} '
 # Optional - spaces are embedded in output suffix if these are non-empty.
 PROMPT+='$(__print_repo_worktree)%{$reset_color%}'
 PROMPT+='$(__print_git_worktree)$(__print_git_info)%{$reset_color%}'
 PROMPT+='$(__cute_pwd)'
-PROMPT+=' $ '
+PROMPT+=' $END_OF_PROMPT_ICON '
 
 RPROMPT=''
 # RPOMPT+='%* '
 # Optional
-RPROMPT+='$(__virtualenv_info)'
+# RPROMPT+='$(__virtualenv_info)'
 
 # if exa is installed prefer that to ls
 # options aren't the same, but I also need it less often...

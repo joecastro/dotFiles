@@ -1,4 +1,20 @@
 local wallpapers = import '../wallpaper/wallpapers.jsonnet';
+local ItermColor(r, g, b) =
+{
+    "Red Component": std.toString(r),
+    "Green Component": std.toString(g),
+    "Blue Component": std.toString(b),
+};
+// Note numbers, not strings :shrug:
+local ItermColorAlpha(r, g, b, a) = {
+    "Color Space": "sRGB",
+    "Red Component": r,
+    "Green Component": g,
+    "Blue Component": b,
+    "Alpha Component": a,
+};
+local ItermColorBlack = ItermColor(0, 0, 0);
+local ItermColorWhite = ItermColor(1, 1, 1);
 {
     ItermProfileTrigger(regex, action, parameter, partial=false)::
     {
@@ -12,143 +28,47 @@ local wallpapers = import '../wallpaper/wallpapers.jsonnet';
         "ASCII Anti Aliased": true,
         "ASCII Ligatures": true,
         "Ambiguous Double Width": false,
-        "Ansi 0 Color": {
-            "Blue Component": "0",
-            "Green Component": "0",
-            "Red Component": "0"
-        },
-        "Ansi 1 Color": {
-            "Blue Component": "0",
-            "Green Component": "0",
-            "Red Component": "0.8"
-        },
-        "Ansi 10 Color": {
-            "Blue Component": "0.2039216",
-            "Green Component": "0.8862745",
-            "Red Component": "0.5411764999999999"
-        },
-        "Ansi 11 Color": {
-            "Blue Component": "0.3098039",
-            "Green Component": "0.9137255",
-            "Red Component": "0.9882353"
-        },
-        "Ansi 12 Color": {
-            "Blue Component": "0.8117647",
-            "Green Component": "0.6235294",
-            "Red Component": "0.4470588"
-        },
-        "Ansi 13 Color": {
-            "Blue Component": "0.6588235",
-            "Green Component": "0.4980392",
-            "Red Component": "0.6784314"
-        },
-        "Ansi 14 Color": {
-            "Blue Component": "0.8862745",
-            "Green Component": "0.8862745",
-            "Red Component": "0.2039216"
-        },
-        "Ansi 15 Color": {
-            "Blue Component": "0.9254902",
-            "Green Component": "0.9333333",
-            "Red Component": "0.9333333"
-        },
-        "Ansi 2 Color": {
-            "Blue Component": "0.02352941",
-            "Green Component": "0.6039215999999999",
-            "Red Component": "0.3058824"
-        },
-        "Ansi 3 Color": {
-            "Blue Component": "0",
-            "Green Component": "0.627451",
-            "Red Component": "0.7686275"
-        },
-        "Ansi 4 Color": {
-            "Blue Component": "0.6431373",
-            "Green Component": "0.3960784",
-            "Red Component": "0.2039216"
-        },
-        "Ansi 5 Color": {
-            "Blue Component": "0.4823529",
-            "Green Component": "0.3137255",
-            "Red Component": "0.4588235"
-        },
-        "Ansi 6 Color": {
-            "Blue Component": "0.6039215999999999",
-            "Green Component": "0.5960785",
-            "Red Component": "0.02352941"
-        },
-        "Ansi 7 Color": {
-            "Blue Component": "0.8117647",
-            "Green Component": "0.8431373",
-            "Red Component": "0.827451"
-        },
-        "Ansi 8 Color": {
-            "Blue Component": "0.3254902",
-            "Green Component": "0.3411765",
-            "Red Component": "0.3333333"
-        },
-        "Ansi 9 Color": {
-            "Blue Component": "0.1607843",
-            "Green Component": "0.1607843",
-            "Red Component": "0.9372549"
-        },
+        "Ansi 0 Color": ItermColorBlack,
+        "Ansi 1 Color": ItermColor(0.8, 0, 0),
+        "Ansi 2 Color": ItermColor(0.31, 0.60, 0.02),
+        "Ansi 3 Color": ItermColor(0.77, 0.63, 0),
+        "Ansi 4 Color": ItermColor(0.20, 0.40, 0.64),
+        "Ansi 5 Color": ItermColor(0.46, 0.31, 0.48),
+        "Ansi 6 Color": ItermColor(0.02, 0.60, 0.60),
+        "Ansi 7 Color": ItermColor(0.83, 0.84, 0.81),
+        "Ansi 8 Color": ItermColor(0.33, 0.34, 0.33),
+        "Ansi 9 Color": ItermColor(0.94, 0.16, 0.16),
+        "Ansi 10 Color": ItermColor(0.54, 0.89, 0.20),
+        "Ansi 11 Color": ItermColor(0.99, 0.91, 0.31),
+        "Ansi 12 Color": ItermColor(0.45, 0.62, 0.81),
+        "Ansi 13 Color": ItermColor(0.68, 0.50, 0.66),
+        "Ansi 14 Color": ItermColor(0.20, 0.89, 0.89),
+        "Ansi 15 Color": ItermColor(0.93, 0.93, 0.92),
         "BM Growl": true,
-        "Background Color": {
-            "Blue Component": "0",
-            "Green Component": "0",
-            "Red Component": "0"
-        },
+        "Background Color": ItermColorBlack,
         "Background Image Location": std.extVar("dot_files_root") + "/wallpaper/" + wallpaper.path,
         "Background Image Mode": 2,
-        "Badge Color": {
-            "Alpha Component": 0.5,
-            "Blue Component": 0,
-            "Color Space": "sRGB",
-            "Green Component": 0.15,
-            "Red Component": 1
-        },
+        "Badge Color": ItermColorAlpha(1, 0.15, 0, 0.5),
         "Blend": wallpaper.blend,
         "Blink Allowed": false,
         "Blinking Cursor": false,
         "Blur": true,
         "Blur Radius": 10,
-        "Bold Color": {
-            "Blue Component": "1",
-            "Green Component": "1",
-            "Red Component": "1"
-        },
+        "Bold Color": ItermColorWhite,
         "Character Encoding": 4,
         "Close Sessions On End": true,
         "Columns": 140,
-        "Command": "/bin/zsh",
-        "Cursor Color": {
-            "Blue Component": "1",
-            "Green Component": "1",
-            "Red Component": "1"
-        },
-        "Cursor Guide Color": {
-            "Alpha Component": 0.25,
-            "Blue Component": 1,
-            "Color Space": "sRGB",
-            "Green Component": 0.93,
-            "Red Component": 0.70
-        },
-        "Cursor Text Color": {
-            "Green Component": "0",
-            "Blue Component": "0",
-            "Red Component": "0"
-        },
+        "Command": "/opt/homebrew/bin/zsh",
+        "Cursor Color": ItermColorWhite,
+        "Cursor Guide Color": ItermColorAlpha(0.70, 0.93, 1, 0.25),
+        "Cursor Text Color": ItermColorBlack,
         "Custom Command": "Custom Shell",
         "Custom Directory": "No",
         "Default Bookmark": "No",
         "Description": "Default",
         "Disable Window Resizing": true,
         "Flashing Bell": false,
-        "Foreground Color": {
-            "Blue Component": "1",
-            "Green Component": "1",
-            "Red Component": "1"
-        },
+        "Foreground Color": ItermColorWhite,
         "Guid": guid,
         "Horizontal Spacing": 1,
         "Icon": 1,
@@ -157,13 +77,7 @@ local wallpapers = import '../wallpaper/wallpapers.jsonnet';
         "Initial Use Transparency": false,
         "Jobs to Ignore": [],
         "Left Option Key Changeable": false,
-        "Link Color": {
-            "Alpha Component": 1,
-            "Blue Component": 0.7342271208763123,
-            "Color Space": "sRGB",
-            "Green Component": 0.35915297269821167,
-            "Red Component": 0
-        },
+        "Link Color": ItermColorAlpha(0, 0.36, 0.73, 1),
         "Mouse Reporting": true,
         "Name": profile_name,
         "Non-ASCII Anti Aliased": true,
@@ -175,16 +89,8 @@ local wallpapers = import '../wallpaper/wallpapers.jsonnet';
         "Rows": 25,
         "Screen": -1,
         "Scrollback Lines": 0,
-        "Selected Text Color": {
-            "Blue Component": "0",
-            "Green Component": "0",
-            "Red Component": "0"
-        },
-        "Selection Color": {
-            "Blue Component": "1",
-            "Green Component": "0.8353",
-            "Red Component": "0.7098"
-        },
+        "Selected Text Color": ItermColorBlack,
+        "Selection Color": ItermColor(0.71, 0.84, 1),
         "Send Code When Idle": false,
         "Shortcut": "",
         "Silence Bell": false,
