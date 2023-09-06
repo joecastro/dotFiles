@@ -13,8 +13,6 @@ ZSHENV_PREAMBLE = '# === BEGIN_DYNAMIC_SECTION ==='
 ZSHENV_CONCLUSION = '# === END_DYNAMIC_SECTION ==='
 ZSHENV_SUB = '#<DOTFILES_HOME_SUBST>'
 
-LOCAL_DEBUG_PREFIX = 'local: '
-
 HOME = str(Path.home())
 CWD = '.'
 
@@ -44,66 +42,61 @@ hosts = [
 
 local_host = hosts[0]
 
-global_file_maps = [
-    ['bash/bashrc.sh', '.bashrc'],
-    ['bash/profile.sh', '.profile'],
-    ['bash/bash_profile.sh', '.bash_profile'],
-    ['zsh/zshrc.zsh', '.zshrc'],
-    ['zsh/zprofile.zsh', '.zprofile'],
-    [ZSHENV_SRC, ZSHENV_DEST],
-    ['zsh/android_funcs.zsh', '.android_funcs.zsh'],
-    ['zsh/osx_funcs.zsh', '.osx_funcs.zsh'],
-    ['zsh/util_funcs.zsh', '.util_funcs.zsh'],
-    ['vim/vimrc.vim', '.vimrc'],
-    ['vim/colors/molokai.vim', '.vim/colors/molokai.vim'],
-    ['tmux/tmux.conf', '.tmux.conf'],
-    ['verify_fonts.py', 'dotScripts/verify_fonts.py']
-]
+config = {
+    'file_maps': [
+        ['bash/bashrc.sh', '.bashrc'],
+        ['bash/profile.sh', '.profile'],
+        ['bash/bash_profile.sh', '.bash_profile'],
+        ['zsh/zshrc.zsh', '.zshrc'],
+        ['zsh/zprofile.zsh', '.zprofile'],
+        [ZSHENV_SRC, ZSHENV_DEST],
+        ['zsh/android_funcs.zsh', '.android_funcs.zsh'],
+        ['zsh/osx_funcs.zsh', '.osx_funcs.zsh'],
+        ['zsh/util_funcs.zsh', '.util_funcs.zsh'],
+        ['vim/vimrc.vim', '.vimrc'],
+        ['vim/colors/molokai.vim', '.vim/colors/molokai.vim'],
+        ['tmux/tmux.conf', '.tmux.conf'],
+        ['verify_fonts.py', 'dotScripts/verify_fonts.py']
+    ],
+    'vim_pack_plugin_start_repos': [
+        # Syntax highlighting for AOSP specific files
+        'https://github.com/rubberduck203/aosp-vim.git',
+        # Lean & mean status/tabline for vim that's light as air
+        'https://github.com/vim-airline/vim-airline.git',
+        # Kotlin plugin for Vim. Featuring: syntax highlighting, basic indentation, Syntastic support
+        'https://github.com/udalov/kotlin-vim.git',
+        # A tree explorer plugin for vim.
+        'https://github.com/preservim/nerdtree.git',
+        # A Vim plugin which shows git diff markers in the sign column
+        # and stages/previews/undoes hunks and partial hunks.
+        'https://github.com/airblade/vim-gitgutter.git',
+        # 💻 Terminal manager for (neo)vim
+        'https://github.com/voldikss/vim-floaterm.git',
+        # Check syntax in Vim asynchronously and fix files, with Language Server Protocol (LSP) support
+        'https://github.com/dense-analysis/ale.git'
+    ],
+    'vim_pack_plugin_opt_repos': [
+        # A dark Vim/Neovim color scheme inspired by Atom's One Dark syntax theme.
+        'https://github.com/joshdick/onedark.vim.git'
+    ],
+    'zsh_plugin_repos': [
+        # Fish shell like syntax highlighting for Zsh.
+        'https://github.com/zsh-users/zsh-syntax-highlighting.git'
+    ]
+}
 
-vim_pack_plugin_start_repos = [
-    # Syntax highlighting for AOSP specific files
-    'https://github.com/rubberduck203/aosp-vim.git',
-    # Lean & mean status/tabline for vim that's light as air
-    'https://github.com/vim-airline/vim-airline.git',
-    # Kotlin plugin for Vim. Featuring: syntax highlighting, basic indentation, Syntastic support
-    'https://github.com/udalov/kotlin-vim.git',
-    # A tree explorer plugin for vim.
-    'https://github.com/preservim/nerdtree.git',
-    # A Vim plugin which shows git diff markers in the sign column
-    # and stages/previews/undoes hunks and partial hunks.
-    'https://github.com/airblade/vim-gitgutter.git',
-    # 💻 Terminal manager for (neo)vim
-    'https://github.com/voldikss/vim-floaterm.git',
-    # Check syntax in Vim asynchronously and fix files, with Language Server Protocol (LSP) support
-    'https://github.com/dense-analysis/ale.git'
-]
+def annotate_ops(ops):
+    ret = []
+    for op_list in ops:
+        ret.append(f'local: {" ".join(op_list)}')
+        ret.append(op_list)
 
-vim_pack_plugin_opt_repos = [
-    # A dark Vim/Neovim color scheme inspired by Atom's One Dark syntax theme.
-    'https://github.com/joshdick/onedark.vim.git'
-]
-
-zsh_plugin_repos = [
-    # Fish shell like syntax highlighting for Zsh.
-    'https://github.com/zsh-users/zsh-syntax-highlighting.git'
-]
-
-iterm_substitutions = []
-
-SYS_COMMAND_PREFIX = 'sys_command: '
-
-
-def make_sys_op(command):
-    return SYS_COMMAND_PREFIX + command
-
+    return ret
 
 def print_ops(ops):
     for entry in ops:
         if isinstance(entry, str):
-            if entry.startswith(SYS_COMMAND_PREFIX):
-                print(f'DEBUG SYSCALL: {entry}')
-            else:
-                print(f'>> {entry}')
+            print(entry)
         elif isinstance(entry, list):
             print(f'DEBUG: {" ".join(entry)}')
         elif callable(entry):
@@ -115,12 +108,7 @@ def print_ops(ops):
 def run_ops(ops):
     for entry in ops:
         if isinstance(entry, str):
-            if entry.startswith(SYS_COMMAND_PREFIX):
-                os.system(entry.removeprefix(SYS_COMMAND_PREFIX))
-            else:
-                if not entry.startswith('local'):
-                    entry = '>> ' + entry
-                print(entry)
+            print(entry)
         elif isinstance(entry, list):
             subprocess.run(entry, check=False)
         elif callable(entry):
@@ -161,10 +149,10 @@ def expand_zshenv(host, target_file):
         file.write(content.replace(ZSHENV_SUB, zshenv_dynamic_content))
 
 
-def install_zsh_plugin_ops(host):
+def install_zsh_plugin_ops(host, zsh_plugin_repos):
     hostname = host['hostname']
 
-    ops = [f'Cloning {len(zsh_plugin_repos)} Zsh plugins for {hostname}']
+    ops = [f'>> Cloning {len(zsh_plugin_repos)} Zsh plugins for {hostname}']
     plugin_root = f'{HOME}/.zshext' if host == local_host else './.zshext'
     ops.append(['rm', '-rf', plugin_root])
     pattern = re.compile("([^/]+)\\.git$")
@@ -177,10 +165,10 @@ def install_zsh_plugin_ops(host):
     return [['ssh', hostname, ' '.join(op)] if isinstance(op, list) else op for op in ops]
 
 
-def install_vim_plugin_ops(host):
+def install_vim_plugin_ops(host, vim_pack_plugin_start_repos, vim_pack_plugin_opt_repos):
     hostname = host['hostname']
 
-    ops = [f'Cloning {len(vim_pack_plugin_start_repos) + len(vim_pack_plugin_opt_repos)} Vim plugins for {hostname}']
+    ops = [f'>> Cloning {len(vim_pack_plugin_start_repos) + len(vim_pack_plugin_opt_repos)} Vim plugins for {hostname}']
     pack_root = f'{HOME}/.vim/pack' if host == local_host else './.vim/pack'
     ops.append(['rm', '-rf', pack_root])
     pattern = re.compile("([^/]+)\\.git$")
@@ -231,17 +219,19 @@ def copy_files(source_host, source_root, source_files, dest_host, dest_root, des
     return ops
 
 def copy_files_local(source_root, source_files, dest_root, dest_files, annotate: bool = False):
-    ops = []
-    ops.append(['mkdir', '-p', dest_root])
+    ops = [
+        ['mkdir', '-p', dest_root]]
 
-    dest_subfolders = set([os.path.dirname(d) for d in dest_files if os.path.dirname(d)])
+    dest_subfolders = {os.path.dirname(d) for d in dest_files if os.path.dirname(d)}
     ops.extend([['mkdir', '-p', f'{dest_root}/{sub}'] for sub in dest_subfolders])
+    copy_ops = []
     for (repo_file, dot_file) in zip(source_files, dest_files):
-        copy_op = ['cp', f'{source_root}/{repo_file}', f'{dest_root}/{dot_file}']
-        if annotate:
-            ops.append(LOCAL_DEBUG_PREFIX + ' '.join(copy_op))
-        ops.append(copy_op)
+        copy_ops.append(['cp', f'{source_root}/{repo_file}', f'{dest_root}/{dot_file}'])
 
+    if annotate:
+        copy_ops = annotate_ops(copy_ops)
+
+    ops.extend(copy_ops)
     return ops
 
 
@@ -253,7 +243,7 @@ def push_remote(host, shallow):
     file_maps = host['file_maps']
 
     staging_dir = f'{CWD}/out/{host["hostname"]}-dot'
-    ops = [f'Synching dotFiles for {hostname}']
+    ops = [f'>> Synching dotFiles for {hostname}']
     ops.extend(copy_files_local(CWD, file_maps.keys(), staging_dir, file_maps.keys()))
 
     # fixup the zshenv to include dynamic content
@@ -264,8 +254,8 @@ def push_remote(host, shallow):
     ops.append(['rm', '-rf', staging_dir])
 
     if not shallow:
-        ops.extend(install_vim_plugin_ops(host))
-        ops.extend(install_zsh_plugin_ops(host))
+        ops.extend(install_vim_plugin_ops(host, config.get('vim_pack_plugin_start_repos'), config.get('vim_pack_plugin_opt_repos')))
+        ops.extend(install_zsh_plugin_ops(host, config.get('zsh_plugin_repos')))
 
     return ops
 
@@ -274,7 +264,7 @@ def pull_remote(host):
     hostname = host['hostname']
     file_maps = host['file_maps']
 
-    ops = [f'Snapshotting dotFiles from {hostname}']
+    ops = [f'>> Snapshotting dotFiles from {hostname}']
     ops.extend(copy_files(host, HOME, file_maps.values(), local_host, CWD, file_maps.keys()))
 
     # fixup the zshenv to exclude the dynamic content
@@ -286,16 +276,16 @@ def pull_remote(host):
 def bootstrap_windows():
     ''' Apply environment settings for a new Windows machine. '''
     return [
-        make_sys_op(f'SETX DOTFILES_SRC_DIR {os.getcwd()}')]
+        ['SETX', 'DOTFILES_SRC_DIR', os.getcwd()]]
 
 
 def bootstrap_iterm2():
     ''' Associate the plist for iTerm2 with the dotFiles. '''
     return [
         # Specify the preferences directory
-        make_sys_op('defaults write com.googlecode.iterm2 PrefsCustomFolder - string "$PWD/iterm2"'),
-        # Tell iTerm2 to use the custom preferences in the directory
-        make_sys_op('defaults write com.googlecode.iterm2 LoadPrefsFromCustomFolder - bool true')]
+        ['defaults', 'write', 'com.googlecode.iterm2', 'PrefsCustomFolder', '-string', f'{os.getcwd()}/iterm2'],
+         # Tell iTerm2 to use the custom preferences in the directory
+        ['defaults', 'write', 'com.googlecode.iterm2', 'LoadPrefsFromCustomFolder', '-bool', 'true']]
 
 
 def push_sublimetext_windows_plugins():
@@ -309,7 +299,7 @@ def extend_config(cfg):
     ''' Augment the current configuration with external extensions. '''
     extended_file_maps = cfg.get('file_maps')
     if extended_file_maps is not None:
-        global_file_maps.extend(extended_file_maps)
+        config.get('file_maps').extend(extended_file_maps)
 
     extended_hosts = cfg.get('hosts')
     if extended_hosts is not None:
@@ -317,18 +307,18 @@ def extend_config(cfg):
 
     extended_vim_start_plugins = cfg.get('vim_plugin_start_repos')
     if extended_vim_start_plugins is not None:
-        vim_pack_plugin_start_repos.extend(extended_vim_start_plugins)
+        config.get('vim_pack_plugin_start_repos').extend(extended_vim_start_plugins)
 
     extended_vim_opt_plugins = cfg.get('vim_plugin_opt_repos')
     if extended_vim_opt_plugins is not None:
-        vim_pack_plugin_opt_repos.extend(extended_vim_opt_plugins)
+        config.get('vim_pack_plugin_opt_repos').extend(extended_vim_opt_plugins)
 
 
 def finalize_config(host):
     ''' Fixup the file_maps based on host overrides '''
 
     # Convert from a list to a dictionary. It's easier to not compute key names in jsonnet.
-    new_file_maps = dict(host.get('file_maps', [])) | dict(global_file_maps)
+    new_file_maps = dict(host.get('file_maps', [])) | dict(config.get('file_maps'))
     new_file_maps = {k: v for (k, v) in new_file_maps.items()
                      if not any(k.startswith(p) for p in host.get('file_maps_exclude', []))}
 
