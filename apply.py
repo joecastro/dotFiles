@@ -19,6 +19,7 @@ CWD = '.'
 # zshenv is handled special after relocation to support dynamic content.
 ZSHENV_SRC = 'zsh/zshenv.zsh'
 ZSHENV_DEST = '.zshenv'
+GITCONFIG_SRC = 'out/gitconfig.ini'
 
 hosts = [
     {
@@ -56,6 +57,7 @@ config = {
         ['vim/vimrc.vim', '.vimrc'],
         ['vim/colors/molokai.vim', '.vim/colors/molokai.vim'],
         ['tmux/tmux.conf', '.tmux.conf'],
+        [GITCONFIG_SRC, '.gitconfig'],
         ['verify_fonts.py', 'dotScripts/verify_fonts.py']
     ],
     'vim_pack_plugin_start_repos': [
@@ -110,11 +112,12 @@ def run_ops(ops):
         if isinstance(entry, str):
             print(entry)
         elif isinstance(entry, list):
-            subprocess.run(entry, check=False)
+            subprocess.run(entry, check=True)
         elif callable(entry):
             entry()
         else:
             raise TypeError('Bad operation type')
+
 
 def fixup_source_zshenv():
     with open(ZSHENV_SRC, 'r', encoding='utf-8') as file:
@@ -147,6 +150,11 @@ def expand_zshenv(host, target_file):
 
     with open(target_file, 'w', encoding='utf-8') as file:
         file.write(content.replace(ZSHENV_SUB, zshenv_dynamic_content))
+
+
+def process_gitconfig(host):
+    with open(GITCONFIG_SRC, encoding='utf-8', mode='w') as out_file:
+        subprocess.run(['jsonnet', '-S', 'git/gitconfig.jsonnet'], check=True, stdout=out_file)
 
 
 def install_zsh_plugin_ops(host, zsh_plugin_repos):
@@ -206,7 +214,7 @@ def copy_files(source_host, source_root, source_files, dest_host, dest_root, des
 
     ops = []
 
-    dest_subfolders = set([os.path.dirname(d) for d in dest_files if os.path.dirname(d)])
+    dest_subfolders = {os.path.dirname(d) for d in dest_files if os.path.dirname(d)}
     mkdir_ops = [['mkdir', '-p', f'{dest_root}/{sub}'] for sub in dest_subfolders]
     if is_remote_target:
         ops.extend([['ssh', dest_host['hostname'], ' '.join(op)] for op in mkdir_ops])
@@ -241,6 +249,9 @@ def push_remote(host, shallow):
 
     hostname = host['hostname']
     file_maps = host['file_maps']
+
+    if GITCONFIG_SRC in file_maps.keys():
+        process_gitconfig(host)
 
     staging_dir = f'{CWD}/out/{host["hostname"]}-dot'
     ops = [f'>> Synching dotFiles for {hostname}']
@@ -284,7 +295,7 @@ def bootstrap_iterm2():
     return [
         # Specify the preferences directory
         ['defaults', 'write', 'com.googlecode.iterm2', 'PrefsCustomFolder', '-string', f'{os.getcwd()}/iterm2'],
-         # Tell iTerm2 to use the custom preferences in the directory
+        # Tell iTerm2 to use the custom preferences in the directory
         ['defaults', 'write', 'com.googlecode.iterm2', 'LoadPrefsFromCustomFolder', '-bool', 'true']]
 
 
@@ -372,14 +383,11 @@ def main(args):
 
 def process_jsonnet_configs():
     ''' Process any config files that need to be initialized. '''
-    try:
-        os.remove('out/apply_configs.json')
-    except FileNotFoundError:
-        pass
-
     if Path.is_file(Path.joinpath(Path.cwd(), 'apply_configs.jsonnet')):
-        with open('out/apply_configs.json', encoding='utf-8', mode='w') as processed_config:
-            subprocess.run(['jsonnet', 'apply_configs.jsonnet'], check=True, stdout=processed_config)
+        completed_proc = subprocess.run(['jsonnet', 'apply_configs.jsonnet'], check=True, capture_output=True)
+        return json.loads(completed_proc.stdout)
+
+    return None
 
 
 if __name__ == "__main__":
@@ -388,14 +396,10 @@ if __name__ == "__main__":
     except FileExistsError:
         pass
 
-    process_jsonnet_configs()
-
-    try:
-        with open('out/apply_configs.json', encoding='utf-8') as config:
-            print('>> Including additional configurations')
-            extend_config(json.load(config))
-    except FileNotFoundError:
-        pass
+    extended_config = process_jsonnet_configs()
+    if extended_config is not None:
+        print('>> Including additional configurations')
+        extend_config(extended_config)
 
     for h in hosts:
         finalize_config(h)

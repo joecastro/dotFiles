@@ -167,6 +167,7 @@ HOME_FOLDER_ICON=󱂵
 SUBMODULE_FOLDER_ICON=
 TMUX_ICON=
 VS_CODE_ICON=󰨞
+COD_HOME_ICON=
 COD_PINNED_ICON=
 COD_TOOLS_ICON=
 COD_TAG_ICON=
@@ -181,6 +182,7 @@ NF_ANDROID_ICON=$(test -n "$EXPECT_NERD_FONTS" && echo "$ANDROID_BODY_ICON" || e
 NF_PYTHON_ICON=$(test -n "$EXPECT_NERD_FONTS" && echo "$PYTHON_ICON" || echo "$SNAKE_ICON")
 NF_GIT_BRANCH_ICON=$(test -n "$EXPECT_NERD_FONTS" && echo "$GIT_BRANCH_ICON" || echo "(b)")
 NF_GIT_COMMIT_ICON=$(test -n "$EXPECT_NERD_FONTS" && echo "$GIT_COMMIT_ICON" || echo "(d)")
+NF_HOME_ICON=$COD_HOME_ICON
 
 function __cute_pwd() {
     if __is_in_git_repo; then
@@ -199,11 +201,11 @@ function __cute_pwd() {
     # These should only match if they're exact.
     case "$PWD" in
         "$HOME")
-            echo $HOUSE_ICON
+            echo $NF_HOME_ICON
             return 0
             ;;
         "$WIN_USERPROFILE")
-            echo $WINDOWS_ICON$HOUSE_ICON
+            echo $WINDOWS_ICON$NF_HOME_ICON
             return 0
             ;;
         "/")

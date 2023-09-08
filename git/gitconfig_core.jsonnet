@@ -30,7 +30,7 @@
             "new": "green bold"
         },
 
-        "init": {
+        init: {
 	        "defaultBranch": "main"
         },
 
