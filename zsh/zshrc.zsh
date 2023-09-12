@@ -164,7 +164,7 @@ PYTHON_ICON=
 GIT_BRANCH_ICON=
 GIT_COMMIT_ICON=
 HOME_FOLDER_ICON=󱂵
-SUBMODULE_FOLDER_ICON=
+COD_FILE_SUBMODULE_ICON=
 TMUX_ICON=
 VS_CODE_ICON=󰨞
 COD_HOME_ICON=
@@ -176,6 +176,7 @@ COD_SAVE_ICON=
 FAE_TREE_ICON=
 MD_SUBMARINE_ICON=󱕬
 MD_GREATER_THAN_ICON=󰥭
+OCT_FILE_SUBMODULE_ICON=
 
 NF_VIM_ICON=$(test -n "$EXPECT_NERD_FONTS" && echo $VIM_ICON || echo "{vim}")
 NF_ANDROID_ICON=$(test -n "$EXPECT_NERD_FONTS" && echo "$ANDROID_BODY_ICON" || echo "$ROBOT_ICON")
@@ -193,7 +194,7 @@ function __cute_pwd() {
             # appear like an escape sequence instead of a printed character.
             echo -e "%{$COD_PINNED_ICON %}$(git rev-parse --show-toplevel | xargs basename)/$(git rev-parse --show-prefix)\b"
         else
-            echo "🚧"
+            echo -n $PWD
         fi
         return 0
     fi
@@ -257,6 +258,11 @@ function __print_git_worktree() {
         return 0
     fi
 
+    if __is_in_git_dir; then
+        echo "${fg[yellow]%}$COD_TOOLS_ICON "
+        return 0
+    fi
+
     ROOT_WORKTREE=$(git worktree list | head -n1 | awk '{print $1;}')
     ACTIVE_WORKTREE=$(git worktree list | grep "$(git rev-parse --show-toplevel)" | head -n1 | awk '{print $1;}')
 
@@ -267,11 +273,11 @@ function __print_git_worktree() {
 
     SUBMODULE_WORKTREE=$(git rev-parse --show-superproject-working-tree)
     if [[ "$SUBMODULE_WORKTREE" == "" ]]; then
-        echo "%{$fg[green]%}$FAE_TREE_ICON %{%F{207}%}${ROOT_WORKTREE##*/}:%{$fg[green]%}${ACTIVE_WORKTREE##*/} "
+        echo "%{$fg[green]%}$OCT_FILE_SUBMODULE_ICON%{%F{207}%}${ROOT_WORKTREE##*/}:%{$fg[green]%}${ACTIVE_WORKTREE##*/} "
         return 0
     fi
 
-    echo "%{%F{207}%}$MD_SUBMARINE_ICON ${SUBMODULE_WORKTREE##*/} "
+    echo "%{%F{207}%}$COD_FILE_SUBMODULE_ICON${SUBMODULE_WORKTREE##*/} "
     return 0
 }
 
