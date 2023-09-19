@@ -176,14 +176,12 @@ COD_SAVE_ICON=
 FAE_TREE_ICON=
 MD_SUBMARINE_ICON=󱕬
 MD_GREATER_THAN_ICON=󰥭
+MD_CHEVRON_DOUBLE_RIGHT_ICON=󰄾
+MD_MICROSOFT_VISUAL_STUDIO_CODE_ICON=󰨞
+MD_SNAPCHAT=󰒶
 OCT_FILE_SUBMODULE_ICON=
-
-NF_VIM_ICON=$(test -n "$EXPECT_NERD_FONTS" && echo $VIM_ICON || echo "{vim}")
-NF_ANDROID_ICON=$(test -n "$EXPECT_NERD_FONTS" && echo "$ANDROID_BODY_ICON" || echo "$ROBOT_ICON")
-NF_PYTHON_ICON=$(test -n "$EXPECT_NERD_FONTS" && echo "$PYTHON_ICON" || echo "$SNAKE_ICON")
-NF_GIT_BRANCH_ICON=$(test -n "$EXPECT_NERD_FONTS" && echo "$GIT_BRANCH_ICON" || echo "(b)")
-NF_GIT_COMMIT_ICON=$(test -n "$EXPECT_NERD_FONTS" && echo "$GIT_COMMIT_ICON" || echo "(d)")
-NF_HOME_ICON=$COD_HOME_ICON
+COD_TERMINAL_BASH=
+FA_DOLLAR_ICON=
 
 function __cute_pwd() {
     if __is_in_git_repo; then
@@ -202,18 +200,25 @@ function __cute_pwd() {
     # These should only match if they're exact.
     case "$PWD" in
         "$HOME")
-            echo $NF_HOME_ICON
+            echo $COD_HOME_ICON
             return 0
             ;;
         "$WIN_USERPROFILE")
-            echo $WINDOWS_ICON$NF_HOME_ICON
+            echo $WINDOWS_ICON$COD_HOME_ICON
             return 0
             ;;
         "/")
-            echo 🌲
+            echo $FAE_TREE_ICON
             return 0
             ;;
     esac
+
+    if (( ${+ANDROID_REPO_BRANCH} )); then
+        if test "${PWD##*/}" = "${ANDROID_REPO_BRANCH}"; then
+            echo $ANDROID_HEAD_ICON
+            return 0
+        fi
+    fi
 
     case "${PWD##*/}" in
         "github")
@@ -221,11 +226,7 @@ function __cute_pwd() {
             return 0
             ;;
         src | source)
-            echo 💾
-            return 0
-            ;;
-        "work")
-            echo 🏢
+            echo $COD_SAVE_ICON
             return 0
             ;;
         *)
@@ -297,7 +298,7 @@ function __print_repo_worktree() {
         REPO_ROOT=$(repo info -o --outer-manifest -l | grep -i "Manifest branch" | sed 's/^Manifest branch: //')
     fi
 
-    echo "%{$fg[green]%}$NF_ANDROID_ICON${REPO_ROOT##*/} "
+    echo "%{$fg[green]%}$ANDROID_BODY_ICON${REPO_ROOT##*/} "
 }
 
 function __print_git_info() {
@@ -356,8 +357,8 @@ function __virtualenv_info() {
         else; echo -n "%{$fg[blue]%}$LINUX_PENGUIN_ICON"; fi
         HAS_VIRTUALENV=0
     fi
-    if (( ${+VIRTUAL_ENV} )); then echo -n "%{$fg[green]%}$NF_PYTHON_ICON" && HAS_VIRTUALENV=0; fi
-    if (( ${+VIMRUNTIME} )); then echo -n "%{$fg[green]%}$NF_VIM_ICON" && HAS_VIRTUALENV=0; fi
+    if (( ${+VIRTUAL_ENV} )); then echo -n "%{$fg[green]%}$PYTHON_ICON" && HAS_VIRTUALENV=0; fi
+    if (( ${+VIMRUNTIME} )); then echo -n "%{$fg[green]%}$VIM_ICON" && HAS_VIRTUALENV=0; fi
     if [[ "$HAS_VIRTUALENV" == "0" ]]; then
         echo -n "%{$reset_color%} "
     fi
@@ -367,7 +368,8 @@ function __virtualenv_info() {
 VIRTUAL_ENV_DISABLE_PROMPT=1
 SKIP_WORKTREE_IN_ANDROID_REPO=1 # Repo is implemented in terms of worktrees, so this gets noisy.
 
-END_OF_PROMPT_ICON="$"
+END_OF_PROMPT_ICON=$MD_GREATER_THAN_ICON
+# END_OF_PROMPT_ICON="$"
 
 PROMPT=''
 PROMPT+='${white}$(__cute_time_prompt) '
@@ -457,7 +459,7 @@ test -e ~/.zshext/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh && \
 if ! __is_embedded_terminal; then
     alias cd='__venv_aware_cd'
 else
-     echo "Limiting zsh initialization because inside vscode terminal."
+     echo "Limiting zsh initialization because inside $MD_MICROSOFT_VISUAL_STUDIO_CODE_ICON terminal."
 fi
 
 # echo "Welcome to $(__effective_distribution)!"

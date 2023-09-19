@@ -21,71 +21,10 @@ ZSHENV_SRC = 'zsh/zshenv.zsh'
 ZSHENV_DEST = '.zshenv'
 GITCONFIG_SRC = 'out/gitconfig.ini'
 
-hosts = [
-    {
-        'hostname': 'localhost',
-        'zshenv_sub': [
-            "LOCALHOST_PREFERRED_DISPLAY="
-                + ("workbook" if os.uname().nodename.startswith('joecastro-macbookpro') else ""),
-            f"DOTFILES_SRC_HOME={os.getcwd()}",
-            "alias dotGo='pushd $DOTFILES_SRC_HOME'",
-            "",
-            "ANDROID_REPO_BRANCH=main",
-            f"ANDROID_REPO_PATH={HOME}/source/android"
-        ],
-        'file_maps_exclude': [
-            'bash/',
-            'konsole/',
-            'verify_fonts.py'
-        ]
-    }
-]
 
-local_host = hosts[0]
+def is_localhost(host):
+    return host['hostname'] == os.uname().nodename
 
-config = {
-    'file_maps': [
-        ['bash/bashrc.sh', '.bashrc'],
-        ['bash/profile.sh', '.profile'],
-        ['bash/bash_profile.sh', '.bash_profile'],
-        ['zsh/zshrc.zsh', '.zshrc'],
-        ['zsh/zprofile.zsh', '.zprofile'],
-        [ZSHENV_SRC, ZSHENV_DEST],
-        ['zsh/android_funcs.zsh', '.android_funcs.zsh'],
-        ['zsh/osx_funcs.zsh', '.osx_funcs.zsh'],
-        ['zsh/util_funcs.zsh', '.util_funcs.zsh'],
-        ['vim/vimrc.vim', '.vimrc'],
-        ['vim/colors/molokai.vim', '.vim/colors/molokai.vim'],
-        ['tmux/tmux.conf', '.tmux.conf'],
-        [GITCONFIG_SRC, '.gitconfig'],
-        ['verify_fonts.py', 'dotScripts/verify_fonts.py']
-    ],
-    'vim_pack_plugin_start_repos': [
-        # Syntax highlighting for AOSP specific files
-        'https://github.com/rubberduck203/aosp-vim.git',
-        # Lean & mean status/tabline for vim that's light as air
-        'https://github.com/vim-airline/vim-airline.git',
-        # Kotlin plugin for Vim. Featuring: syntax highlighting, basic indentation, Syntastic support
-        'https://github.com/udalov/kotlin-vim.git',
-        # A tree explorer plugin for vim.
-        'https://github.com/preservim/nerdtree.git',
-        # A Vim plugin which shows git diff markers in the sign column
-        # and stages/previews/undoes hunks and partial hunks.
-        'https://github.com/airblade/vim-gitgutter.git',
-        # 💻 Terminal manager for (neo)vim
-        'https://github.com/voldikss/vim-floaterm.git',
-        # Check syntax in Vim asynchronously and fix files, with Language Server Protocol (LSP) support
-        'https://github.com/dense-analysis/ale.git'
-    ],
-    'vim_pack_plugin_opt_repos': [
-        # A dark Vim/Neovim color scheme inspired by Atom's One Dark syntax theme.
-        'https://github.com/joshdick/onedark.vim.git'
-    ],
-    'zsh_plugin_repos': [
-        # Fish shell like syntax highlighting for Zsh.
-        'https://github.com/zsh-users/zsh-syntax-highlighting.git'
-    ]
-}
 
 def annotate_ops(ops):
     ret = []
@@ -154,20 +93,20 @@ def expand_zshenv(host, target_file):
 
 def process_gitconfig(host):
     with open(GITCONFIG_SRC, encoding='utf-8', mode='w') as out_file:
-        subprocess.run(['jsonnet', '-S', 'git/gitconfig.jsonnet'], check=True, stdout=out_file)
+        subprocess.run(['jsonnet', '-S', '--ext-str', f'hostname="{host["hostname"]}', 'git/gitconfig.jsonnet'], check=True, stdout=out_file)
 
 
 def install_zsh_plugin_ops(host, zsh_plugin_repos):
     hostname = host['hostname']
 
     ops = [f'>> Cloning {len(zsh_plugin_repos)} Zsh plugins for {hostname}']
-    plugin_root = f'{HOME}/.zshext' if host == local_host else './.zshext'
+    plugin_root = f'{HOME}/.zshext' if is_localhost(host) else './.zshext'
     ops.append(['rm', '-rf', plugin_root])
     pattern = re.compile("([^/]+)\\.git$")
     for repo in zsh_plugin_repos:
         ops.append(['git', 'clone', repo, f'{plugin_root}/{pattern.search(repo).group(1)}'])
 
-    if host == local_host:
+    if is_localhost(host):
         return ops
 
     return [['ssh', hostname, ' '.join(op)] if isinstance(op, list) else op for op in ops]
@@ -177,7 +116,7 @@ def install_vim_plugin_ops(host, vim_pack_plugin_start_repos, vim_pack_plugin_op
     hostname = host['hostname']
 
     ops = [f'>> Cloning {len(vim_pack_plugin_start_repos) + len(vim_pack_plugin_opt_repos)} Vim plugins for {hostname}']
-    pack_root = f'{HOME}/.vim/pack' if host == local_host else './.vim/pack'
+    pack_root = f'{HOME}/.vim/pack' if is_localhost(host) else './.vim/pack'
     ops.append(['rm', '-rf', pack_root])
     pattern = re.compile("([^/]+)\\.git$")
     for (infix, repos) in [('plugins/start', vim_pack_plugin_start_repos),
@@ -185,24 +124,25 @@ def install_vim_plugin_ops(host, vim_pack_plugin_start_repos, vim_pack_plugin_op
         ops.extend([['git', 'clone', plugin_repo, f'{pack_root}/{infix}/{pattern.search(plugin_repo).group(1)}']
                     for plugin_repo in repos])
 
-    if host == local_host:
+    if is_localhost(host):
         return ops
 
     return [['ssh', hostname, ' '.join(op)] if isinstance(op, list) else op for op in ops]
 
 
 def copy_files(source_host, source_root, source_files, dest_host, dest_root, dest_files, annotate=False):
-    if dest_host != local_host and dest_root == HOME:
+    is_remote_target = dest_host is not None and not is_localhost(dest_host)
+    is_remote_source = source_host is not None and not is_localhost(source_host)
+
+    if is_remote_target and dest_root == HOME:
         dest_root = CWD
-    if source_host != local_host and source_root == HOME:
+    if is_remote_source and source_root == HOME:
         source_root = CWD
 
-    is_remote_target = dest_host != local_host
-
-    if not is_remote_target and source_host == local_host:
+    if not is_remote_target and not is_remote_source:
         return copy_files_local(source_root, source_files, dest_root, dest_files, annotate)
 
-    if source_host == local_host:
+    if not is_remote_source:
         source_prefix = source_root
     else:
         source_prefix = source_host['hostname'] + ':' + source_root
@@ -244,11 +184,8 @@ def copy_files_local(source_root, source_files, dest_root, dest_files, annotate:
 
 
 def push_remote(host, shallow):
-    if isinstance(host, str):
-        host = [h for h in hosts if h['hostname'] == host][0]
-
     hostname = host['hostname']
-    file_maps = host['file_maps']
+    file_maps = dict(host['file_maps'])
 
     if GITCONFIG_SRC in file_maps.keys():
         process_gitconfig(host)
@@ -261,7 +198,7 @@ def push_remote(host, shallow):
     ops.append(lambda: expand_zshenv(host, f'{staging_dir}/{ZSHENV_SRC}'))
 
     ops.append(f'Copying {len(file_maps)} files to {hostname} home directory')
-    ops.extend(copy_files(local_host, staging_dir, file_maps.keys(), host, HOME, file_maps.values(), annotate=True))
+    ops.extend(copy_files(None, staging_dir, file_maps.keys(), host, HOME, file_maps.values(), annotate=True))
     ops.append(['rm', '-rf', staging_dir])
 
     if not shallow:
@@ -273,10 +210,10 @@ def push_remote(host, shallow):
 
 def pull_remote(host):
     hostname = host['hostname']
-    file_maps = host['file_maps']
+    file_maps = dict(host['file_maps'])
 
     ops = [f'>> Snapshotting dotFiles from {hostname}']
-    ops.extend(copy_files(host, HOME, file_maps.values(), local_host, CWD, file_maps.keys()))
+    ops.extend(copy_files(host, HOME, file_maps.values(), None, CWD, file_maps.keys()))
 
     # fixup the zshenv to exclude the dynamic content
     ops.append(fixup_source_zshenv)
@@ -306,36 +243,6 @@ def push_sublimetext_windows_plugins():
     ]
 
 
-def extend_config(cfg):
-    ''' Augment the current configuration with external extensions. '''
-    extended_file_maps = cfg.get('file_maps')
-    if extended_file_maps is not None:
-        config.get('file_maps').extend(extended_file_maps)
-
-    extended_hosts = cfg.get('hosts')
-    if extended_hosts is not None:
-        hosts.extend(extended_hosts)
-
-    extended_vim_start_plugins = cfg.get('vim_plugin_start_repos')
-    if extended_vim_start_plugins is not None:
-        config.get('vim_pack_plugin_start_repos').extend(extended_vim_start_plugins)
-
-    extended_vim_opt_plugins = cfg.get('vim_plugin_opt_repos')
-    if extended_vim_opt_plugins is not None:
-        config.get('vim_pack_plugin_opt_repos').extend(extended_vim_opt_plugins)
-
-
-def finalize_config(host):
-    ''' Fixup the file_maps based on host overrides '''
-
-    # Convert from a list to a dictionary. It's easier to not compute key names in jsonnet.
-    new_file_maps = dict(host.get('file_maps', [])) | dict(config.get('file_maps'))
-    new_file_maps = {k: v for (k, v) in new_file_maps.items()
-                     if not any(k.startswith(p) for p in host.get('file_maps_exclude', []))}
-
-    host['file_maps'] = new_file_maps
-
-
 def main(args):
     ''' Apply dotFiles operations '''
     print_only = False
@@ -347,23 +254,27 @@ def main(args):
         shallow = True
         args.remove('--shallow')
 
+    local_host = next(h for h in config['hosts'] if h['hostname'] == os.uname().nodename)
+
     ops = []
     match args[0]:
         case '--push':
             if len(args) < 2:
                 ops.extend(push_remote(local_host, shallow))
             elif args[1] == '--all':
-                for host in hosts:
+                for host in config['hosts']:
                     ops.extend(push_remote(host, shallow))
             else:
-                ops.extend(push_remote(args[1], shallow))
+                host = next(h for h in config['hosts'] if h['hostname'] == args[1])
+                ops.extend(push_remote(host, shallow))
         case '--push-local':
             ops.extend(push_remote(local_host, shallow))
         case '--pull':
             if len(args) < 2:
                 ops.extend(pull_remote(local_host))
             else:
-                ops.extend(pull_remote(args[1]))
+                host = next(h for h in config['hosts'] if h['hostname'] == args[1])
+                ops.extend(pull_remote(host))
         case '--bootstrap-iterm2':
             ops.extend(bootstrap_iterm2())
         case '--bootstrap-windows':
@@ -383,11 +294,21 @@ def main(args):
 
 def process_jsonnet_configs():
     ''' Process any config files that need to be initialized. '''
-    if Path.is_file(Path.joinpath(Path.cwd(), 'apply_configs.jsonnet')):
-        completed_proc = subprocess.run(['jsonnet', 'apply_configs.jsonnet'], check=True, capture_output=True)
-        return json.loads(completed_proc.stdout)
+    config_file = 'apply_configs.jsonnet'
+    if not Path.is_file(Path.joinpath(Path.cwd(), config_file)):
+        raise ValueError('Missing config file')
 
-    return None
+    ext_vars = [
+        ('hostname', os.uname().nodename),
+        ('cwd', os.getcwd()),
+        ('home', HOME)
+    ]
+    proc_args = ['jsonnet']
+    for (key, val) in ext_vars:
+        proc_args.extend(['--ext-str', f'{key}={val}'])
+    proc_args.append(config_file)
+    completed_proc = subprocess.run(proc_args, check=True, capture_output=True)
+    return json.loads(completed_proc.stdout)
 
 
 if __name__ == "__main__":
@@ -396,13 +317,7 @@ if __name__ == "__main__":
     except FileExistsError:
         pass
 
-    extended_config = process_jsonnet_configs()
-    if extended_config is not None:
-        print('>> Including additional configurations')
-        extend_config(extended_config)
-
-    for h in hosts:
-        finalize_config(h)
+    config = process_jsonnet_configs()
 
     if len(sys.argv) < 2:
         print('<missing args>')
