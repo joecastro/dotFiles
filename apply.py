@@ -2,6 +2,7 @@
 
 # pylint: disable=too-many-arguments, missing-module-docstring, missing-function-docstring, line-too-long
 
+import functools
 import json
 import os
 from pathlib import Path
@@ -91,11 +92,6 @@ def expand_zshenv(host, target_file):
         file.write(content.replace(ZSHENV_SUB, zshenv_dynamic_content))
 
 
-def process_gitconfig(host):
-    with open(GITCONFIG_SRC, encoding='utf-8', mode='w') as out_file:
-        subprocess.run(['jsonnet', '-S', '--ext-str', f'hostname="{host["hostname"]}', 'git/gitconfig.jsonnet'], check=True, stdout=out_file)
-
-
 def install_zsh_plugin_ops(host, zsh_plugin_repos):
     hostname = host['hostname']
 
@@ -166,6 +162,40 @@ def copy_files(source_host, source_root, source_files, dest_host, dest_root, des
 
     return ops
 
+
+def preprocess_jsonnet_files(host, staging_dir):
+    jsonnet_maps = host['jsonnet_maps']
+    if not jsonnet_maps:
+        return []
+
+    def call_jsonnet(proc_args, destination):
+        with open(destination, encoding='utf-8', mode='w') as out_file:
+            subprocess.run(proc_args, check=True, stdout=out_file)
+
+    ext_vars = [
+        ('hostname', host['hostname']),
+        ('branch', host.get('branch')),
+    ]
+
+    ops = []
+
+    for (src, dest) in jsonnet_maps:
+        dest_intermediate_folder = os.path.dirname(dest)
+        if dest_intermediate_folder is not None:
+            ops.append(['mkdir', '-p', f'{staging_dir}/{dest_intermediate_folder}'])
+
+        proc_args = ['jsonnet']
+        #-'-SS   --##u
+        if dest.endswith('.ini'):
+            proc_args.append('-S')
+        for (key, val) in ext_vars:
+            if val is not None:
+                proc_args.extend(['--ext-str', f'{key}={val}'])
+        proc_args.append(src)
+        ops.append(functools.partial(call_jsonnet, proc_args, staging_dir + "/" + dest))
+
+    return ops
+
 def copy_files_local(source_root, source_files, dest_root, dest_files, annotate: bool = False):
     ops = [
         ['mkdir', '-p', dest_root]]
@@ -187,11 +217,9 @@ def push_remote(host, shallow):
     hostname = host['hostname']
     file_maps = dict(host['file_maps'])
 
-    if GITCONFIG_SRC in file_maps.keys():
-        process_gitconfig(host)
-
-    staging_dir = f'{CWD}/out/{host["hostname"]}-dot'
+    staging_dir = f'{CWD}/out/{hostname}-dot'
     ops = [f'>> Synching dotFiles for {hostname}']
+    ops.extend(preprocess_jsonnet_files(host, CWD))
     ops.extend(copy_files_local(CWD, file_maps.keys(), staging_dir, file_maps.keys()))
 
     # fixup the zshenv to include dynamic content
@@ -292,7 +320,7 @@ def main(args):
     return 0
 
 
-def process_jsonnet_configs():
+def process_apply_configs():
     ''' Process any config files that need to be initialized. '''
     config_file = 'apply_configs.jsonnet'
     if not Path.is_file(Path.joinpath(Path.cwd(), config_file)):
@@ -317,7 +345,7 @@ if __name__ == "__main__":
     except FileExistsError:
         pass
 
-    config = process_jsonnet_configs()
+    config = process_apply_configs()
 
     if len(sys.argv) < 2:
         print('<missing args>')

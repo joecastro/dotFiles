@@ -43,6 +43,36 @@ function wintitle() {
     fi
 }
 
+# https://unix.stackexchange.com/questions/481285/linux-how-to-get-window-title-with-just-shell-script
+function get_title() {(
+    set -e
+    ss=`stty -g`
+    trap 'exit 11' INT QUIT TERM
+    trap 'stty "$ss"' EXIT
+    e=`printf '\033'`
+    st=`printf '\234'`
+    t=
+    stty -echo -icanon min 0 time "${2:-2}"
+    printf "${1:-\033[21t}" > "`tty`"
+    while c=`dd bs=1 count=1 2>/dev/null` && [ "$c" ]; do
+        t="$t$c"
+        case "$t" in
+            $e*$e\\|$e*$st)
+                t=${t%$e\\}
+                t=${t%$st}
+                printf '%s\n' "${t#$e\][lL]}"
+                exit 0
+                ;;
+            $e*)
+                ;;
+            *) break
+                ;;
+        esac
+    done
+    printf %s "$t"
+    exit 1
+)}
+
 function list_colors() {
     echo "echoti colors - $(echoti colors)"
     echo "COLORTERM - $COLORTERM"
@@ -64,3 +94,5 @@ function clear_pragmas() {
     # Undoes the pragma once guards in my source files.
     unset -m "PRAGMA_*"
 }
+
+alias source_dotfiles='clear_pragmas; source ~/.zshenv; source ~/.zshrc'

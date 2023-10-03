@@ -137,8 +137,6 @@ preexec() { _set_cursor_beam }
 #autoload -Uz add-zsh-hook
 #add-zsh-hook precmd __start_timer
 
-# TODO: Similar to below TODO, consider not using unicode glyphs based on something like this...
-unset RESTRICT_ASCII_CHARACTERS
 EXPECT_NERD_FONTS=1
 
 # emojipedia.org
@@ -264,15 +262,15 @@ function __print_git_worktree() {
         return 0
     fi
 
-    ROOT_WORKTREE=$(git worktree list | head -n1 | awk '{print $1;}')
-    ACTIVE_WORKTREE=$(git worktree list | grep "$(git rev-parse --show-toplevel)" | head -n1 | awk '{print $1;}')
+    local ROOT_WORKTREE=$(git worktree list | head -n1 | awk '{print $1;}')
+    local ACTIVE_WORKTREE=$(git worktree list | grep "$(git rev-parse --show-toplevel)" | head -n1 | awk '{print $1;}')
 
     if [[ "$ROOT_WORKTREE" == "$ACTIVE_WORKTREE" ]]; then
         echo ""
         return 0
     fi
 
-    SUBMODULE_WORKTREE=$(git rev-parse --show-superproject-working-tree)
+    local SUBMODULE_WORKTREE=$(git rev-parse --show-superproject-working-tree)
     if [[ "$SUBMODULE_WORKTREE" == "" ]]; then
         echo "%{$fg[green]%}$OCT_FILE_SUBMODULE_ICON%{%F{207}%}${ROOT_WORKTREE##*/}:%{$fg[green]%}${ACTIVE_WORKTREE##*/} "
         return 0
@@ -288,17 +286,15 @@ function __print_repo_worktree() {
         return 0
     fi
 
-    if (( ${+ANDROID_REPO_PATH} )); then
-        if test "${PWD##$ANDROID_REPO_PATH}" != "${PWD}"; then
-            REPO_ROOT=$ANDROID_REPO_BRANCH
-        fi
+    local MANIFEST_BRANCH=""
+
+    if (( ${+ANDROID_REPO_ROOT} )) && test "${PWD##$ANDROID_REPO_ROOT}" != "${PWD}"; then
+        MANIFEST_BRANCH=$ANDROID_REPO_BRANCH
+    else
+        MANIFEST_BRANCH=$(repo info -o --outer-manifest -l | grep -i "Manifest branch" | sed 's/^Manifest branch: //')
     fi
 
-    if ! (( ${+REPO_ROOT} )); then
-        REPO_ROOT=$(repo info -o --outer-manifest -l | grep -i "Manifest branch" | sed 's/^Manifest branch: //')
-    fi
-
-    echo "%{$fg[green]%}$ANDROID_BODY_ICON${REPO_ROOT##*/} "
+    echo "%{$fg[green]%}$ANDROID_BODY_ICON$MANIFEST_BRANCH "
 }
 
 function __print_git_info() {
@@ -307,6 +303,11 @@ function __print_git_info() {
         return 0
     fi
 
+    local COMMIT_TEMPLATE_STRING=$(test -n "$EXPECT_NERD_FONTS" && echo "$GIT_COMMIT_ICON%s" || echo "%s")
+    local COMMIT_MOD_TEMPLATE_STRING=$(test -n "$EXPECT_NERD_FONTS" && echo "$GIT_COMMIT_ICON%s*" || echo "{%s *}")
+    local BRANCH_TEMPLATE_STRING=$(test -n "$EXPECT_NERD_FONTS" && echo "$GIT_BRANCH_ICON%s" || echo "(%s)")
+    local BRANCH_MOD_TEMPLATE_STRING=$(test -n "$EXPECT_NERD_FONTS" && echo "$GIT_BRANCH_ICON%s*" || echo "{%s *}")
+
     git status | grep "HEAD detached" > /dev/null 2>&1
     IS_DETACHED_HEAD=$?
     git status | grep "nothing to commit" > /dev/null 2>&1
@@ -314,18 +315,14 @@ function __print_git_info() {
 
     if [[ "$IS_DETACHED_HEAD" == "0" ]]; then
         if [[ "$IS_NOTHING_TO_COMMIT" == "0" ]]; then
-            COMMIT_TEMPLATE_STRING=$(test -n "$EXPECT_NERD_FONTS" && echo "$GIT_COMMIT_ICON%s" || echo "%s")
             echo -e "%{$fg[red]%}"$(__git_ps1 $COMMIT_TEMPLATE_STRING)" "
         else
-            COMMIT_MOD_TEMPLATE_STRING=$(test -n "$EXPECT_NERD_FONTS" && echo "$GIT_COMMIT_ICON%s*" || echo "{%s *}")
             echo -e "%{$fg[red]%}"$(__git_ps1 $COMMIT_MOD_TEMPLATE_STRING)" "
         fi
     else
         if [[ "$IS_NOTHING_TO_COMMIT" == "0" ]]; then
-            BRANCH_TEMPLATE_STRING=$(test -n "$EXPECT_NERD_FONTS" && echo "$GIT_BRANCH_ICON%s" || echo "(%s)")
             echo -e "%{$fg[green]%}"$(__git_ps1 $BRANCH_TEMPLATE_STRING)" "
         else
-            BRANCH_MOD_TEMPLATE_STRING=$(test -n "$EXPECT_NERD_FONTS" && echo "$GIT_BRANCH_ICON%s*" || echo "{%s *}")
             echo -e "%{$fg[yellow]%}"$(__git_ps1 $BRANCH_MOD_TEMPLATE_STRING)" "
         fi
     fi
@@ -366,7 +363,7 @@ function __virtualenv_info() {
 
 # disable the default virtualenv prompt change
 VIRTUAL_ENV_DISABLE_PROMPT=1
-SKIP_WORKTREE_IN_ANDROID_REPO=1 # Repo is implemented in terms of worktrees, so this gets noisy.
+SKIP_WORKTREE_IN_ANDROID_REPO=0 # Repo is implemented in terms of worktrees, so this gets noisy.
 
 END_OF_PROMPT_ICON=$MD_GREATER_THAN_ICON
 # END_OF_PROMPT_ICON="$"
@@ -393,7 +390,7 @@ if ! command -v exa &> /dev/null; then
     # by default, show slashes, follow symbolic links, colorize
     alias ls='ls -FHG'
 else
-    alias ls=exa
+    alias ls='exa -l'
     alias realls='\ls -FHG'
 fi
 
@@ -402,7 +399,7 @@ function __venv_aware_cd() {
 
     # If I am no longer in the same directory hierarchy as the venv that was last activated, deactivate.
     if [[ -n "$VIRTUAL_ENV" ]]; then
-        P_DIR="$(dirname "$VIRTUAL_ENV")"
+        local P_DIR="$(dirname "$VIRTUAL_ENV")"
         if [[ "$PWD"/ != "$P_DIR"/* ]]; then
             echo "$NF_PYTHON_ICON Deactivating venv for $P_DIR"
             deactivate

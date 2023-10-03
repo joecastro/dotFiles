@@ -33,7 +33,7 @@ function __is_in_git_dir() {
 }
 
 function __is_in_repo() {
-    verbose=0
+    local verbose=0
     if [[ -z "$1" ]]; then
         unset verbose
     fi
@@ -42,9 +42,11 @@ function __is_in_repo() {
     if [[ "$?" == "0" ]]; then
         return 0
     fi
+
     if (( ${+verbose} )); then
         echo "error: Not in Android repo tree"
     fi
+
     return 1
 }
 
@@ -106,6 +108,12 @@ function __is_on_unexpected_linux() {
 }
 
 function __is_embedded_terminal() {
+    # This isn't quite the same thing as running in an embedded terminal.
+    # Code will launch an interactive shell to resolve environment variables.
+    # This value can be used to detect that.
+    if [[ "$VSCODE_RESOLVING_ENVIRONMENT" == "1" ]]; then
+        return 0
+    fi
     if [[ "$TERM_PROGRAM" == "vscode" ]]; then
         return 0
     fi

@@ -1,4 +1,7 @@
 {
+    jsonnet_maps: [
+        ['git/gitconfig.jsonnet', 'out/gitconfig.ini'],
+    ],
     file_maps: [
         ['bash/bashrc.sh', '.bashrc'],
         ['bash/profile.sh', '.profile'],
@@ -13,7 +16,6 @@
         ['vim/colors/molokai.vim', '.vim/colors/molokai.vim'],
         ['tmux/tmux.conf', '.tmux.conf'],
         ['out/gitconfig.ini', '.gitconfig'],
-        ['verify_fonts.py', 'dotScripts/verify_fonts.py']
     ],
     vim_pack_plugin_start_repos: [
         # Syntax highlighting for AOSP specific files
