@@ -3,9 +3,6 @@
         ['git/gitconfig.jsonnet', 'out/gitconfig.ini'],
     ],
     file_maps: [
-        ['bash/bashrc.sh', '.bashrc'],
-        ['bash/profile.sh', '.profile'],
-        ['bash/bash_profile.sh', '.bash_profile'],
         ['zsh/zshrc.zsh', '.zshrc'],
         ['zsh/zprofile.zsh', '.zprofile'],
         ['zsh/zshenv.zsh', '.zshenv'],

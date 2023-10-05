@@ -125,6 +125,7 @@ def main():
         'Nerd Fonts - Font Power Symbols': [0x23fb, 0x23ff, 0x2b58, 0x2b59],
         'Nerd Fonts - Material Design Icons (first few)': [0xf0001, 0xf0011],
         'Nerd Fonts - Weather Icons': [0xe300, 0xe3ec],
+        'Nerd Fonts - Chess Icons': [0xe29c, 0xe29d, 0xe25f, 0xe264],
         'Nerd Fonts - ZSH Prompt Icons': zsh_used_nerdfont_icon_ranges
     }
 

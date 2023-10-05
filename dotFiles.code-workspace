@@ -1,0 +1,16 @@
+{
+	"folders": [
+		{
+			"name": "dotFiles",
+			"path": "."
+		}
+	],
+	"settings": {
+		"files.exclude": {
+			"__pycache__": true,
+			"out": true,
+			"**/.git": true,
+			"**/.DS_Store": true,
+		}
+	}
+}
