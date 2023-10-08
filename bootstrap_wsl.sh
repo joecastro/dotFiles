@@ -11,6 +11,7 @@ sudo apt install -y \
     exa \
     python3 \
     python-is-python3 \
+    python3.10-venv \
     gpg \
     jsonnet
 
@@ -22,6 +23,5 @@ sudo apt-get install -y \
 if (( ${+ANDROID_REPO_BRANCH} )); then
     mkdir -p $ANDROID_REPO_ROOT
     cd $ANDROID_REPO_ROOT
-    repo init -u https://android.googlesource.com/platform/manifest
     repo init -u https://android.googlesource.com/platform/manifest -b $ANDROID_REPO_BRANCH
 fi

@@ -12,34 +12,41 @@ fi
 brew update
 
 # Consider whether to add Bartender.
-brew install --cask iterm2
-brew install --cask visual-studio-code
-brew install --cask intellij-idea-ce
-brew install --cask android-studio
-brew install --cask sublime-merge
-brew install --cask lastpass
-brew install --cask istat-menus
-brew install --cask spotify
-brew install --cask grandperspective
-brew install --cask microsoft-edge
-brew install --cask google-chrome
-brew install --cask docker
-brew install --cask microsoft-office
+brew install --cask \
+    iterm2 \
+    visual-studio-code \
+    intellij-idea-ce \
+    android-studio \
+    sublime-merge \
+    lastpass \
+    istat-menus \
+    spotify \
+    grandperspective \
+    google-chrome \
+    docker \
+    microsoft-office
 
-# brew install --cask slack
-
+# brew install --cask microsoft-edge
 # brew install --cask adobe-creative-cloud
 # brew install --cask dotnet-sdk
 
-brew install lastpass-cli
+brew install \
+    zsh \
+    wget \
+    exa \
+    lastpass-cli \
+    java \
+    macvim \
+    git \
+    go \
+    node \
+    gdub \
+    python@3
 
-brew install zsh
-brew install wget
-brew install exa
-
-Brew install java
-brew install macvim git go node gdub python@3
-brew install docker docker-machine docker-compose
+brew install \
+    docker \
+    docker-machine \
+    docker-compose
 
 #brew install --cask unity-hub
 brew tap homebrew/cask-fonts

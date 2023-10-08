@@ -3,6 +3,7 @@
 
 iterm2/com.googlecode.iterm2.plist
 out/
+.venv/
 __pycache__
 
 vim/vim/pack/
