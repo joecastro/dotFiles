@@ -9,10 +9,13 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+from jsmin import jsmin
 
 ZSHENV_PREAMBLE = '# === BEGIN_DYNAMIC_SECTION ==='
 ZSHENV_CONCLUSION = '# === END_DYNAMIC_SECTION ==='
 ZSHENV_SUB = '#<DOTFILES_HOME_SUBST>'
+
+CORE_WORKSPACE_FILE = 'dotFiles.code-workspace'
 
 HOME = str(Path.home())
 CWD = '.'
@@ -22,6 +25,7 @@ ZSHENV_SRC = 'zsh/zshenv.zsh'
 ZSHENV_DEST = '.zshenv'
 GITCONFIG_SRC = 'out/gitconfig.ini'
 
+config = {}
 
 def is_localhost(host):
     return host['hostname'] == os.uname().nodename
@@ -57,6 +61,23 @@ def run_ops(ops):
             entry()
         else:
             raise TypeError('Bad operation type')
+
+
+def generate_derived_workspace():
+    workspace_overrides = config.get('derived_workspace')
+    if workspace_overrides is None:
+        print('Skipping workspace generation because no overrides were specified.')
+        return
+
+    # jsmin will strip comments and make the content json compliant.
+    with open(CORE_WORKSPACE_FILE, encoding='utf-8') as original_workspace:
+        workspace = json.loads(jsmin(original_workspace.read()))
+
+    workspace['folders'] = workspace_overrides['folders']
+    for (key, value) in workspace_overrides['settings'].items():
+        workspace['settings'][key] = value
+
+    print(json.dumps(workspace, indent=4, sort_keys=False))
 
 
 def fixup_source_zshenv():
@@ -191,7 +212,7 @@ def preprocess_jsonnet_files(host, staging_dir):
         for (key, val) in ext_vars:
             if val is not None:
                 proc_args.extend(['--ext-str', f'{key}={val}'])
-        proc_args.append(src)
+        proc_args.append(Path.joinpath(Path.cwd(), src))
         ops.append(functools.partial(call_jsonnet, proc_args, staging_dir + "/" + dest))
 
     return ops
@@ -281,11 +302,19 @@ def main(args):
     if '--shallow' in args:
         shallow = True
         args.remove('--shallow')
+    if '--working-dir' in args:
+        index = args.index('--working-dir')
+        working_dir = args[index + 1]
+        args.remove('--working-dir')
+        args.remove(working_dir)
+        os.chdir(working_dir)
 
     local_host = next(h for h in config['hosts'] if h['hostname'] == os.uname().nodename)
 
     ops = []
     match args[0]:
+        case '--generate-workspace':
+            ops.append(generate_derived_workspace)
         case '--push':
             if len(args) < 2:
                 ops.extend(push_remote(local_host, shallow))
@@ -334,7 +363,7 @@ def process_apply_configs():
     proc_args = ['jsonnet']
     for (key, val) in ext_vars:
         proc_args.extend(['--ext-str', f'{key}={val}'])
-    proc_args.append(config_file)
+    proc_args.append(str(Path.joinpath(Path.cwd(), config_file)))
     completed_proc = subprocess.run(proc_args, check=True, capture_output=True)
     return json.loads(completed_proc.stdout)
 
