@@ -459,6 +459,10 @@ else
      echo "Limiting zsh initialization because inside $MD_MICROSOFT_VISUAL_STUDIO_CODE_ICON terminal."
 fi
 
+if [[ -n $DOTFILES_SRC_HOME && -d $DOTFILES_SRC_HOME ]]; then
+    alias dotGo='pushd $DOTFILES_SRC_HOME; cd .'
+fi
+
 # echo "Welcome to $(__effective_distribution)!"
 case "$(__effective_distribution)" in
     "GLinux")

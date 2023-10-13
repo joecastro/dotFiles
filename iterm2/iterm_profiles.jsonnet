@@ -46,7 +46,7 @@ local ItermColorWhite = ItermColor(1, 1, 1);
         "Ansi 15 Color": ItermColor(0.93, 0.93, 0.92),
         "BM Growl": true,
         "Background Color": ItermColorBlack,
-        "Background Image Location": std.extVar("dot_files_root") + "/wallpaper/" + wallpaper.path,
+        "Background Image Location": std.extVar("cwd") + "/wallpaper/" + wallpaper.path,
         "Background Image Mode": 2,
         "Badge Color": ItermColorAlpha(1, 0.15, 0, 0.5),
         "Blend": wallpaper.blend,

@@ -146,4 +146,4 @@ test -e ~/.google_funcs.zsh && source ~/.google_funcs.zsh
 source ~/.android_funcs.zsh # Android shell utility functions
 source ~/.util_funcs.zsh
 
-#<DOTFILES_HOME_SUBST>
+source ~/.env_vars.zsh

@@ -2,28 +2,15 @@
 
 # pylint: disable=too-many-arguments, missing-module-docstring, missing-function-docstring, line-too-long
 
-import functools
 import json
 import os
 from pathlib import Path
 import re
 import subprocess
 import sys
-from jsmin import jsmin
-
-ZSHENV_PREAMBLE = '# === BEGIN_DYNAMIC_SECTION ==='
-ZSHENV_CONCLUSION = '# === END_DYNAMIC_SECTION ==='
-ZSHENV_SUB = '#<DOTFILES_HOME_SUBST>'
-
-CORE_WORKSPACE_FILE = 'dotFiles.code-workspace'
 
 HOME = str(Path.home())
 CWD = '.'
-
-# zshenv is handled special after relocation to support dynamic content.
-ZSHENV_SRC = 'zsh/zshenv.zsh'
-ZSHENV_DEST = '.zshenv'
-GITCONFIG_SRC = 'out/gitconfig.ini'
 
 config = {}
 
@@ -63,54 +50,37 @@ def run_ops(ops):
             raise TypeError('Bad operation type')
 
 
+def update_workspace_extensions():
+    workspace_path = config.get('workspace')
+    with open(workspace_path, encoding='utf-8') as f:
+        workspace = json.load(f)
+
+    completed_proc = subprocess.run(['code', '--list-extensions'], check=True, capture_output=True)
+    installed_extensions = completed_proc.stdout.decode('utf-8').splitlines()
+
+    workspace['extensions']['recommendations'] = installed_extensions
+
+    with open(workspace_path, 'w', encoding='utf-8') as f:
+        json.dump(workspace, f, indent=4, sort_keys=False)
+
+
 def generate_derived_workspace():
-    workspace_overrides = config.get('derived_workspace')
-    if workspace_overrides is None:
+    base_workspace_path = config.get('workspace')
+    workspace_overrides = config.get('workspace_overrides')
+    if not base_workspace_path or not workspace_overrides:
         print('Skipping workspace generation because no overrides were specified.')
         return
 
-    # jsmin will strip comments and make the content json compliant.
-    with open(CORE_WORKSPACE_FILE, encoding='utf-8') as original_workspace:
-        workspace = json.loads(jsmin(original_workspace.read()))
+    # code-workspaces are JSON files that support comments.
+    # If I want to support that, jsmin will strip comments and make the content json compliant.
+    with open(base_workspace_path, encoding='utf-8') as original_workspace:
+        workspace = json.load(original_workspace)
 
     workspace['folders'] = workspace_overrides['folders']
     for (key, value) in workspace_overrides['settings'].items():
         workspace['settings'][key] = value
 
     print(json.dumps(workspace, indent=4, sort_keys=False))
-
-
-def fixup_source_zshenv():
-    with open(ZSHENV_SRC, 'r', encoding='utf-8') as file:
-        content = file.read()
-
-    zshenv_re_sub = f'{re.escape(ZSHENV_PREAMBLE)}.*{re.escape(ZSHENV_CONCLUSION)}'
-    result = re.search(zshenv_re_sub, content, re.DOTALL)
-
-    # This will be None if pulled from a remote host without content substituted in.
-    if result is None:
-        return
-
-    content = content.replace(result.group(0), ZSHENV_SUB)
-
-    with open(ZSHENV_SRC, 'w', encoding='utf-8') as file:
-        file.write(content)
-
-
-def expand_zshenv(host, target_file):
-    if not host.get('zshenv_sub'):
-        return
-
-    zshenv_dynamic_content = ZSHENV_PREAMBLE
-    for line in host['zshenv_sub']:
-        zshenv_dynamic_content += '\n' + line
-    zshenv_dynamic_content += '\n' + ZSHENV_CONCLUSION
-
-    with open(target_file, 'r', encoding='utf-8') as file:
-        content = file.read()
-
-    with open(target_file, 'w', encoding='utf-8') as file:
-        file.write(content.replace(ZSHENV_SUB, zshenv_dynamic_content))
 
 
 def install_zsh_plugin_ops(host, zsh_plugin_repos):
@@ -189,12 +159,10 @@ def preprocess_jsonnet_files(host, staging_dir):
     if not jsonnet_maps:
         return []
 
-    def call_jsonnet(proc_args, destination):
-        with open(destination, encoding='utf-8', mode='w') as out_file:
-            subprocess.run(proc_args, check=True, stdout=out_file)
-
     ext_vars = [
         ('hostname', host['hostname']),
+        ('cwd', os.getcwd()),
+        ('home', HOME),
         ('branch', host.get('branch')),
     ]
 
@@ -211,9 +179,10 @@ def preprocess_jsonnet_files(host, staging_dir):
             proc_args.append('-S')
         for (key, val) in ext_vars:
             if val is not None:
-                proc_args.extend(['--ext-str', f'{key}={val}'])
-        proc_args.append(Path.joinpath(Path.cwd(), src))
-        ops.append(functools.partial(call_jsonnet, proc_args, staging_dir + "/" + dest))
+                proc_args.extend(['-V', f'{key}={val}'])
+        proc_args.extend(['-o', staging_dir + "/" + dest])
+        proc_args.append(str(Path.joinpath(Path.cwd(), src)))
+        ops.extend(annotate_ops([proc_args]))
 
     return ops
 
@@ -240,11 +209,9 @@ def push_remote(host, shallow):
 
     staging_dir = f'{CWD}/out/{hostname}-dot'
     ops = [f'>> Synching dotFiles for {hostname}']
+    ops.append('Preprocessing jsonnet files')
     ops.extend(preprocess_jsonnet_files(host, CWD))
     ops.extend(copy_files_local(CWD, file_maps.keys(), staging_dir, file_maps.keys()))
-
-    # fixup the zshenv to include dynamic content
-    ops.append(lambda: expand_zshenv(host, f'{staging_dir}/{ZSHENV_SRC}'))
 
     ops.append(f'Copying {len(file_maps)} files to {hostname} home directory')
     ops.extend(copy_files(None, staging_dir, file_maps.keys(), host, HOME, file_maps.values(), annotate=True))
@@ -263,9 +230,6 @@ def pull_remote(host):
 
     ops = [f'>> Snapshotting dotFiles from {hostname}']
     ops.extend(copy_files(host, HOME, file_maps.values(), None, CWD, file_maps.keys()))
-
-    # fixup the zshenv to exclude the dynamic content
-    ops.append(fixup_source_zshenv)
 
     return ops
 
@@ -313,6 +277,8 @@ def main(args):
 
     ops = []
     match args[0]:
+        case '--update-workspace-extensions':
+            ops.append(update_workspace_extensions)
         case '--generate-workspace':
             ops.append(generate_derived_workspace)
         case '--push':
@@ -362,7 +328,7 @@ def process_apply_configs():
     ]
     proc_args = ['jsonnet']
     for (key, val) in ext_vars:
-        proc_args.extend(['--ext-str', f'{key}={val}'])
+        proc_args.extend(['-V', f'{key}={val}'])
     proc_args.append(str(Path.joinpath(Path.cwd(), config_file)))
     completed_proc = subprocess.run(proc_args, check=True, capture_output=True)
     return json.loads(completed_proc.stdout)

@@ -1,21 +1,21 @@
 {
-	"folders": [
-		{
-			"name": "dotFiles",
-			"path": "."
-		}
-	],
-	"settings": {
-		"files.exclude": {
-			"__pycache__": true,
-			"out": true,
-			".venv": true,
-			"**/.git": true,
-			"**/.DS_Store": true,
-			".gitignore": true,
-			".gitattributes": true,
-			".pylintrc": true
-		},
+    "folders": [
+        {
+            "name": "dotFiles",
+            "path": "."
+        }
+    ],
+    "settings": {
+        "files.exclude": {
+            "__pycache__": true,
+            "out": true,
+            ".venv": true,
+            "**/.git": true,
+            "**/.DS_Store": true,
+            ".gitignore": true,
+            ".gitattributes": true,
+            ".pylintrc": true
+        },
         "workbench.colorCustomizations": {
             "activityBar.activeBackground": "#1f6fd0",
             "activityBar.background": "#1f6fd0",
@@ -35,16 +35,25 @@
             "titleBar.inactiveBackground": "#1857a499",
             "titleBar.inactiveForeground": "#e7e7e799"
         },
-        "peacock.color": "#1857a4"
+        "peacock.color": "#1857a4",
+        "jsonnet.languageServer.extVars": {
+            "branch": "main",
+            "hostname": "localhost",
+            "cwd": "${workspaceFolder}",
+            "home": "${env:HOME}"
+        }
     },
     "extensions": {
         "recommendations": [
             "AntonyDalmiere.android-support",
+            "atommaterial.a-file-icon-vscode",
             "DavidAnson.vscode-markdownlint",
             "davidbwaters.macos-modern-theme",
             "donjayamanne.githistory",
+            "donjayamanne.python-environment-manager",
             "dsznajder.es7-react-js-snippets",
             "dunstontc.viml",
+            "eamodio.gitlens",
             "ecmel.vscode-html-css",
             "Equinusocio.vsc-community-material-theme",
             "flimberger.android-system-tools",
@@ -53,13 +62,16 @@
             "GitHub.copilot",
             "GitHub.copilot-chat",
             "GitHub.copilot-labs",
+            "GitHub.vscode-pull-request-github",
             "golang.go",
             "Google.aidl-language",
             "Grafana.vscode-jsonnet",
             "johnpapa.vscode-peacock",
             "Katsute.code-background",
             "mathiasfrohlich.Kotlin",
+            "melishev.feather-vscode",
             "monokai.theme-monokai-pro-vscode",
+            "mrcrowl.hg",
             "ms-azuretools.vscode-docker",
             "ms-dotnettools.csharp",
             "ms-dotnettools.vscode-dotnet-runtime",
