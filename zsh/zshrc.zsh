@@ -181,6 +181,54 @@ OCT_FILE_SUBMODULE_ICON=
 COD_TERMINAL_BASH=
 FA_DOLLAR_ICON=
 
+function __cute_pwd_helper() {
+    ACTIVE_DIR=$1
+    SUFFIX=$2
+
+    # These should only match if they're exact.
+    case "$ACTIVE_DIR" in
+        "$HOME")
+            echo -n $COD_HOME_ICON$SUFFIX
+            return 0
+            ;;
+        "$WIN_USERPROFILE")
+            echo -n $WINDOWS_ICON$COD_HOME_ICON$SUFFIX
+            return 0
+            ;;
+        "/")
+            echo -n $FAE_TREE_ICON$SUFFIX
+            return 0
+            ;;
+    esac
+
+    if (( ${+ANDROID_REPO_BRANCH} )); then
+        if [[ "${ACTIVE_DIR##*/}" == "${ANDROID_REPO_BRANCH}" ]]; then
+            echo -n $ANDROID_HEAD_ICON$SUFFIX
+            return 0
+        fi
+    fi
+
+    case "${ACTIVE_DIR##*/}" in
+        "github")
+            echo -n $GITHUB_ICON$SUFFIX
+            return 0
+            ;;
+        src | source)
+            echo -n $COD_SAVE_ICON$SUFFIX
+            return 0
+            ;;
+        *)
+            ;;
+    esac
+
+    # If there is a suffix here then don't print the directory.
+    if [[ $SUFFIX == "" ]]; then
+        echo -n ${ACTIVE_DIR##*/}
+    fi
+
+    return 0
+}
+
 function __cute_pwd() {
     if __is_in_git_repo; then
         if ! __is_in_git_dir; then
@@ -195,43 +243,10 @@ function __cute_pwd() {
         return 0
     fi
 
-    # These should only match if they're exact.
-    case "$PWD" in
-        "$HOME")
-            echo $COD_HOME_ICON
-            return 0
-            ;;
-        "$WIN_USERPROFILE")
-            echo $WINDOWS_ICON$COD_HOME_ICON
-            return 0
-            ;;
-        "/")
-            echo $FAE_TREE_ICON
-            return 0
-            ;;
-    esac
-
-    if (( ${+ANDROID_REPO_BRANCH} )); then
-        if test "${PWD##*/}" = "${ANDROID_REPO_BRANCH}"; then
-            echo $ANDROID_HEAD_ICON
-            return 0
-        fi
+    if [[ $PWD != "/" ]]; then
+        __cute_pwd_helper "$(dirname $PWD)" "/"
     fi
-
-    case "${PWD##*/}" in
-        "github")
-            echo $GITHUB_ICON
-            return 0
-            ;;
-        src | source)
-            echo $COD_SAVE_ICON
-            return 0
-            ;;
-        *)
-            ;;
-    esac
-
-    echo -n ${PWD##*/}
+    __cute_pwd_helper $PWD ""
     return 0
 }
 

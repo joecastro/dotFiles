@@ -91,7 +91,9 @@ def install_zsh_plugin_ops(host, zsh_plugin_repos):
     ops.append(['rm', '-rf', plugin_root])
     pattern = re.compile("([^/]+)\\.git$")
     for repo in zsh_plugin_repos:
-        ops.append(['git', 'clone', repo, f'{plugin_root}/{pattern.search(repo).group(1)}'])
+        target_path = f'{plugin_root}/{pattern.search(repo).group(1)}'
+        ops.append(f'Cloning into {target_path}...')
+        ops.append(['git', 'clone', '-q', repo, target_path])
 
     if is_localhost(host):
         return ops
@@ -108,8 +110,10 @@ def install_vim_plugin_ops(host, vim_pack_plugin_start_repos, vim_pack_plugin_op
     pattern = re.compile("([^/]+)\\.git$")
     for (infix, repos) in [('plugins/start', vim_pack_plugin_start_repos),
                            ('plugins/opt', vim_pack_plugin_opt_repos)]:
-        ops.extend([['git', 'clone', plugin_repo, f'{pack_root}/{infix}/{pattern.search(plugin_repo).group(1)}']
-                    for plugin_repo in repos])
+        for plugin_repo in repos:
+            target_path = f'{pack_root}/{infix}/{pattern.search(plugin_repo).group(1)}'
+            ops.append(f'Cloning into {target_path}...')
+            ops.append(['git', 'clone', '-q', plugin_repo, target_path])
 
     if is_localhost(host):
         return ops
@@ -182,7 +186,7 @@ def preprocess_jsonnet_files(host, staging_dir):
                 proc_args.extend(['-V', f'{key}={val}'])
         proc_args.extend(['-o', staging_dir + "/" + dest])
         proc_args.append(str(Path.joinpath(Path.cwd(), src)))
-        ops.extend(annotate_ops([proc_args]))
+        ops.append(proc_args)
 
     return ops
 

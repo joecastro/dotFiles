@@ -95,4 +95,4 @@ function clear_pragmas() {
     unset -m "PRAGMA_*"
 }
 
-alias source_dotfiles='clear_pragmas; source ~/.zshenv; source ~/.zshrc'
+alias source_dotfiles='clear_pragmas; source ~/.zshenv; source ~/.zprofile; source ~/.zshrc'

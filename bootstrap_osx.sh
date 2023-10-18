@@ -40,7 +40,8 @@ brew install \
     git \
     go \
     node \
-    gdub \
+    gradle \
+    flock \
     python@3
 
 brew install \
@@ -53,6 +54,9 @@ brew tap homebrew/cask-fonts
 brew install font-inconsolata
 brew install font-cascadia-code
 brew install font-caskaydia-cove-nerd-font
+
+brew tap gdubw/gng
+brew install gng
 
 cd ~ || exit
 

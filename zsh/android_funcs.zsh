@@ -62,6 +62,11 @@ function refresh_build_env() {
 
     repo_root
     source ./build/envsetup.sh
+
+    if command -v pontis > /dev/null && pontis status 2> /dev/null; then
+        pontis set-adb -binary="$PWD/out/host/linux-x86/bin/adb" 1> /dev/null
+    fi
+
     popd
 
     return 0
