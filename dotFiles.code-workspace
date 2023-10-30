@@ -40,15 +40,18 @@
             "branch": "main",
             "hostname": "localhost",
             "cwd": "${workspaceFolder}",
-            "home": "${env:HOME}"
+            "home": "${env:HOME}",
+            "color": "#1857a4"
         }
     },
     "extensions": {
         "recommendations": [
+            "amodio.tsl-problem-matcher",
             "AntonyDalmiere.android-support",
             "atommaterial.a-file-icon-vscode",
             "DavidAnson.vscode-markdownlint",
             "davidbwaters.macos-modern-theme",
+            "dbaeumer.vscode-eslint",
             "donjayamanne.githistory",
             "donjayamanne.python-environment-manager",
             "dsznajder.es7-react-js-snippets",
@@ -58,7 +61,6 @@
             "Equinusocio.vsc-community-material-theme",
             "flimberger.android-system-tools",
             "fwcd.kotlin",
-            "genieai.chatgpt-vscode",
             "GitHub.copilot",
             "GitHub.copilot-chat",
             "GitHub.copilot-labs",
@@ -80,9 +82,6 @@
             "ms-python.pylint",
             "ms-python.python",
             "ms-python.vscode-pylance",
-            "ms-toolsai.jupyter",
-            "ms-toolsai.jupyter-keymap",
-            "ms-toolsai.jupyter-renderers",
             "ms-vscode-remote.remote-containers",
             "ms-vscode-remote.remote-ssh",
             "ms-vscode-remote.remote-ssh-edit",
@@ -101,7 +100,6 @@
             "ragnoroct.linkme",
             "redhat.java",
             "shd101wyy.markdown-preview-enhanced",
-            "timkmecl.chatgpt",
             "timonwong.shellcheck",
             "toroxx.vscode-avdmanager",
             "twxs.cmake",

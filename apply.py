@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import sys
 
@@ -62,6 +63,17 @@ def update_workspace_extensions():
 
     with open(workspace_path, 'w', encoding='utf-8') as f:
         json.dump(workspace, f, indent=4, sort_keys=False)
+
+
+def push_vscode_user_settings():
+    dotfiles_settings_location = 'vscode/settings.json'
+    mac_settings_location = f'{HOME}/Library/Application Support/Code/User/settings.json'
+
+    # Open this as a json file first, just to make sure it parses properly.
+    with open(dotfiles_settings_location, encoding='utf-8') as f:
+        json.load(f)
+
+    shutil.copyfile(dotfiles_settings_location, mac_settings_location)
 
 
 def generate_derived_workspace():
@@ -168,6 +180,7 @@ def preprocess_jsonnet_files(host, staging_dir):
         ('cwd', os.getcwd()),
         ('home', HOME),
         ('branch', host.get('branch')),
+        ('color', host.get('color')),
     ]
 
     ops = []
@@ -281,6 +294,8 @@ def main(args):
 
     ops = []
     match args[0]:
+        case '--push-vscode-settings':
+            ops.append(push_vscode_user_settings)
         case '--update-workspace-extensions':
             ops.append(update_workspace_extensions)
         case '--generate-workspace':

@@ -1,10 +1,10 @@
-#! /bin/zsh
+#! /bin/bash
 
 function repo_find() {
     if __is_in_repo; then
         echo $(repo --show-toplevel)
     elif (( ${+ANDROID_REPO_ROOT} )); then
-        echo $ANDROID_REPO_ROOT
+        echo ${ANDROID_REPO_ROOT}
     else
         echo "$(find . -type d -name '.repo' -print -quit | sed 's#/\.repo$##')"
     fi
@@ -18,7 +18,6 @@ function repo_format() {
     git diff HEAD^ --name-only | xargs -t ${ANDROID_BUILD_TOP}/external/ktfmt/ktfmt.py
     git diff HEAD^ --name-only | xargs -t google-java-format -i --aosp
 }
-
 
 function repo_clean() {
     if ! __is_in_repo -v; then
@@ -72,3 +71,7 @@ function refresh_build_env() {
     return 0
 }
 
+alias whats_for_lunch=`echo "$TARGET_PRODUCT-$TARGET_BUILD_VARIANT"`
+alias lunch_pixel7pro=`lunch cheetah-userdebug`
+alias lunch_pixelfold=`lunch felix-userdebug`
+alias lunch_cuttlefish=`lunch aosp_cf_x86_64_phone-eng`

@@ -499,9 +499,11 @@ case "$(__effective_distribution)" in
             echo "## CLI for VSCode is unavailable. Check https://code.visualstudio.com/docs/setup/mac"
         fi
 
+        ANDROID_SDK=~/android_sdk
+        path=($path ~/android_sdk/cmdline-tools/latest/bin)
         # https://developer.android.com/tools/variables
-        ANDROID_HOME=~/Library/Android/sdk
-        path=($path $ANDROID_HOME/tools $ANDROID_HOME/tools/bin $ANDROID_HOME/platform-tools)
+        # ANDROID_HOME=~/Library/Android/sdk
+        # path=($path $ANDROID_HOME/tools $ANDROID_HOME/tools/bin $ANDROID_HOME/platform-tools)
         ;;
     "WSL")
         WIN_SYSTEM_DRIVE=$(powershell.exe '$env:SystemDrive')
