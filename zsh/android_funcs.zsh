@@ -72,6 +72,7 @@ function refresh_build_env() {
 }
 
 alias whats_for_lunch='echo "$TARGET_PRODUCT-$TARGET_BUILD_VARIANT"'
-alias lunch_pixel7pro='lunch cheetah-userdebug'
-alias lunch_pixelfold='lunch felix-userdebug'
+alias lunch_pixel7='lunch aosp_panther-trunk_staging-userdebug'
+alias lunch_pixel7pro='lunch aosp_cheetah-trunk_staging-userdebug'
+alias lunch_pixelfold='lunch aosp-felix-userdebug'
 alias lunch_cuttlefish='lunch aosp_cf_x86_64_phone-eng'

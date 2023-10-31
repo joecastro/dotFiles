@@ -37,6 +37,10 @@
         'https://github.com/github/copilot.vim.git',
         # Vim plugin to diff two directories
         'https://github.com/will133/vim-dirdiff.git',
+        # colorschemes for Vim
+        'https://github.com/vim/colorschemes.git',
+        # Retro groove color scheme for Vim
+        'https://github.com/morhetz/gruvbox.git',
     ],
     vim_pack_plugin_opt_repos: [
         # A dark Vim/Neovim color scheme inspired by Atom's One Dark syntax theme.
