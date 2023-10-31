@@ -34,7 +34,9 @@
         # Check syntax in Vim asynchronously and fix files, with Language Server Protocol (LSP) support
         'https://github.com/dense-analysis/ale.git',
         # Neovim plugin for GitHub Copilot
-        'https://github.com/github/copilot.vim.git'
+        'https://github.com/github/copilot.vim.git',
+        # Vim plugin to diff two directories
+        'https://github.com/will133/vim-dirdiff.git',
     ],
     vim_pack_plugin_opt_repos: [
         # A dark Vim/Neovim color scheme inspired by Atom's One Dark syntax theme.

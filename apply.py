@@ -89,8 +89,9 @@ def generate_derived_workspace():
         workspace = json.load(original_workspace)
 
     workspace['folders'] = workspace_overrides['folders']
-    for (key, value) in workspace_overrides['settings'].items():
-        workspace['settings'][key] = value
+    if workspace_overrides.get('settings'):
+        for (key, value) in workspace_overrides['settings'].items():
+            workspace['settings'][key] = value
 
     print(json.dumps(workspace, indent=4, sort_keys=False))
 
@@ -220,19 +221,22 @@ def copy_files_local(source_root, source_files, dest_root, dest_files, annotate:
     return ops
 
 
+def get_staging_dir(host):
+    return f'{CWD}/out/{host["hostname"]}-dot'
+
+
 def push_remote(host, shallow):
     hostname = host['hostname']
     file_maps = dict(host['file_maps'])
 
-    staging_dir = f'{CWD}/out/{hostname}-dot'
+    staging_dir = get_staging_dir(host)
     ops = [f'>> Synching dotFiles for {hostname}']
-    ops.append('Preprocessing jsonnet files')
-    ops.extend(preprocess_jsonnet_files(host, CWD))
-    ops.extend(copy_files_local(CWD, file_maps.keys(), staging_dir, file_maps.keys()))
+    ops.append(['rm', '-rf', staging_dir])
+
+    ops.extend(stage_local(host, staging_dir))
 
     ops.append(f'Copying {len(file_maps)} files to {hostname} home directory')
     ops.extend(copy_files(None, staging_dir, file_maps.keys(), host, HOME, file_maps.values(), annotate=True))
-    ops.append(['rm', '-rf', staging_dir])
 
     if not shallow:
         ops.extend(install_vim_plugin_ops(host, config.get('vim_pack_plugin_start_repos'), config.get('vim_pack_plugin_opt_repos')))
@@ -241,14 +245,33 @@ def push_remote(host, shallow):
     return ops
 
 
-def pull_remote(host):
+def stage_local(host, staging_dir):
+    ops = []
+    file_maps = dict(host['file_maps'])
+
+    ops.append('Preprocessing jsonnet files')
+    ops.extend(preprocess_jsonnet_files(host, CWD))
+    ops.extend(copy_files_local(CWD, file_maps.keys(), staging_dir, file_maps.keys()))
+
+    return ops
+
+
+def stage_remote(host, staging_dir):
     hostname = host['hostname']
     file_maps = dict(host['file_maps'])
 
-    ops = [f'>> Snapshotting dotFiles from {hostname}']
-    ops.extend(copy_files(host, HOME, file_maps.values(), None, CWD, file_maps.keys()))
+    ops = [f'>> Snapshotting dotFiles from {hostname} into {staging_dir}']
+    ops.extend(['rm', '-rf', staging_dir])
+    # This doesn't decompose the files back into jsonnet. But the directories are diffable with the local staged copies
+    ops.extend(copy_files(host, HOME, file_maps.values(), None, staging_dir, file_maps.keys()))
 
     return ops
+
+
+def pull_remote(host):
+    hostname = host['hostname']
+    staging_dir = f'{CWD}/out/{hostname}-ingest'
+    return stage_remote(host, staging_dir)
 
 
 def bootstrap_windows():
@@ -311,6 +334,17 @@ def main(args):
                 ops.extend(push_remote(host, shallow))
         case '--push-local':
             ops.extend(push_remote(local_host, shallow))
+        case '--stage':
+            if len(args) < 2:
+                ops.extend(stage_local(local_host, get_staging_dir(local_host)))
+            elif args[1] == '--all':
+                for host in config['hosts']:
+                    ops.extend(stage_local(host, get_staging_dir(host)))
+            else:
+                host = next(h for h in config['hosts'] if h['hostname'] == args[1])
+                ops.extend(stage_local(host, get_staging_dir(host)))
+        case '--stage-local':
+            ops.extend(stage_local(local_host, get_staging_dir(local_host)))
         case '--pull':
             if len(args) < 2:
                 ops.extend(pull_remote(local_host))

@@ -2,6 +2,16 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Generate derived workspace",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/apply.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--generate-workspace"
+            ]
+        },
+        {
             "name": "Push to remote hosts",
             "type": "python",
             "request": "launch",
@@ -18,16 +28,6 @@
             "program": "${workspaceFolder}/apply.py",
             "console": "integratedTerminal",
             "args": ["--push"]
-        },
-        {
-            "name": "Pull from local dotFiles",
-            "type": "python",
-            "request": "launch",
-            "program": "${workspaceFolder}/apply.py",
-            "console": "integratedTerminal",
-            "args": [
-                "--pull"
-            ]
         },
         {
             "name": "Bootstrap Windows Environment",
