@@ -15,4 +15,5 @@ local BackgroundImageNode(path, blend_percent=0.4) =
     android_umbrella: BackgroundImageNode("android_umbrella.jpg"),
     android_wood: BackgroundImageNode("android_wood.jpg", 0.6),
     google_colors: BackgroundImageNode("google_colors.jpg", 0.35),
+    under_construction: BackgroundImageNode("under_construction.jpg"),
 }

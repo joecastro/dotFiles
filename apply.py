@@ -181,7 +181,7 @@ def preprocess_jsonnet_files(host, staging_dir):
         ('cwd', os.getcwd()),
         ('home', HOME),
         ('branch', host.get('branch')),
-        ('color', host.get('color')),
+        ('color', host.get('color', 'default')),
     ]
 
     ops = []

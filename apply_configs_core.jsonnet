@@ -2,7 +2,7 @@
     workspace: 'dotFiles.code-workspace',
     jsonnet_maps: [
         ['git/gitconfig.jsonnet', 'out/gitconfig.ini'],
-        ['zsh/env_vars.jsonnet', 'out/env_vars.ini']
+        ['zsh/env_vars.jsonnet', 'out/env_vars.ini'],
     ],
     file_maps: [
         ['zsh/zshrc.zsh', '.zshrc'],
@@ -15,7 +15,7 @@
         ['vim/colors/molokai.vim', '.vim/colors/molokai.vim'],
         ['tmux/tmux.conf', '.tmux.conf'],
         ['out/gitconfig.ini', '.gitconfig'],
-        ['out/env_vars.ini', '.env_vars.zsh']
+        ['out/env_vars.ini', '.env_vars.zsh'],
     ],
     vim_pack_plugin_start_repos: [
         # Syntax highlighting for AOSP specific files

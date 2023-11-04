@@ -182,39 +182,39 @@ COD_TERMINAL_BASH=
 FA_DOLLAR_ICON=
 
 function __cute_pwd_helper() {
-    ACTIVE_DIR=$1
-    SUFFIX=$2
+    local ACTIVE_DIR=$1
+    local SUFFIX=$2
 
     # These should only match if they're exact.
-    case "$ACTIVE_DIR" in
+    case "${ACTIVE_DIR}" in
         "$HOME")
-            echo -n $COD_HOME_ICON$SUFFIX
+            echo -n %{${HOST_COLOR}%}${COD_HOME_ICON}%{$reset_color%}${SUFFIX}
             return 0
             ;;
         "$WIN_USERPROFILE")
-            echo -n $WINDOWS_ICON$COD_HOME_ICON$SUFFIX
+            echo -n %{${HOST_COLOR}%}${WINDOWS_ICON}${COD_HOME_ICON}%{$reset_color%}${SUFFIX}
             return 0
             ;;
         "/")
-            echo -n $FAE_TREE_ICON$SUFFIX
+            echo -n %{${HOST_COLOR}%}${FAE_TREE_ICON}%{$reset_color%}${SUFFIX}
             return 0
             ;;
     esac
 
     if (( ${+ANDROID_REPO_BRANCH} )); then
         if [[ "${ACTIVE_DIR##*/}" == "${ANDROID_REPO_BRANCH}" ]]; then
-            echo -n $ANDROID_HEAD_ICON$SUFFIX
+            echo -n %{${HOST_COLOR}%}${ANDROID_HEAD_ICON}%{$reset_color%}${SUFFIX}
             return 0
         fi
     fi
 
     case "${ACTIVE_DIR##*/}" in
         "github")
-            echo -n $GITHUB_ICON$SUFFIX
+            echo -n %{${HOST_COLOR}%}${GITHUB_ICON}%{$reset_color%}${SUFFIX}
             return 0
             ;;
         src | source)
-            echo -n $COD_SAVE_ICON$SUFFIX
+            echo -n %{${HOST_COLOR}%}${COD_SAVE_ICON}%{$reset_color%}${SUFFIX}
             return 0
             ;;
         *)
@@ -273,25 +273,25 @@ function __print_git_worktree() {
     fi
 
     if __is_in_git_dir; then
-        echo "${fg[yellow]%}$COD_TOOLS_ICON "
+        echo "${fg[yellow]%}${COD_TOOLS_ICON} "
         return 0
     fi
 
     local ROOT_WORKTREE=$(git worktree list | head -n1 | awk '{print $1;}')
     local ACTIVE_WORKTREE=$(git worktree list | grep "$(git rev-parse --show-toplevel)" | head -n1 | awk '{print $1;}')
 
-    if [[ "$ROOT_WORKTREE" == "$ACTIVE_WORKTREE" ]]; then
+    if [[ "${ROOT_WORKTREE}" == "${ACTIVE_WORKTREE}" ]]; then
         echo ""
         return 0
     fi
 
     local SUBMODULE_WORKTREE=$(git rev-parse --show-superproject-working-tree)
-    if [[ "$SUBMODULE_WORKTREE" == "" ]]; then
-        echo "%{$fg[green]%}$OCT_FILE_SUBMODULE_ICON%{%F{207}%}${ROOT_WORKTREE##*/}:%{$fg[green]%}${ACTIVE_WORKTREE##*/} "
+    if [[ "${SUBMODULE_WORKTREE}" == "" ]]; then
+        echo "%{$fg[green]%}${OCT_FILE_SUBMODULE_ICON}%{%F{207}%}${ROOT_WORKTREE##*/}:%{$fg[green]%}${ACTIVE_WORKTREE##*/} "
         return 0
     fi
 
-    echo "%{%F{207}%}$COD_FILE_SUBMODULE_ICON${SUBMODULE_WORKTREE##*/} "
+    echo "%{%F{207}%}${COD_FILE_SUBMODULE_ICON}${SUBMODULE_WORKTREE##*/} "
     return 0
 }
 
@@ -324,41 +324,24 @@ function __print_git_info() {
     local BRANCH_MOD_TEMPLATE_STRING=$(test -n "$EXPECT_NERD_FONTS" && echo "$GIT_BRANCH_ICON%s*" || echo "{%s *}")
 
     git status | grep "HEAD detached" > /dev/null 2>&1
-    IS_DETACHED_HEAD=$?
+    local IS_DETACHED_HEAD=$?
     git status | grep "nothing to commit" > /dev/null 2>&1
-    IS_NOTHING_TO_COMMIT=$?
+    local IS_NOTHING_TO_COMMIT=$?
 
-    if [[ "$IS_DETACHED_HEAD" == "0" ]]; then
-        if [[ "$IS_NOTHING_TO_COMMIT" == "0" ]]; then
-            echo -e "%{$fg[red]%}"$(__git_ps1 $COMMIT_TEMPLATE_STRING)" "
+    if [[ "${IS_DETACHED_HEAD}" == "0" ]]; then
+        if [[ "${IS_NOTHING_TO_COMMIT}" == "0" ]]; then
+            echo -e "%{$fg[red]%}"$(__git_ps1 ${COMMIT_TEMPLATE_STRING})" "
         else
-            echo -e "%{$fg[red]%}"$(__git_ps1 $COMMIT_MOD_TEMPLATE_STRING)" "
+            echo -e "%{$fg[red]%}"$(__git_ps1 ${COMMIT_MOD_TEMPLATE_STRING})" "
         fi
     else
-        if [[ "$IS_NOTHING_TO_COMMIT" == "0" ]]; then
-            echo -e "%{$fg[green]%}"$(__git_ps1 $BRANCH_TEMPLATE_STRING)" "
+        if [[ "${IS_NOTHING_TO_COMMIT}" == "0" ]]; then
+            echo -e "%{$fg[green]%}"$(__git_ps1 ${BRANCH_TEMPLATE_STRING})" "
         else
-            echo -e "%{$fg[yellow]%}"$(__git_ps1 $BRANCH_MOD_TEMPLATE_STRING)" "
+            echo -e "%{$fg[yellow]%}"$(__git_ps1 ${BRANCH_MOD_TEMPLATE_STRING})" "
         fi
     fi
 }
-
-# Use a different color for displaying the host name when we're logged into SSH
-if __is_ssh_session; then
-    HostColor=%F{214}
-    if __is_in_tmux; then
-        HostNameDisplay=""
-    else
-        HostNameDisplay=%M
-    fi
-else
-    HostColor=%{$fg[yellow]%}
-    if [[ -n $LOCALHOST_PREFERRED_DISPLAY ]]; then
-        HostNameDisplay=$LOCALHOST_PREFERRED_DISPLAY
-    else
-        HostNameDisplay=%m
-    fi
-fi
 
 function __virtualenv_info() {
     local HAS_VIRTUALENV=1
@@ -380,18 +363,42 @@ function __virtualenv_info() {
 VIRTUAL_ENV_DISABLE_PROMPT=1
 SKIP_WORKTREE_IN_ANDROID_REPO=0 # Repo is implemented in terms of worktrees, so this gets noisy.
 
+if [[ -z "${HOST_COLOR}" ]]; then
+    # Use a different color for displaying the host name when we're logged into SSH
+    if __is_ssh_session; then
+        HOST_COLOR=%F{214}
+    else
+        HOST_COLOR=$fg[yellow]
+    fi
+fi
+
+if __is_ssh_session; then
+    if __is_in_tmux; then
+        HostNameDisplay=""
+    else
+        HostNameDisplay=%M
+    fi
+else
+    if [[ -n $LOCALHOST_PREFERRED_DISPLAY ]]; then
+        HostNameDisplay=$LOCALHOST_PREFERRED_DISPLAY
+    else
+        HostNameDisplay=%m
+    fi
+fi
+
+
 END_OF_PROMPT_ICON=$MD_GREATER_THAN_ICON
-# END_OF_PROMPT_ICON="$"
+ELEVATED_END_OF_PROMPT_ICON="$"
 
 PROMPT=''
 PROMPT+='${white}$(__cute_time_prompt) '
 PROMPT+='$(__virtualenv_info)'
-PROMPT+='%{$fg[green]%}$USER%{$fg[yellow]%}@%B$HostColor$HostNameDisplay%{$reset_color%} '
+PROMPT+='%{$fg[green]%}$USER%{$fg[yellow]%}@%B%{${HOST_COLOR}%}$HostNameDisplay%{$reset_color%} '
 # Optional - spaces are embedded in output suffix if these are non-empty.
 PROMPT+='$(__print_repo_worktree)%{$reset_color%}'
 PROMPT+='$(__print_git_worktree)$(__print_git_info)%{$reset_color%}'
 PROMPT+='$(__cute_pwd)'
-PROMPT+=' $END_OF_PROMPT_ICON '
+PROMPT+=' %(!.$ELEVATED_END_OF_PROMPT_ICON.$END_OF_PROMPT_ICON) '
 
 RPROMPT=''
 # RPOMPT+='%* '
