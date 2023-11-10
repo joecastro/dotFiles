@@ -184,37 +184,38 @@ FA_DOLLAR_ICON=
 function __cute_pwd_helper() {
     local ACTIVE_DIR=$1
     local SUFFIX=$2
+    local ICO_COLOR=$HOST_COLOR
 
     # These should only match if they're exact.
     case "${ACTIVE_DIR}" in
-        "$HOME")
-            echo -n %{${HOST_COLOR}%}${COD_HOME_ICON}%{$reset_color%}${SUFFIX}
+        "${HOME}")
+            echo -n %{${ICO_COLOR}%}${COD_HOME_ICON}%{$reset_color%}${SUFFIX}
             return 0
             ;;
-        "$WIN_USERPROFILE")
-            echo -n %{${HOST_COLOR}%}${WINDOWS_ICON}${COD_HOME_ICON}%{$reset_color%}${SUFFIX}
+        "${WIN_USERPROFILE}")
+            echo -n %{${ICO_COLOR}%}${WINDOWS_ICON}${COD_HOME_ICON}%{$reset_color%}${SUFFIX}
             return 0
             ;;
         "/")
-            echo -n %{${HOST_COLOR}%}${FAE_TREE_ICON}%{$reset_color%}${SUFFIX}
+            echo -n %{${ICO_COLOR}%}${FAE_TREE_ICON}%{$reset_color%}${SUFFIX}
             return 0
             ;;
     esac
 
     if (( ${+ANDROID_REPO_BRANCH} )); then
         if [[ "${ACTIVE_DIR##*/}" == "${ANDROID_REPO_BRANCH}" ]]; then
-            echo -n %{${HOST_COLOR}%}${ANDROID_HEAD_ICON}%{$reset_color%}${SUFFIX}
+            echo -n %{${ICO_COLOR}%}${ANDROID_HEAD_ICON}%{$reset_color%}${SUFFIX}
             return 0
         fi
     fi
 
     case "${ACTIVE_DIR##*/}" in
         "github")
-            echo -n %{${HOST_COLOR}%}${GITHUB_ICON}%{$reset_color%}${SUFFIX}
+            echo -n %{${ICO_COLOR}%}${GITHUB_ICON}%{$reset_color%}${SUFFIX}
             return 0
             ;;
         src | source)
-            echo -n %{${HOST_COLOR}%}${COD_SAVE_ICON}%{$reset_color%}${SUFFIX}
+            echo -n %{${ICO_COLOR}%}${COD_SAVE_ICON}%{$reset_color%}${SUFFIX}
             return 0
             ;;
         *)
@@ -222,7 +223,7 @@ function __cute_pwd_helper() {
     esac
 
     # If there is a suffix here then don't print the directory.
-    if [[ $SUFFIX == "" ]]; then
+    if [[ ${SUFFIX} == "" ]]; then
         echo -n ${ACTIVE_DIR##*/}
     fi
 
@@ -236,7 +237,7 @@ function __cute_pwd() {
             # These commands wind up spitting out an extra slash, so backspace to remove it on the console.
             # Because this messes with the shell's perception of where the cursor is, make the anchor icon
             # appear like an escape sequence instead of a printed character.
-            echo -e "%{$COD_PINNED_ICON %}$(git rev-parse --show-toplevel | xargs basename)/$(git rev-parse --show-prefix)\b"
+            echo -e "%{${COD_PINNED_ICON} %}$(git rev-parse --show-toplevel | xargs basename)/$(git rev-parse --show-prefix)\b"
         else
             echo -n $PWD
         fi
@@ -420,9 +421,9 @@ function __venv_aware_cd() {
     builtin cd "$@"
 
     # If I am no longer in the same directory hierarchy as the venv that was last activated, deactivate.
-    if [[ -n "$VIRTUAL_ENV" ]]; then
+    if [[ -n "${VIRTUAL_ENV}" ]]; then
         local P_DIR="$(dirname "$VIRTUAL_ENV")"
-        if [[ "$PWD"/ != "$P_DIR"/* ]]; then
+        if [[ "$PWD"/ != "${P_DIR}"/* ]]; then
             echo "$NF_PYTHON_ICON Deactivating venv for $P_DIR"
             deactivate
         fi
@@ -446,17 +447,13 @@ function ___venv_aware_cd() {
 
 compdef ___venv_aware_cd __venv_aware_cd
 
-test -e ~/.google_funcs.zsh && source ~/.google_funcs.zsh
-source ~/.android_funcs.zsh # Android shell utility functions
-source ~/.util_funcs.zsh
-
-if [ ! -f ~/.git-prompt.sh ]; then
+if [ ! -f ${DOTFILES_CONFIG_ROOT}/git-prompt.sh ]; then
     echo "Bootstrapping git-prompt installation on new machine through curl"
-    curl -o ~/.git-prompt.sh \
+    curl -o ${DOTFILES_CONFIG_ROOT}/git-prompt.sh \
     https://raw.githubusercontent.com/git/git/master/contrib/completion/git-prompt.sh
 fi
 
-source ~/.git-prompt.sh # defines __git_ps1
+source ${DOTFILES_CONFIG_ROOT}/git-prompt.sh # defines __git_ps1
 
 command -v hub &> /dev/null && eval "$(hub alias -s)"
 command -v chjava &> /dev/null && chjava 18
@@ -465,11 +462,12 @@ command -v chjava &> /dev/null && chjava 18
 # When in SSH TERM_PROGRAM isn't getting propagated.
 # iTerm profile switching requires shell_integration to be installed anyways.
 if [[ "iTerm2" == "$LC_TERMINAL" ]]; then
-    if [ ! -f ~/.iterm2_shell_integration.zsh ]; then
+    if [ ! -f ${DOTFILES_CONFIG_ROOT}/iterm2_shell_integration.zsh ]; then
         echo "Bootstrapping iTerm2 Shell Integration on a new machine through curl"
-        curl -L https://iterm2.com/shell_integration/zsh -o ~/.iterm2_shell_integration.zsh
+        curl -L https://iterm2.com/shell_integration/zsh -o ${DOTFILES_CONFIG_ROOT}/iterm2_shell_integration.zsh
     fi
-    test -e ~/.iterm2_shell_integration.zsh && source ~/.iterm2_shell_integration.zsh
+    test -e ${DOTFILES_CONFIG_ROOT}/iterm2_shell_integration.zsh && \
+        source ${DOTFILES_CONFIG_ROOT}/iterm2_shell_integration.zsh
 fi
 
 test -e ~/.zshext/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh && \
@@ -494,7 +492,7 @@ case "$(__effective_distribution)" in
         ;;
     "OSX")
         # echo "OSX zshrc load complete"
-        source ~/.osx_funcs.zsh
+        source ${DOTFILES_CONFIG_ROOT}/osx_funcs.zsh
 
         # RPROMPT='$(battery_charge)'
 

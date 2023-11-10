@@ -30,6 +30,30 @@
             "args": ["--push"]
         },
         {
+            "name": "Push iTerm2 Settings",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/apply.py",
+            "console": "integratedTerminal",
+            "args": ["--push-iterm2-prefs"]
+        },
+        {
+            "name": "Snapshot iTerm2 Settings",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/apply.py",
+            "console": "integratedTerminal",
+            "args": ["--snapshot-iterm2-prefs-json"]
+        },
+        {
+            "name": "Compare iTerm2 Settings",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/apply.py",
+            "console": "integratedTerminal",
+            "args": ["--compare-iterm2-prefs"]
+        },
+        {
             "name": "Bootstrap Windows Environment",
             "type": "python",
             "request": "launch",

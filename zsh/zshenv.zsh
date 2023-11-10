@@ -142,8 +142,8 @@ function __effective_distribution() {
     return 1
 }
 
-test -e ~/.google_funcs.zsh && source ~/.google_funcs.zsh
-source ~/.android_funcs.zsh # Android shell utility functions
-source ~/.util_funcs.zsh
-
 source ~/.env_vars.zsh
+
+test -e ${DOTFILES_CONFIG_ROOT}/google_funcs.zsh && source ${DOTFILES_CONFIG_ROOT}/google_funcs.zsh
+source ${DOTFILES_CONFIG_ROOT}/android_funcs.zsh # Android shell utility functions
+source ${DOTFILES_CONFIG_ROOT}/util_funcs.zsh
