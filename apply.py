@@ -58,6 +58,12 @@ def run_ops(ops) -> None:
             raise TypeError('Bad operation type')
 
 
+def ensure_out_dir() -> None:
+    out_dir = 'out'
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
+
+
 def update_workspace_extensions() -> None:
     workspace_path = config.get('workspace')
     with open(workspace_path, encoding='utf-8') as f:
@@ -431,17 +437,18 @@ def main(args) -> int:
     return 0
 
 
-def process_apply_configs(ext_vars) -> dict:
+def process_apply_configs() -> dict:
     ''' Process any config files that need to be initialized. '''
     config_file = Path.joinpath(Path.cwd(), 'apply_configs.jsonnet')
     if not Path.is_file(config_file):
         raise ValueError('Missing config file')
 
-    return parse_jsonnet_now(str(config_file), ext_vars)
+    return parse_jsonnet_now(str(config_file), get_ext_vars({'hostname': os.uname().nodename}))
 
 
 if __name__ == "__main__":
-    config = process_apply_configs(get_ext_vars({'hostname': os.uname().nodename}))
+    ensure_out_dir()
+    config = process_apply_configs()
 
     if len(sys.argv) < 2:
         print('<missing args>')
