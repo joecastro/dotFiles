@@ -406,17 +406,6 @@ RPROMPT=''
 # Optional
 # RPROMPT+='$(__virtualenv_info)'
 
-# if exa is installed prefer that to ls
-# options aren't the same, but I also need it less often...
-if ! command -v exa &> /dev/null; then
-    echo "## Using native ls because missing exa"
-    # by default, show slashes, follow symbolic links, colorize
-    alias ls='ls -FHG'
-else
-    alias ls='exa -l'
-    alias realls='\ls -FHG'
-fi
-
 function __venv_aware_cd() {
     builtin cd "$@"
 
@@ -476,7 +465,20 @@ test -e ~/.zshext/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh && \
 if ! __is_embedded_terminal; then
     alias cd='__venv_aware_cd'
 else
-     echo "Limiting zsh initialization because inside $MD_MICROSOFT_VISUAL_STUDIO_CODE_ICON terminal."
+    echo "Limiting zsh initialization because inside $MD_MICROSOFT_VISUAL_STUDIO_CODE_ICON terminal."
+    # Also, in some contexts .zprofile isn't sourced when started inside the Python debug console.
+    source ~/.zprofile
+fi
+
+# if exa is installed prefer that to ls
+# options aren't the same, but I also need it less often...
+if ! command -v exa &> /dev/null; then
+    echo "## Using native ls because missing exa"
+    # by default, show slashes, follow symbolic links, colorize
+    alias ls='ls -FHG'
+else
+    alias ls='exa -l'
+    alias realls='\ls -FHG'
 fi
 
 if [[ -n $DOTFILES_SRC_HOME && -d $DOTFILES_SRC_HOME ]]; then

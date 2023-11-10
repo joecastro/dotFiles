@@ -2,6 +2,7 @@
 
 # pylint: disable=too-many-arguments, missing-module-docstring, missing-function-docstring, line-too-long
 
+from itertools import chain
 import json
 import os
 from pathlib import Path
@@ -56,6 +57,12 @@ def run_ops(ops) -> None:
             entry()
         else:
             raise TypeError('Bad operation type')
+
+
+def ensure_out_dir() -> None:
+    out_dir = 'out'
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
 
 
 def update_workspace_extensions() -> None:
@@ -217,7 +224,7 @@ def preprocess_jsonnet_files(host, staging_dir) -> list:
 
     ext_vars = get_ext_vars(host)
 
-    ops = [['mkdir', '-p', d] for d in staging_dests if not Path(d).is_dir()]
+    ops = [['mkdir', '-p', d] for d in staging_dests]
     ops.extend(parse_jsonnet(s, ext_vars, d) for (s, d) in full_paths)
 
     return ops
@@ -231,8 +238,8 @@ def copy_files_local(source_root, source_files, dest_root, dest_files, annotate:
     if annotate:
         copy_ops = annotate_ops(copy_ops)
 
-    dest_subfolders = set([os.path.dirname(d) for (_, d) in full_paths])
-    ops = [['mkdir', '-p', d] for d in dest_subfolders if not Path(d).is_dir()]
+    dest_subfolders = {os.path.dirname(d) for (_, d) in full_paths}
+    ops = [['mkdir', '-p', d] for d in dest_subfolders]
     ops.extend(copy_ops)
     return ops
 
@@ -349,11 +356,25 @@ def compare_iterm2_prefs() -> None:
     print(f'diff {snapshot_path} {gen_path}')
 
 
-def push_sublimetext_windows_plugins():
+def push_sublimetext_windows_plugins() -> list:
     ''' Setup any Sublime Text plugins for Windows. '''
     return [
         ['cp', 'sublime_text\\*', '"%APPDATA%\\Sublime Text 2\\Packages\\User"']
     ]
+
+
+def parse_hosts_from_args(host_args) -> list:
+    match len(host_args):
+        case 0:
+            return []
+        case 1:
+            match host_args[0]:
+                case '--all':
+                    return config['hosts']
+                case '--local':
+                    return [get_localhost()]
+        case _:
+            return [h for h in config['hosts'] if h['hostname'] in host_args]
 
 
 def main(args) -> int:
@@ -373,11 +394,20 @@ def main(args) -> int:
         args.remove(working_dir)
         os.chdir(working_dir)
 
-    local_host = get_localhost()
+    option = args[0]
+    host_args = args[1:]
+
+    if option.endswith('-local'):
+        option = option[:len('-local')]
+        host_args = ['--local']
+
+    if option in ['--push', '--pull', '--stage']:
+        hosts = parse_hosts_from_args(host_args)
+        if len(hosts) == 0:
+            raise ValueError(f'No hosts found in "{host_args}"')
 
     ops = []
-    host_free_option_handled=True
-    match args[0]:
+    match option:
         case '--compare-iterm2-prefs':
             ops.append(compare_iterm2_prefs)
         case '--push-vscode-settings':
@@ -386,10 +416,6 @@ def main(args) -> int:
             ops.append(update_workspace_extensions)
         case '--generate-workspace':
             ops.append(generate_derived_workspace)
-        case '--push-local':
-            ops.extend(push_remote(local_host, shallow))
-        case '--stage-local':
-            ops.extend(stage_local(local_host, get_staging_dir(local_host)))
         case '--bootstrap-iterm2':
             ops.extend(bootstrap_iterm2())
         case '--snapshot-iterm2-prefs-json':
@@ -399,30 +425,18 @@ def main(args) -> int:
         case '--bootstrap-windows':
             ops.extend(bootstrap_windows())
         case '--install-sublime-plugins':
-            push_sublimetext_windows_plugins()
+            ops.extend(push_sublimetext_windows_plugins())
+        case '--push':
+            ops.extend(chain.from_iterable([push_remote(host, shallow) for host in hosts]))
+        case '--stage':
+            ops.extend(chain.from_iterable([stage_local(host, get_staging_dir(host)) for host in hosts]))
+        case '--pull':
+            if len(hosts) != 1:
+                raise ValueError('Cannot pull from multiple hosts')
+            ops.extend(pull_remote(hosts[0]))
         case _:
-            host_free_option_handled=False
-
-    if not host_free_option_handled:
-        option = args[0]
-        hosts = [local_host] if len(args) < 2 else config['hosts'] if args[1] == '--all' else [h for h in config['hosts'] if h['hostname'] == args[1]]
-        if len(hosts) == 0:
-            raise ValueError(f'No hosts found for {args[1] if len(args) > 1 else "<no host>"}')
-
-        match option:
-            case '--push':
-                for host in hosts:
-                    for item in push_remote(host, shallow):
-                        ops.append(item)
-            case '--stage':
-                ops.extend(item for item in [stage_local(host, get_staging_dir(host)) for host in hosts])
-            case '--pull':
-                if len(hosts) != 1:
-                    raise ValueError('Cannot pull from multiple hosts')
-                ops.extend(pull_remote(hosts[0]))
-            case _:
-                print('<unknown arg>')
-                return 1
+            print('<unknown arg>')
+            return 1
 
     if print_only:
         print_ops(ops)
@@ -431,17 +445,18 @@ def main(args) -> int:
     return 0
 
 
-def process_apply_configs(ext_vars) -> dict:
+def process_apply_configs() -> dict:
     ''' Process any config files that need to be initialized. '''
     config_file = Path.joinpath(Path.cwd(), 'apply_configs.jsonnet')
     if not Path.is_file(config_file):
         raise ValueError('Missing config file')
 
-    return parse_jsonnet_now(str(config_file), ext_vars)
+    return parse_jsonnet_now(str(config_file), get_ext_vars({'hostname': os.uname().nodename}))
 
 
 if __name__ == "__main__":
-    config = process_apply_configs(get_ext_vars({'hostname': os.uname().nodename}))
+    ensure_out_dir()
+    config = process_apply_configs()
 
     if len(sys.argv) < 2:
         print('<missing args>')

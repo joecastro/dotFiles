@@ -79,6 +79,7 @@
     "terminal.external.osxExec": "iTerm2.app",
     "terminal.integrated.defaultProfile.osx": "zsh",
     "terminal.integrated.fontFamily": "caskaydiacove nerd font, Cascadia Code, Consolas",
+    "terminal.integrated.profiles.osx": { "zsh": { "path": "/bin/zsh", "args": ["-l", "-i"] } },
     "workbench.colorTheme": "Tomorrow Night Blue",
     "workbench.editor.tabCloseButton": "right",
     "workbench.iconTheme": "a-file-icon-vscode",
