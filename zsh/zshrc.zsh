@@ -1,11 +1,6 @@
 #! /bin/zsh
 
-# Keep this repeatedly sourceable.
 #pragma once
-# PRAGMA_FILE_NAME="PRAGMA_${"${(%):-%1N}"//\./_}"
-# [ -n "${(P)PRAGMA_FILE_NAME}" ] && unset PRAGMA_FILE_NAME && return;
-# declare $PRAGMA_FILE_NAME=0
-# unset PRAGMA_FILE_NAME
 
 # Useful reference: https://scriptingosx.com/2019/07/moving-to-zsh-part-7-miscellanea/
 
@@ -184,7 +179,7 @@ FA_DOLLAR_ICON=
 function __cute_pwd_helper() {
     local ACTIVE_DIR=$1
     local SUFFIX=$2
-    local ICO_COLOR=$HOST_COLOR
+    local ICO_COLOR=$reset_color
 
     # These should only match if they're exact.
     case "${ACTIVE_DIR}" in

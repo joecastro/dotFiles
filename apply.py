@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
-# pylint: disable=too-many-arguments, missing-module-docstring, missing-function-docstring, line-too-long
+# pylint: disable=too-many-arguments, missing-module-docstring, missing-function-docstring, missing-class-docstring, line-too-long
 
+from dataclasses import dataclass, field
+from functools import partial
 from itertools import chain
 import json
 import os
@@ -13,17 +15,48 @@ import subprocess
 import sys
 import _jsonnet
 
+@dataclass
+class Host:
+    hostname: str
+    abstract_wallpaper: dict = None,
+    android_wallpaper: dict = None,
+    branch: str = 'none'
+    color: str = 'default'
+    file_maps: list[tuple[str, str]] | dict[str, str] = field(default_factory=list)
+    jsonnet_maps: list[tuple[str, str]] | dict[str, str] = field(default_factory=list)
+    macros: dict[str, list[str]] = field(default_factory=dict)
+    remote_commands: list[str] = field(default_factory=list)
+    remote_home: str = 'unused'
+
+    def __post_init__(self):
+        self.file_maps = dict(self.file_maps)
+        self.jsonnet_maps = dict(self.jsonnet_maps)
+
+@dataclass
+class Config:
+    hosts: list[Host]
+    workspace: str
+    workspace_overrides: dict
+    vim_pack_plugin_start_repos: list
+    vim_pack_plugin_opt_repos: list
+    zsh_plugin_repos: list
+
+    def __post_init__(self):
+        self.hosts = [Host(**host) for host in self.hosts]
+
+
 HOME = str(Path.home())
 CWD = '.'
 
-config = {}
+config:Config = None
+
 
 def is_localhost(host) -> bool:
-    return host['hostname'] == os.uname().nodename
+    return host.hostname == os.uname().nodename
 
 
 def get_localhost() -> dict:
-    return next(h for h in config['hosts'] if h['hostname'] == os.uname().nodename)
+    return next(h for h in config.hosts if h.hostname == os.uname().nodename)
 
 
 def annotate_ops(ops) -> list:
@@ -66,7 +99,7 @@ def ensure_out_dir() -> None:
 
 
 def update_workspace_extensions() -> None:
-    workspace_path = config.get('workspace')
+    workspace_path = config.workspace
     with open(workspace_path, encoding='utf-8') as f:
         workspace = json.load(f)
 
@@ -91,8 +124,8 @@ def push_vscode_user_settings() -> None:
 
 
 def generate_derived_workspace() -> None:
-    base_workspace_path = config.get('workspace')
-    workspace_overrides = config.get('workspace_overrides')
+    base_workspace_path = config.workspace
+    workspace_overrides = config.workspace_overrides
     if not base_workspace_path or not workspace_overrides:
         print('Skipping workspace generation because no overrides were specified.')
         return
@@ -111,9 +144,7 @@ def generate_derived_workspace() -> None:
 
 
 def install_zsh_plugin_ops(host, zsh_plugin_repos) -> list:
-    hostname = host['hostname']
-
-    ops = [f'>> Cloning {len(zsh_plugin_repos)} Zsh plugins for {hostname}']
+    ops = [f'>> Cloning {len(zsh_plugin_repos)} Zsh plugins for {host.hostname}']
     plugin_root = f'{HOME}/.zshext' if is_localhost(host) else './.zshext'
     ops.append(['rm', '-rf', plugin_root])
     pattern = re.compile("([^/]+)\\.git$")
@@ -125,13 +156,11 @@ def install_zsh_plugin_ops(host, zsh_plugin_repos) -> list:
     if is_localhost(host):
         return ops
 
-    return [['ssh', hostname, ' '.join(op)] if isinstance(op, list) else op for op in ops]
+    return [['ssh', host.hostname, ' '.join(op)] if isinstance(op, list) else op for op in ops]
 
 
 def install_vim_plugin_ops(host, vim_pack_plugin_start_repos, vim_pack_plugin_opt_repos) -> list:
-    hostname = host['hostname']
-
-    ops = [f'>> Cloning {len(vim_pack_plugin_start_repos) + len(vim_pack_plugin_opt_repos)} Vim plugins for {hostname}']
+    ops = [f'>> Cloning {len(vim_pack_plugin_start_repos) + len(vim_pack_plugin_opt_repos)} Vim plugins for {host.hostname}']
     pack_root = f'{HOME}/.vim/pack' if is_localhost(host) else './.vim/pack'
     ops.append(['rm', '-rf', pack_root])
     pattern = re.compile("([^/]+)\\.git$")
@@ -145,7 +174,7 @@ def install_vim_plugin_ops(host, vim_pack_plugin_start_repos, vim_pack_plugin_op
     if is_localhost(host):
         return ops
 
-    return [['ssh', hostname, ' '.join(op)] if isinstance(op, list) else op for op in ops]
+    return [['ssh', host.hostname, ' '.join(op)] if isinstance(op, list) else op for op in ops]
 
 
 def copy_files(source_host, source_root, source_files, dest_host, dest_root, dest_files, annotate=False) -> list:
@@ -163,12 +192,12 @@ def copy_files(source_host, source_root, source_files, dest_host, dest_root, des
     if not is_remote_source:
         source_prefix = source_root
     else:
-        source_prefix = source_host['hostname'] + ':' + source_root
+        source_prefix = source_host.hostname + ':' + source_root
 
     if not is_remote_target:
         dest_prefix = dest_root
     else:
-        dest_prefix = dest_host['hostname'] + ':' + dest_root
+        dest_prefix = dest_host.hostname + ':' + dest_root
 
     ops = []
 
@@ -176,7 +205,7 @@ def copy_files(source_host, source_root, source_files, dest_host, dest_root, des
     mkdir_ops = [['mkdir', '-p', f'{dest_root}/{sub}'] for sub in dest_subfolders]
 
     if is_remote_target:
-        mkdir_ops = [['ssh', dest_host['hostname'], ' '.join(op)] for op in mkdir_ops]
+        mkdir_ops = [['ssh', dest_host.hostname, ' '.join(op)] for op in mkdir_ops]
 
     ops.extend(mkdir_ops)
 
@@ -205,21 +234,26 @@ def parse_jsonnet(jsonnet_file, ext_vars, output_file) -> list:
     return proc_args
 
 
-def get_ext_vars(host) -> list:
+def get_ext_vars(host:Host=None) -> list:
+    if host is None:
+        return {
+            'hostname': os.uname().nodename,
+            'cwd': os.getcwd(),
+            'home': HOME,
+        }
     return {
-        'hostname': host.get('hostname'),
+        'hostname': host.hostname,
         'cwd': os.getcwd(),
         'home': HOME,
-        'branch': host.get('branch', 'none'),
-        'color': host.get('color', 'default')
+        'branch': host.branch,
+        'color': host.color
     }
 
 def preprocess_jsonnet_files(host, staging_dir) -> list:
-    jsonnet_maps = host['jsonnet_maps']
-    if not jsonnet_maps:
+    if not host.jsonnet_maps:
         return []
 
-    full_paths = [(str(Path.joinpath(Path.cwd(), src)), f'{staging_dir}/{dest}') for (src, dest) in jsonnet_maps]
+    full_paths = [(str(Path.joinpath(Path.cwd(), src)), f'{staging_dir}/{dest}') for (src, dest) in host.jsonnet_maps.items()]
     staging_dests = set([os.path.dirname(d) for (_, d) in full_paths])
 
     ext_vars = get_ext_vars(host)
@@ -245,55 +279,69 @@ def copy_files_local(source_root, source_files, dest_root, dest_files, annotate:
 
 
 def get_staging_dir(host):
-    return f'{CWD}/out/{host["hostname"]}-dot'
+    return f'{CWD}/out/{host.hostname}-dot'
 
 
 def push_remote(host, shallow):
-    hostname = host['hostname']
-    file_maps = dict(host['file_maps'])
-
     staging_dir = get_staging_dir(host)
-    ops = [f'>> Synching dotFiles for {hostname}']
+    ops = [f'>> Synching dotFiles for {host.hostname}']
     ops.append(['rm', '-rf', staging_dir])
 
     ops.extend(stage_local(host, staging_dir))
 
-    ops.append(f'Copying {len(file_maps)} files to {hostname} home directory')
-    ops.extend(copy_files(None, staging_dir, file_maps.keys(), host, HOME, file_maps.values(), annotate=True))
+    ops.append(f'Copying {len(host.file_maps)} files to {host.hostname} home directory')
+    ops.extend(copy_files(None, staging_dir, host.file_maps.keys(), host, HOME, host.file_maps.values(), annotate=True))
 
     if not shallow:
-        ops.extend(install_vim_plugin_ops(host, config.get('vim_pack_plugin_start_repos'), config.get('vim_pack_plugin_opt_repos')))
-        ops.extend(install_zsh_plugin_ops(host, config.get('zsh_plugin_repos')))
+        ops.extend(install_vim_plugin_ops(host, config.vim_pack_plugin_start_repos, config.vim_pack_plugin_opt_repos))
+        ops.extend(install_zsh_plugin_ops(host, config.zsh_plugin_repos))
 
     return ops
 
 
+def process_staged_files(host, files) -> None:
+    if not host.macros:
+        return
+
+    for file in [f for f in files if Path(f).suffix not in ['.png', '.jpg']]:
+        is_modified = False
+        modified_content = []
+        with open (file, 'r', encoding='utf-8') as f:
+            lines:list[str] = f.read().splitlines()
+            for line in lines:
+                if line in host.macros:
+                    is_modified = True
+                    modified_content.extend(host.macros.get(line))
+                else:
+                    modified_content.append(line)
+        if is_modified:
+            with open(file, 'w', encoding='utf-8') as f:
+                f.writelines(line + '\n' for line in modified_content)
+
+
 def stage_local(host, staging_dir):
     ops = []
-    file_maps = dict(host['file_maps'])
 
     ops.append('Preprocessing jsonnet files')
     ops.extend(preprocess_jsonnet_files(host, CWD))
-    ops.extend(copy_files_local(CWD, file_maps.keys(), staging_dir, file_maps.keys()))
+    ops.extend(copy_files_local(CWD, host.file_maps.keys(), staging_dir, host.file_maps.keys()))
+    ops.append('Preprocessing macros in local staged files')
+    ops.append(partial(process_staged_files, host=host, files=[f'{staging_dir}/{file}' for file in host.file_maps.keys()]))
 
     return ops
 
 
 def stage_remote(host, staging_dir):
-    hostname = host['hostname']
-    file_maps = dict(host['file_maps'])
-
-    ops = [f'>> Snapshotting dotFiles from {hostname} into {staging_dir}']
+    ops = [f'>> Snapshotting dotFiles from {host.hostname} into {staging_dir}']
     ops.extend(['rm', '-rf', staging_dir])
     # This doesn't decompose the files back into jsonnet. But the directories are diffable with the local staged copies
-    ops.extend(copy_files(host, HOME, file_maps.values(), None, staging_dir, file_maps.keys()))
+    ops.extend(copy_files(host, HOME, host.file_maps.values(), None, staging_dir, host.file_maps.keys()))
 
     return ops
 
 
 def pull_remote(host) -> list:
-    hostname = host['hostname']
-    staging_dir = f'{CWD}/out/{hostname}-ingest'
+    staging_dir = f'{CWD}/out/{host.hostname}-ingest'
     return stage_remote(host, staging_dir)
 
 
@@ -370,11 +418,11 @@ def parse_hosts_from_args(host_args) -> list:
         case 1:
             match host_args[0]:
                 case '--all':
-                    return config['hosts']
+                    return config.hosts
                 case '--local':
                     return [get_localhost()]
         case _:
-            return [h for h in config['hosts'] if h['hostname'] in host_args]
+            return [h for h in config.hosts if h['hostname'] in host_args]
 
 
 def main(args) -> int:
@@ -445,13 +493,14 @@ def main(args) -> int:
     return 0
 
 
-def process_apply_configs() -> dict:
+def process_apply_configs() -> Config:
     ''' Process any config files that need to be initialized. '''
     config_file = Path.joinpath(Path.cwd(), 'apply_configs.jsonnet')
     if not Path.is_file(config_file):
         raise ValueError('Missing config file')
 
-    return parse_jsonnet_now(str(config_file), get_ext_vars({'hostname': os.uname().nodename}))
+    config_dict = parse_jsonnet_now(str(config_file), get_ext_vars())
+    return Config(**config_dict)
 
 
 if __name__ == "__main__":

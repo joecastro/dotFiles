@@ -27,7 +27,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/apply.py",
             "console": "integratedTerminal",
-            "args": ["--push"]
+            "args": ["--push", "--local"]
         },
         {
             "name": "Push iTerm2 Settings",

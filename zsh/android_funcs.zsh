@@ -1,5 +1,7 @@
 #! /bin/bash
 
+#pragma once
+
 function repo_find() {
     if __is_in_repo; then
         echo $(repo --show-toplevel)
