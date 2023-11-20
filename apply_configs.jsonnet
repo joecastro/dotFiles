@@ -3,6 +3,7 @@ apply_configs_core + {
     file_maps:: null,
     jsonnet_maps:: null,
     macros:: null,
+    config_root: std.extVar('home') + '/' + apply_configs_core.config_dir,
     workspace: apply_configs_core.workspace,
     hosts: [
         {

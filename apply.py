@@ -46,6 +46,7 @@ class Host:
 @dataclass
 class Config:
     hosts: list[Host]
+    config_root: str
     workspace: str
     workspace_overrides: dict
     vim_pack_plugin_start_repos: list
@@ -214,12 +215,14 @@ def parse_jsonnet(jsonnet_file, ext_vars, output_file) -> list:
 def get_ext_vars(host:Host=None) -> list:
     if host is None:
         return {
+            'is_localhost': 'true',
             'hostname': os.uname().nodename,
             'cwd': os.getcwd(),
             'home': HOME,
         }
     return {
         'hostname': host.hostname,
+        'is_localhost': str(host.is_localhost()).lower(),
         'cwd': os.getcwd(),
         'home': HOME,
         'branch': host.branch,
@@ -321,7 +324,8 @@ def bootstrap_iterm2() -> list:
     ''' Associate the plist for iTerm2 with the dotFiles. '''
     return [
         # Specify the preferences directory
-        ['defaults', 'write', 'com.googlecode.iterm2', 'PrefsCustomFolder', '-string', f'{os.getcwd()}/iterm2'],
+        ['mkdir', '-p', f'{config.config_root}/iterm2'],
+        ['defaults', 'write', 'com.googlecode.iterm2', 'PrefsCustomFolder', '-string', f'{config.config_root}/iterm2'],
         # Tell iTerm2 to use the custom preferences in the directory
         ['defaults', 'write', 'com.googlecode.iterm2', 'LoadPrefsFromCustomFolder', '-bool', 'true']]
 

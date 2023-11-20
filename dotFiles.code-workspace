@@ -38,11 +38,26 @@
         "peacock.color": "#1857a4",
         "jsonnet.languageServer.extVars": {
             "branch": "main",
+            "is_localhost": "true",
             "hostname": "localhost",
             "cwd": "${workspaceFolder}",
             "home": "${env:HOME}",
             "color": "#1857a4"
-        }
+        },
+        "jsonnet.languageServer.jpath": [
+            "${workspaceFolder}",
+            "${workspaceFolder}/bash",
+            "${workspaceFolder}/git",
+            "${workspaceFolder}/iterm2",
+            "${workspaceFolder}/keyboard",
+            "${workspaceFolder}/konsole",
+            "${workspaceFolder}/shell",
+            "${workspaceFolder}/tmux",
+            "${workspaceFolder}/vim",
+            "${workspaceFolder}/vscode",
+            "${workspaceFolder}/wallpaper",
+            "${workspaceFolder}/zsh"
+        ]
     },
     "extensions": {
         "recommendations": [
