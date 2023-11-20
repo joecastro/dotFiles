@@ -6,7 +6,7 @@ apply_configs_core + {
     workspace: apply_configs_core.workspace,
     hosts: [
         {
-            'hostname': std.extVar('hostname'),
+            hostname: std.extVar('hostname'),
             jsonnet_maps: apply_configs_core.jsonnet_maps,
             file_maps: apply_configs_core.file_maps,
             macros: apply_configs_core.macros,

@@ -1,6 +1,10 @@
 #! /bin/bash
 
+#pragma once-bash
+
 export DISPLAY=:0
+
+# eval "`dircolors -b ~/.dircolorsrc`"
 
 # If not running interactively, don't do anything
 case $- in
@@ -259,14 +263,18 @@ elif [ "$(expr substr $(uname -s) 1 10)" == "MINGW64_NT" ] || [ "$(expr substr $
     EFFECTIVE_DISTRIBUTION="Windows"
 fi
 
+if [ ! -f ${DOTFILES_CONFIG_ROOT}/git-prompt.sh ]; then
+    echo "Bootstrapping git-prompt installation on new machine through curl"
+    curl -o ${DOTFILES_CONFIG_ROOT}/git-prompt.sh \
+    https://raw.githubusercontent.com/git/git/master/contrib/completion/git-prompt.sh
+fi
+
+source ${DOTFILES_CONFIG_ROOT}/git-prompt.sh # defines __git_ps1
+
 # echo $EFFECTIVE_DISTRIBUTION
 # Variables
 case $EFFECTIVE_DISTRIBUTION in
     OSX)
-        # curl -o ~/.git-prompt.sh \
-        #    https://raw.githubusercontent.com/git/git/master/contrib/completion/git-prompt.sh
-        source ~/.git-prompt.sh
-
         if [ -f `brew --prefix`/etc/bash_completion.d/git-completion.bash ]; then
             . `brew --prefix`/etc/bash_completion.d/git-completion.bash
             . `brew --prefix`/etc/bash_completion.d/git-prompt.sh

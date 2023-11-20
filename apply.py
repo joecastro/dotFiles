@@ -132,6 +132,13 @@ def push_vscode_user_settings() -> None:
     shutil.copyfile(dotfiles_settings_location, mac_settings_location)
 
 
+def pull_vscode_user_settings() -> None:
+    dotfiles_settings_location = 'vscode/settings.json'
+    mac_settings_location = f'{HOME}/Library/Application Support/Code/User/settings.json'
+
+    shutil.copyfile(mac_settings_location, dotfiles_settings_location)
+
+
 def generate_derived_workspace() -> None:
     if not config.workspace or not config.workspace_overrides:
         print('Skipping workspace generation because no overrides were specified.')
@@ -417,6 +424,8 @@ def main(args) -> int:
     match option:
         case '--compare-iterm2-prefs':
             ops.append(compare_iterm2_prefs)
+        case '--pull-vscode-settings':
+            ops.append(pull_vscode_user_settings)
         case '--push-vscode-settings':
             ops.append(push_vscode_user_settings)
         case '--update-workspace-extensions':

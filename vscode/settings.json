@@ -10,7 +10,7 @@
         ]
     },
     "[python]": {
-        "editor.defaultFormatter": "ms-python.python",
+        "editor.defaultFormatter": "ms-python.black-formatter",
         "editor.formatOnType": true
     },
     "background.windowBackgrounds": [
@@ -76,13 +76,26 @@
     "shellcheck.ignorePatterns": {
         "**/bash/*": true
     },
-    "terminal.external.osxExec": "iTerm2.app",
+    "terminal.external.osxExec": "iTerm.app",
     "terminal.integrated.defaultProfile.osx": "zsh",
     "terminal.integrated.fontFamily": "caskaydiacove nerd font, Cascadia Code, Consolas",
-    "terminal.integrated.profiles.osx": { "zsh": { "path": "/bin/zsh", "args": ["-l", "-i"] } },
+    "terminal.integrated.profiles.osx": {
+        "zsh": {
+            "path": "/bin/zsh",
+            "args": ["-l", "-i"]
+        }
+    },
     "workbench.colorTheme": "Tomorrow Night Blue",
     "workbench.editor.tabCloseButton": "right",
     "workbench.iconTheme": "a-file-icon-vscode",
     "workbench.productIconTheme": "feather-vscode",
-    "workbench.startupEditor": "none"
+    "workbench.startupEditor": "none",
+    "accessibility.dimUnfocused.opacity": 0.2,
+    "terminal.integrated.cursorStyle": "line",
+    "terminal.integrated.automationProfile.osx": {
+        "path": "/bin/zsh",
+        "args": []
+    },
+    "redhat.telemetry.enabled": true,
+    "window.zoomLevel": 1
 }
