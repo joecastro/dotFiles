@@ -391,8 +391,10 @@ def parse_hosts_from_args(host_args) -> list:
                     return config.hosts
                 case '--local':
                     return [config.get_localhost()]
+                case _:
+                    return [ next(h for h in config.hosts if h.hostname == host_args[0]) ]
         case _:
-            return [h for h in config.hosts if h['hostname'] in host_args]
+            return [h for h in config.hosts if h.hostname in host_args]
 
 
 def main(args) -> int:

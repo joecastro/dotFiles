@@ -141,5 +141,5 @@ function __effective_distribution() {
 source ~/.env_vars.sh
 
 test -e ${DOTFILES_CONFIG_ROOT}/google_funcs.zsh && source ${DOTFILES_CONFIG_ROOT}/google_funcs.zsh
-source ${DOTFILES_CONFIG_ROOT}/android_funcs.zsh # Android shell utility functions
-source ${DOTFILES_CONFIG_ROOT}/util_funcs.zsh
+source ${DOTFILES_CONFIG_ROOT}/android_funcs.sh # Android shell utility functions
+source ${DOTFILES_CONFIG_ROOT}/util_funcs.sh

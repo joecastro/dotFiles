@@ -105,14 +105,22 @@ function zle-keymap-select {
 
 zle -N zle-keymap-select
 
-zle-line-finish() { _set_cursor_block }
+zle-line-finish() {
+    _set_cursor_block
+}
+
 zle -N zle-line-finish
 
-zle-line-init() { _set_cursor_beam }
+zle-line-init() {
+    _set_cursor_beam
+}
+
 zle -N zle-line-init
 
 # Use beam shape cursor for each new prompt.
-preexec() { _set_cursor_beam }
+preexec() {
+    _set_cursor_beam
+}
 
 #start_timer=0
 #end_timer=0
@@ -209,7 +217,7 @@ function __cute_pwd_helper() {
             echo -n %{${ICO_COLOR}%}${GITHUB_ICON}%{$reset_color%}${SUFFIX}
             return 0
             ;;
-        src | source)
+        "src" | "source")
             echo -n %{${ICO_COLOR}%}${COD_SAVE_ICON}%{$reset_color%}${SUFFIX}
             return 0
             ;;
