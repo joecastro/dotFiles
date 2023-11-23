@@ -22,12 +22,20 @@
             ]
         },
         {
+            "name": "Pull VS Code User settings",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/apply.py",
+            "console": "integratedTerminal",
+            "args": [ "--pull-vscode-settings" ]
+        },
+        {
             "name": "Push to local dotFiles",
             "type": "python",
             "request": "launch",
             "program": "${workspaceFolder}/apply.py",
             "console": "integratedTerminal",
-            "args": ["--push"]
+            "args": ["--push", "--local"]
         },
         {
             "name": "Push iTerm2 Settings",

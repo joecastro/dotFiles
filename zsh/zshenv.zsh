@@ -1,10 +1,6 @@
 #!/bin/zsh
 
 #pragma once
-PRAGMA_FILE_NAME="PRAGMA_${"${(%):-%1N}"//\./_}"
-[ -n "${(P)PRAGMA_FILE_NAME}" ] && unset PRAGMA_FILE_NAME && return;
-declare $PRAGMA_FILE_NAME=0
-unset PRAGMA_FILE_NAME
 
 EDITOR=vim
 GIT_EDITOR=vim
@@ -142,8 +138,8 @@ function __effective_distribution() {
     return 1
 }
 
-source ~/.env_vars.zsh
+source ~/.env_vars.sh
 
 test -e ${DOTFILES_CONFIG_ROOT}/google_funcs.zsh && source ${DOTFILES_CONFIG_ROOT}/google_funcs.zsh
-source ${DOTFILES_CONFIG_ROOT}/android_funcs.zsh # Android shell utility functions
-source ${DOTFILES_CONFIG_ROOT}/util_funcs.zsh
+source ${DOTFILES_CONFIG_ROOT}/android_funcs.sh # Android shell utility functions
+source ${DOTFILES_CONFIG_ROOT}/util_funcs.sh

@@ -1,3 +1,5 @@
+local wallpapers = import '../wallpaper/wallpapers.jsonnet';
+
 local ItermColor(r, g, b) =
 {
     "Red Component": std.toString(r),
@@ -36,6 +38,11 @@ local ItermColorWhite = ItermColor(1, 1, 1);
         "46c05cb5-a8ea-4abe-a301-02a75d6352bb",
         "88f46a90-3f8e-4258-93e4-e08b1fcdb520",
         "fe30c44a-f7f8-479e-9608-812f4e7d621c"
+    ],
+    private_guids:: [
+        "748cf42e-b25d-4113-9bc6-134455bf65e6",
+        "FA66AC80-6AAA-4A3B-9CFE-B934F789D5EF",
+        "658b147e-4e39-48a1-8ecc-92eeed6c0104"
     ],
     ItermProfileTrigger(regex, action, parameter, partial=false)::
     {
@@ -133,4 +140,39 @@ local ItermColorWhite = ItermColor(1, 1, 1);
         "Visual Bell": true,
         "Window Type": 0
     },
+    Profiles:: {
+        ZshTheHardWay: $.ItermProfile("Zsh the Hard Way", $.private_guids[0], wallpapers.abstract_colorful),
+        BashTheOldWay: $.ItermProfile("Bash the Old Way", $.private_guids[1], wallpapers.abstract_pastel) {
+            "Command": "/opt/homebrew/bin/bash",
+        },
+        HotkeyWindow: $.ItermProfile("Guake Window", $.private_guids[2], wallpapers.quake) {
+            "Has Hotkey": true,
+            "Horizontal Spacing": 1.0,
+            "HotKey Activated By Modifier": false,
+            "HotKey Alternate Shortcuts": [],
+            "HotKey Characters": "\uf70f",
+            "HotKey Characters Ignoring Modifiers": "\uf70f",
+            "HotKey Key Code": 111,
+            "HotKey Modifier Activation": 0,
+            "HotKey Modifier Flags": 0,
+            "HotKey Window Animates": true,
+            "HotKey Window AutoHides": true,
+            "HotKey Window Dock Click Action": 0,
+            "HotKey Window Floats": false,
+            "HotKey Window Reopens On Activation": false,
+            "Initial Use Transparency": true,
+            "Keyboard Map": {
+                "0x74-0x100000-0x0": {
+                    "Action": 27,
+                    "Label": "",
+                    "Text": $.private_guids[2],
+                    "Version": 1
+                }
+            },
+            Space: -1,
+            Transparency: 0.3,
+            "Vertical Spacing": 1.0,
+            "Window Type": 2,
+        },
+    }
 }

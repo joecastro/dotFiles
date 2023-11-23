@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 
-# pylint: disable=too-many-arguments, missing-module-docstring, missing-function-docstring, line-too-long
+# pylint: disable=too-many-arguments, missing-module-docstring, missing-function-docstring, missing-class-docstring, line-too-long
 
+from dataclasses import dataclass, field
+from functools import partial
+from itertools import chain
 import json
 import os
 from pathlib import Path
@@ -15,17 +18,52 @@ import _jsonnet
 HOME = str(Path.home())
 CWD = '.'
 
-config = {}
+@dataclass
+# pylint: disable-next=too-many-instance-attributes
+class Host:
+    hostname: str
+    abstract_wallpaper: dict = None
+    android_wallpaper: dict = None
+    branch: str = 'none'
+    color: str = 'default'
+    file_maps: list[tuple[str, str]] | dict[str, str] = field(default_factory=list)
+    jsonnet_maps: list[tuple[str, str]] | dict[str, str] = field(default_factory=list)
+    macros: dict[str, list[str]] = field(default_factory=dict)
+    remote_commands: list[str] = field(default_factory=list)
+    remote_home: str = 'unused'
 
-def is_localhost(host) -> bool:
-    return host['hostname'] == os.uname().nodename
+    def __post_init__(self):
+        self.file_maps = dict(self.file_maps)
+        self.jsonnet_maps = dict(self.jsonnet_maps)
+
+    def is_localhost(self) -> bool:
+        return self.hostname == os.uname().nodename
+
+    def get_staging_dir(self, suffix='dot') -> str:
+        return f'{CWD}/out/{self.hostname}-{suffix}'
 
 
-def get_localhost() -> dict:
-    return next(h for h in config['hosts'] if h['hostname'] == os.uname().nodename)
+@dataclass
+class Config:
+    hosts: list[Host]
+    config_root: str
+    workspace: str
+    workspace_overrides: dict
+    vim_pack_plugin_start_repos: list
+    vim_pack_plugin_opt_repos: list
+    zsh_plugin_repos: list
+
+    def __post_init__(self):
+        self.hosts = [Host(**host) for host in self.hosts]
+
+    def get_localhost(self) -> Host | None:
+        return next(h for h in self.hosts if h.is_localhost())
 
 
-def annotate_ops(ops) -> list:
+config:Config = None
+
+
+def annotate_ops(ops: list) -> list:
     ret = []
     for op_list in ops:
         ret.append(f'local: {" ".join(op_list)}')
@@ -34,7 +72,7 @@ def annotate_ops(ops) -> list:
     return ret
 
 
-def print_ops(ops) -> None:
+def print_ops(ops: list) -> None:
     for entry in ops:
         if isinstance(entry, str):
             print(entry)
@@ -46,7 +84,7 @@ def print_ops(ops) -> None:
             raise TypeError('Bad operation type')
 
 
-def run_ops(ops) -> None:
+def run_ops(ops: list) -> None:
     for entry in ops:
         if isinstance(entry, str):
             print(entry)
@@ -58,6 +96,13 @@ def run_ops(ops) -> None:
             raise TypeError('Bad operation type')
 
 
+def make_remote_ops(host: Host, ops: list) -> list:
+    if host.is_localhost():
+        return ops
+
+    return [['ssh', host.hostname, ' '.join(op)] if isinstance(op, list) else op for op in ops]
+
+
 def ensure_out_dir() -> None:
     out_dir = 'out'
     if not os.path.exists(out_dir):
@@ -65,8 +110,7 @@ def ensure_out_dir() -> None:
 
 
 def update_workspace_extensions() -> None:
-    workspace_path = config.get('workspace')
-    with open(workspace_path, encoding='utf-8') as f:
+    with open(config.workspace, encoding='utf-8') as f:
         workspace = json.load(f)
 
     completed_proc = subprocess.run(['code', '--list-extensions'], check=True, capture_output=True)
@@ -74,7 +118,7 @@ def update_workspace_extensions() -> None:
 
     workspace['extensions']['recommendations'] = installed_extensions
 
-    with open(workspace_path, 'w', encoding='utf-8') as f:
+    with open(config.workspace, 'w', encoding='utf-8') as f:
         json.dump(workspace, f, indent=4, sort_keys=False)
 
 
@@ -89,96 +133,59 @@ def push_vscode_user_settings() -> None:
     shutil.copyfile(dotfiles_settings_location, mac_settings_location)
 
 
+def pull_vscode_user_settings() -> None:
+    dotfiles_settings_location = 'vscode/settings.json'
+    mac_settings_location = f'{HOME}/Library/Application Support/Code/User/settings.json'
+
+    shutil.copyfile(mac_settings_location, dotfiles_settings_location)
+
+
 def generate_derived_workspace() -> None:
-    base_workspace_path = config.get('workspace')
-    workspace_overrides = config.get('workspace_overrides')
-    if not base_workspace_path or not workspace_overrides:
+    if not config.workspace or not config.workspace_overrides:
         print('Skipping workspace generation because no overrides were specified.')
         return
 
     # code-workspaces are JSON files that support comments.
     # If I want to support that, jsmin will strip comments and make the content json compliant.
-    with open(base_workspace_path, encoding='utf-8') as original_workspace:
+    with open(config.workspace, encoding='utf-8') as original_workspace:
         workspace = json.load(original_workspace)
 
-    workspace['folders'] = workspace_overrides['folders']
-    if workspace_overrides.get('settings'):
-        for (key, value) in workspace_overrides['settings'].items():
+    workspace['folders'] = config.workspace_overrides['folders']
+    if config.workspace_overrides.get('settings'):
+        for (key, value) in config.workspace_overrides['settings'].items():
             workspace['settings'][key] = value
 
     print(json.dumps(workspace, indent=4, sort_keys=False))
 
 
-def install_zsh_plugin_ops(host, zsh_plugin_repos) -> list:
-    hostname = host['hostname']
-
-    ops = [f'>> Cloning {len(zsh_plugin_repos)} Zsh plugins for {hostname}']
-    plugin_root = f'{HOME}/.zshext' if is_localhost(host) else './.zshext'
-    ops.append(['rm', '-rf', plugin_root])
+def install_git_plugins(host: Host, plugin_type: str, repo_list: list[str], install_root: str) -> list:
     pattern = re.compile("([^/]+)\\.git$")
-    for repo in zsh_plugin_repos:
-        target_path = f'{plugin_root}/{pattern.search(repo).group(1)}'
+    plugin_root = f'{HOME if host.is_localhost() else "."}/{install_root}'
+
+    ops = [f'>> Cloning {len(repo_list)} {plugin_type} for {host.hostname}']
+    ops.append(['rm', '-rf', plugin_root])
+    for (repo, target_path) in [(r, f'{plugin_root}/{pattern.search(r).group(1)}') for r in repo_list]:
         ops.append(f'Cloning into {target_path}...')
         ops.append(['git', 'clone', '-q', repo, target_path])
 
-    if is_localhost(host):
-        return ops
-
-    return [['ssh', hostname, ' '.join(op)] if isinstance(op, list) else op for op in ops]
-
-
-def install_vim_plugin_ops(host, vim_pack_plugin_start_repos, vim_pack_plugin_opt_repos) -> list:
-    hostname = host['hostname']
-
-    ops = [f'>> Cloning {len(vim_pack_plugin_start_repos) + len(vim_pack_plugin_opt_repos)} Vim plugins for {hostname}']
-    pack_root = f'{HOME}/.vim/pack' if is_localhost(host) else './.vim/pack'
-    ops.append(['rm', '-rf', pack_root])
-    pattern = re.compile("([^/]+)\\.git$")
-    for (infix, repos) in [('plugins/start', vim_pack_plugin_start_repos),
-                           ('plugins/opt', vim_pack_plugin_opt_repos)]:
-        for plugin_repo in repos:
-            target_path = f'{pack_root}/{infix}/{pattern.search(plugin_repo).group(1)}'
-            ops.append(f'Cloning into {target_path}...')
-            ops.append(['git', 'clone', '-q', plugin_repo, target_path])
-
-    if is_localhost(host):
-        return ops
-
-    return [['ssh', hostname, ' '.join(op)] if isinstance(op, list) else op for op in ops]
+    return make_remote_ops(host, ops)
 
 
 def copy_files(source_host, source_root, source_files, dest_host, dest_root, dest_files, annotate=False) -> list:
-    is_remote_target = dest_host is not None and not is_localhost(dest_host)
-    is_remote_source = source_host is not None and not is_localhost(source_host)
-
-    if is_remote_target and dest_root == HOME:
-        dest_root = CWD
-    if is_remote_source and source_root == HOME:
-        source_root = CWD
-
-    if not is_remote_target and not is_remote_source:
+    if source_host.is_localhost() and dest_host.is_localhost():
         return copy_files_local(source_root, source_files, dest_root, dest_files, annotate)
 
-    if not is_remote_source:
-        source_prefix = source_root
-    else:
-        source_prefix = source_host['hostname'] + ':' + source_root
+    if not dest_host.is_localhost() and dest_root == HOME:
+        dest_root = CWD
+    if not source_host.is_localhost() and source_root == HOME:
+        source_root = CWD
 
-    if not is_remote_target:
-        dest_prefix = dest_root
-    else:
-        dest_prefix = dest_host['hostname'] + ':' + dest_root
-
-    ops = []
+    source_prefix = source_root if source_host.is_localhost() else f'{source_host.hostname}:{source_root}'
+    dest_prefix = dest_root if dest_host.is_localhost() else f'{dest_host.hostname}:{dest_root}'
 
     dest_subfolders = {os.path.dirname(d) for d in dest_files if os.path.dirname(d)}
-    mkdir_ops = [['mkdir', '-p', f'{dest_root}/{sub}'] for sub in dest_subfolders]
 
-    if is_remote_target:
-        mkdir_ops = [['ssh', dest_host['hostname'], ' '.join(op)] for op in mkdir_ops]
-
-    ops.extend(mkdir_ops)
-
+    ops = make_remote_ops(dest_host, [['mkdir', '-p', f'{dest_root}/{sub}'] for sub in dest_subfolders])
     ops.extend([['scp', f'{source_prefix}/{src}', f'{dest_prefix}/{dest}']
                  for (src, dest) in zip(source_files, dest_files)])
 
@@ -186,6 +193,7 @@ def copy_files(source_host, source_root, source_files, dest_host, dest_root, des
 
 
 def parse_jsonnet_now(jsonnet_file, ext_vars) -> dict | list:
+    # pylint: disable-next=c-extension-no-member
     return json.loads(_jsonnet.evaluate_file(jsonnet_file, ext_vars=ext_vars))
 
 
@@ -204,96 +212,106 @@ def parse_jsonnet(jsonnet_file, ext_vars, output_file) -> list:
     return proc_args
 
 
-def get_ext_vars(host) -> list:
+def get_ext_vars(host:Host=None) -> list:
+    if host is None:
+        return {
+            'is_localhost': 'true',
+            'hostname': os.uname().nodename,
+            'cwd': os.getcwd(),
+            'home': HOME,
+        }
     return {
-        'hostname': host.get('hostname'),
+        'hostname': host.hostname,
+        'is_localhost': str(host.is_localhost()).lower(),
         'cwd': os.getcwd(),
         'home': HOME,
-        'branch': host.get('branch', 'none'),
-        'color': host.get('color', 'default')
+        'branch': host.branch,
+        'color': host.color
     }
 
 def preprocess_jsonnet_files(host, staging_dir) -> list:
-    jsonnet_maps = host['jsonnet_maps']
-    if not jsonnet_maps:
+    if not host.jsonnet_maps:
         return []
 
-    full_paths = [(str(Path.joinpath(Path.cwd(), src)), f'{staging_dir}/{dest}') for (src, dest) in jsonnet_maps]
+    full_paths = [(str(Path.joinpath(Path.cwd(), src)), f'{staging_dir}/{dest}') for (src, dest) in host.jsonnet_maps.items()]
     staging_dests = set([os.path.dirname(d) for (_, d) in full_paths])
 
-    ext_vars = get_ext_vars(host)
-
-    ops = [['mkdir', '-p', d] for d in staging_dests if not Path(d).is_dir()]
-    ops.extend(parse_jsonnet(s, ext_vars, d) for (s, d) in full_paths)
+    ops = [['mkdir', '-p', d] for d in staging_dests]
+    ops.extend(parse_jsonnet(s, get_ext_vars(host), d) for (s, d) in full_paths)
 
     return ops
 
 
 def copy_files_local(source_root, source_files, dest_root, dest_files, annotate: bool = False):
     full_paths = [(f'{source_root}/{src}', f'{dest_root}/{dest}') for (src, dest) in zip(source_files, dest_files)]
+    ops = [['mkdir', '-p', d] for d in {os.path.dirname(d) for (_, d) in full_paths}]
 
     copy_ops = [['cp', src, dest] for (src, dest) in full_paths]
-
     if annotate:
         copy_ops = annotate_ops(copy_ops)
 
-    dest_subfolders = set([os.path.dirname(d) for (_, d) in full_paths])
-    ops = [['mkdir', '-p', d] for d in dest_subfolders if not Path(d).is_dir()]
     ops.extend(copy_ops)
     return ops
 
 
-def get_staging_dir(host):
-    return f'{CWD}/out/{host["hostname"]}-dot'
-
-
 def push_remote(host, shallow):
-    hostname = host['hostname']
-    file_maps = dict(host['file_maps'])
+    ops = [f'>> Synching dotFiles for {host.hostname}']
+    ops.append(['rm', '-rf', host.get_staging_dir()])
 
-    staging_dir = get_staging_dir(host)
-    ops = [f'>> Synching dotFiles for {hostname}']
-    ops.append(['rm', '-rf', staging_dir])
+    ops.extend(stage_local(host))
 
-    ops.extend(stage_local(host, staging_dir))
-
-    ops.append(f'Copying {len(file_maps)} files to {hostname} home directory')
-    ops.extend(copy_files(None, staging_dir, file_maps.keys(), host, HOME, file_maps.values(), annotate=True))
+    ops.append(f'Copying {len(host.file_maps)} files to {host.hostname} home directory')
+    ops.extend(copy_files(config.get_localhost(), host.get_staging_dir(), host.file_maps.keys(), host, HOME, host.file_maps.values(), annotate=True))
 
     if not shallow:
-        ops.extend(install_vim_plugin_ops(host, config.get('vim_pack_plugin_start_repos'), config.get('vim_pack_plugin_opt_repos')))
-        ops.extend(install_zsh_plugin_ops(host, config.get('zsh_plugin_repos')))
+        ops.extend(install_git_plugins(host, 'Vim startup plugins', config.vim_pack_plugin_start_repos, '.vim/pack/plugins/start'))
+        ops.extend(install_git_plugins(host, 'Vim optional plugins', config.vim_pack_plugin_opt_repos, '.vim/pack/plugins/opt'))
+        ops.extend(install_git_plugins(host, 'Zsh plugins', config.zsh_plugin_repos, '.zshext'))
 
     return ops
 
 
-def stage_local(host, staging_dir):
+def process_staged_files(host, files) -> None:
+    if not host.macros:
+        return
+
+    for file in [f for f in files if Path(f).suffix not in ['.png', '.jpg']]:
+        is_modified = False
+        modified_content = []
+        with open (file, 'r', encoding='utf-8') as f:
+            lines:list[str] = f.read().splitlines()
+            for line in lines:
+                if line in host.macros:
+                    is_modified = True
+                    modified_content.extend(host.macros.get(line))
+                else:
+                    modified_content.append(line)
+        if is_modified:
+            with open(file, 'w', encoding='utf-8') as f:
+                f.writelines(line + '\n' for line in modified_content)
+
+
+def stage_local(host):
     ops = []
-    file_maps = dict(host['file_maps'])
 
     ops.append('Preprocessing jsonnet files')
     ops.extend(preprocess_jsonnet_files(host, CWD))
-    ops.extend(copy_files_local(CWD, file_maps.keys(), staging_dir, file_maps.keys()))
-
-    return ops
-
-
-def stage_remote(host, staging_dir):
-    hostname = host['hostname']
-    file_maps = dict(host['file_maps'])
-
-    ops = [f'>> Snapshotting dotFiles from {hostname} into {staging_dir}']
-    ops.extend(['rm', '-rf', staging_dir])
-    # This doesn't decompose the files back into jsonnet. But the directories are diffable with the local staged copies
-    ops.extend(copy_files(host, HOME, file_maps.values(), None, staging_dir, file_maps.keys()))
+    ops.extend(copy_files_local(CWD, host.file_maps.keys(), host.get_staging_dir(), host.file_maps.keys()))
+    ops.append('Preprocessing macros in local staged files')
+    ops.append(partial(process_staged_files, host=host, files=[f'{host.get_staging_dir()}/{file}' for file in host.file_maps.keys()]))
 
     return ops
 
 
 def pull_remote(host) -> list:
-    hostname = host['hostname']
-    staging_dir = f'{CWD}/out/{hostname}-ingest'
-    return stage_remote(host, staging_dir)
+    staging_dir = host.get_staging_dir('ingest')
+
+    ops = [f'>> Snapshotting dotFiles from {host.hostname} into {staging_dir}']
+    ops.extend(['rm', '-rf', staging_dir])
+    # This doesn't decompose the files back into jsonnet. But the directories are diffable with the local staged copies
+    ops.extend(copy_files(host, HOME, host.file_maps.values(), config.get_localhost(), staging_dir, host.file_maps.keys()))
+
+    return ops
 
 
 def bootstrap_windows() -> list:
@@ -306,7 +324,8 @@ def bootstrap_iterm2() -> list:
     ''' Associate the plist for iTerm2 with the dotFiles. '''
     return [
         # Specify the preferences directory
-        ['defaults', 'write', 'com.googlecode.iterm2', 'PrefsCustomFolder', '-string', f'{os.getcwd()}/iterm2'],
+        ['mkdir', '-p', f'{config.config_root}/iterm2'],
+        ['defaults', 'write', 'com.googlecode.iterm2', 'PrefsCustomFolder', '-string', f'{config.config_root}/iterm2'],
         # Tell iTerm2 to use the custom preferences in the directory
         ['defaults', 'write', 'com.googlecode.iterm2', 'LoadPrefsFromCustomFolder', '-bool', 'true']]
 
@@ -320,7 +339,7 @@ def build_iterm2_prefs_json() -> dict:
     '''
     Build the repo's iTerm2 preferences, leaving the format in JSON, because it's easier to read...
     '''
-    return parse_jsonnet_now('iterm2/com.googlecode.iterm2.plist.jsonnet', get_ext_vars(get_localhost()))
+    return parse_jsonnet_now('iterm2/com.googlecode.iterm2.plist.jsonnet', get_ext_vars(config.get_localhost()))
 
 
 def snapshot_iterm2_prefs_json(out_path=None) -> None:
@@ -355,11 +374,27 @@ def compare_iterm2_prefs() -> None:
     print(f'diff {snapshot_path} {gen_path}')
 
 
-def push_sublimetext_windows_plugins():
+def push_sublimetext_windows_plugins() -> list:
     ''' Setup any Sublime Text plugins for Windows. '''
     return [
         ['cp', 'sublime_text\\*', '"%APPDATA%\\Sublime Text 2\\Packages\\User"']
     ]
+
+
+def parse_hosts_from_args(host_args) -> list:
+    match len(host_args):
+        case 0:
+            return []
+        case 1:
+            match host_args[0]:
+                case '--all':
+                    return config.hosts
+                case '--local':
+                    return [config.get_localhost()]
+                case _:
+                    return [ next(h for h in config.hosts if h.hostname == host_args[0]) ]
+        case _:
+            return [h for h in config.hosts if h.hostname in host_args]
 
 
 def main(args) -> int:
@@ -379,23 +414,30 @@ def main(args) -> int:
         args.remove(working_dir)
         os.chdir(working_dir)
 
-    local_host = get_localhost()
+    option = args[0]
+    host_args = args[1:]
+
+    if option.endswith('-local'):
+        option = option[:len('-local')]
+        host_args = ['--local']
+
+    if option in ['--push', '--pull', '--stage']:
+        hosts = parse_hosts_from_args(host_args)
+        if len(hosts) == 0:
+            raise ValueError(f'No hosts found in "{host_args}"')
 
     ops = []
-    host_free_option_handled=True
-    match args[0]:
+    match option:
         case '--compare-iterm2-prefs':
             ops.append(compare_iterm2_prefs)
+        case '--pull-vscode-settings':
+            ops.append(pull_vscode_user_settings)
         case '--push-vscode-settings':
             ops.append(push_vscode_user_settings)
         case '--update-workspace-extensions':
             ops.append(update_workspace_extensions)
         case '--generate-workspace':
             ops.append(generate_derived_workspace)
-        case '--push-local':
-            ops.extend(push_remote(local_host, shallow))
-        case '--stage-local':
-            ops.extend(stage_local(local_host, get_staging_dir(local_host)))
         case '--bootstrap-iterm2':
             ops.extend(bootstrap_iterm2())
         case '--snapshot-iterm2-prefs-json':
@@ -405,30 +447,18 @@ def main(args) -> int:
         case '--bootstrap-windows':
             ops.extend(bootstrap_windows())
         case '--install-sublime-plugins':
-            push_sublimetext_windows_plugins()
+            ops.extend(push_sublimetext_windows_plugins())
+        case '--push':
+            ops.extend(chain.from_iterable([push_remote(host, shallow) for host in hosts]))
+        case '--stage':
+            ops.extend(chain.from_iterable([stage_local(host) for host in hosts]))
+        case '--pull':
+            if len(hosts) != 1:
+                raise ValueError('Cannot pull from multiple hosts')
+            ops.extend(pull_remote(hosts[0]))
         case _:
-            host_free_option_handled=False
-
-    if not host_free_option_handled:
-        option = args[0]
-        hosts = [local_host] if len(args) < 2 else config['hosts'] if args[1] == '--all' else [h for h in config['hosts'] if h['hostname'] == args[1]]
-        if len(hosts) == 0:
-            raise ValueError(f'No hosts found for {args[1] if len(args) > 1 else "<no host>"}')
-
-        match option:
-            case '--push':
-                for host in hosts:
-                    for item in push_remote(host, shallow):
-                        ops.append(item)
-            case '--stage':
-                ops.extend(item for item in [stage_local(host, get_staging_dir(host)) for host in hosts])
-            case '--pull':
-                if len(hosts) != 1:
-                    raise ValueError('Cannot pull from multiple hosts')
-                ops.extend(pull_remote(hosts[0]))
-            case _:
-                print('<unknown arg>')
-                return 1
+            print('<unknown arg>')
+            return 1
 
     if print_only:
         print_ops(ops)
@@ -437,13 +467,14 @@ def main(args) -> int:
     return 0
 
 
-def process_apply_configs() -> dict:
+def process_apply_configs() -> Config:
     ''' Process any config files that need to be initialized. '''
     config_file = Path.joinpath(Path.cwd(), 'apply_configs.jsonnet')
     if not Path.is_file(config_file):
         raise ValueError('Missing config file')
 
-    return parse_jsonnet_now(str(config_file), get_ext_vars({'hostname': os.uname().nodename}))
+    config_dict = parse_jsonnet_now(str(config_file), get_ext_vars())
+    return Config(**config_dict)
 
 
 if __name__ == "__main__":

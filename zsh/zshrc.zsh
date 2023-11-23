@@ -1,11 +1,6 @@
 #! /bin/zsh
 
-# Keep this repeatedly sourceable.
 #pragma once
-# PRAGMA_FILE_NAME="PRAGMA_${"${(%):-%1N}"//\./_}"
-# [ -n "${(P)PRAGMA_FILE_NAME}" ] && unset PRAGMA_FILE_NAME && return;
-# declare $PRAGMA_FILE_NAME=0
-# unset PRAGMA_FILE_NAME
 
 # Useful reference: https://scriptingosx.com/2019/07/moving-to-zsh-part-7-miscellanea/
 
@@ -110,14 +105,22 @@ function zle-keymap-select {
 
 zle -N zle-keymap-select
 
-zle-line-finish() { _set_cursor_block }
+zle-line-finish() {
+    _set_cursor_block
+}
+
 zle -N zle-line-finish
 
-zle-line-init() { _set_cursor_beam }
+zle-line-init() {
+    _set_cursor_beam
+}
+
 zle -N zle-line-init
 
 # Use beam shape cursor for each new prompt.
-preexec() { _set_cursor_beam }
+preexec() {
+    _set_cursor_beam
+}
 
 #start_timer=0
 #end_timer=0
@@ -184,7 +187,7 @@ FA_DOLLAR_ICON=
 function __cute_pwd_helper() {
     local ACTIVE_DIR=$1
     local SUFFIX=$2
-    local ICO_COLOR=$HOST_COLOR
+    local ICO_COLOR=$reset_color
 
     # These should only match if they're exact.
     case "${ACTIVE_DIR}" in
@@ -214,7 +217,7 @@ function __cute_pwd_helper() {
             echo -n %{${ICO_COLOR}%}${GITHUB_ICON}%{$reset_color%}${SUFFIX}
             return 0
             ;;
-        src | source)
+        "src" | "source")
             echo -n %{${ICO_COLOR}%}${COD_SAVE_ICON}%{$reset_color%}${SUFFIX}
             return 0
             ;;
@@ -406,17 +409,6 @@ RPROMPT=''
 # Optional
 # RPROMPT+='$(__virtualenv_info)'
 
-# if exa is installed prefer that to ls
-# options aren't the same, but I also need it less often...
-if ! command -v exa &> /dev/null; then
-    echo "## Using native ls because missing exa"
-    # by default, show slashes, follow symbolic links, colorize
-    alias ls='ls -FHG'
-else
-    alias ls='exa -l'
-    alias realls='\ls -FHG'
-fi
-
 function __venv_aware_cd() {
     builtin cd "$@"
 
@@ -476,7 +468,22 @@ test -e ~/.zshext/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh && \
 if ! __is_embedded_terminal; then
     alias cd='__venv_aware_cd'
 else
-     echo "Limiting zsh initialization because inside $MD_MICROSOFT_VISUAL_STUDIO_CODE_ICON terminal."
+    echo "Limiting zsh initialization because inside $MD_MICROSOFT_VISUAL_STUDIO_CODE_ICON terminal."
+    # Also, in some contexts .zprofile isn't sourced when started inside the Python debug console.
+    source ~/.zprofile
+fi
+
+[[ "$TERM_PROGRAM" == "vscode" ]] && . "$(code --locate-shell-integration-path zsh)"
+
+# if exa is installed prefer that to ls
+# options aren't the same, but I also need it less often...
+if ! command -v exa &> /dev/null; then
+    echo "## Using native ls because missing exa"
+    # by default, show slashes, follow symbolic links, colorize
+    alias ls='ls -FHG'
+else
+    alias ls='exa -l'
+    alias realls='\ls -FHG'
 fi
 
 if [[ -n $DOTFILES_SRC_HOME && -d $DOTFILES_SRC_HOME ]]; then

@@ -3,21 +3,24 @@
     workspace: 'dotFiles.code-workspace',
     jsonnet_maps: [
         ['git/gitconfig.jsonnet', 'out/gitconfig.ini'],
-        ['zsh/env_vars.jsonnet', 'out/env_vars.ini'],
+        ['shell/env_vars.jsonnet', 'out/env_vars.ini'],
     ],
     file_maps: [
+        ['bash/profile.sh', '.profile'],
+        ['bash/bashrc.sh', '.bashrc'],
+        ['bash/dircolorsrc', '.dircolorsrc'],
+        ['shell/util_funcs.sh', self.config_dir + '/util_funcs.sh'],
+        ['shell/android_funcs.sh', self.config_dir + '/android_funcs.sh'],
         ['zsh/zshrc.zsh', '.zshrc'],
         ['zsh/zprofile.zsh', '.zprofile'],
         ['zsh/zshenv.zsh', '.zshenv'],
-        ['zsh/android_funcs.zsh', self.config_dir + '/android_funcs.zsh'],
         ['zsh/osx_funcs.zsh', self.config_dir + '/osx_funcs.zsh'],
-        ['zsh/util_funcs.zsh', self.config_dir + '/util_funcs.zsh'],
         ['vim/vimrc.vim', '.vimrc'],
         ['vim/colors/molokai.vim', '.vim/colors/molokai.vim'],
         ['tmux/tmux.conf', '.tmux.conf'],
         ['out/gitconfig.ini', '.gitconfig'],
         # env_vars needs to be in the home directory for bootstrapping zsh
-        ['out/env_vars.ini', '.env_vars.zsh'],
+        ['out/env_vars.ini', '.env_vars.sh'],
     ],
     vim_pack_plugin_start_repos: [
         # Syntax highlighting for AOSP specific files
@@ -51,5 +54,13 @@
     zsh_plugin_repos: [
         # Fish shell like syntax highlighting for Zsh.
         'https://github.com/zsh-users/zsh-syntax-highlighting.git'
-    ]
+    ],
+    macros: {
+        '#pragma once': [
+            'PRAGMA_FILE_NAME="PRAGMA_${"${(%):-%1N}"//\\./_}"',
+            '[ -n "${(P)PRAGMA_FILE_NAME}" ] && unset PRAGMA_FILE_NAME && return;',
+            'declare $PRAGMA_FILE_NAME=0',
+            'unset PRAGMA_FILE_NAME'
+        ]
+    }
 }
