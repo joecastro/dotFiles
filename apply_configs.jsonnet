@@ -5,6 +5,7 @@ apply_configs_core + {
     macros:: null,
     config_root: std.extVar('home') + '/' + apply_configs_core.config_dir,
     workspace: apply_configs_core.workspace,
+    workspace_overrides: null,
     hosts: [
         {
             hostname: std.extVar('hostname'),
