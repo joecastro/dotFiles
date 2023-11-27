@@ -73,16 +73,19 @@
             "value": "#42b883"
         }
     ],
-    "shellcheck.ignorePatterns": {
-        "**/bash/*": true
-    },
     "terminal.external.osxExec": "iTerm.app",
     "terminal.integrated.defaultProfile.osx": "zsh",
     "terminal.integrated.fontFamily": "caskaydiacove nerd font, Cascadia Code, Consolas",
     "terminal.integrated.profiles.osx": {
+        "bash": {
+            "path": "/opt/homebrew/bin/bash",
+            "icon": "terminal-bash"
+        },
+        "JavaScript Debug Terminal": null,
+        "pwsh": null,
         "zsh": {
-            "path": "/bin/zsh",
-            "args": ["-l", "-i"]
+            "path": "/opt/homebrew/bin/zsh",
+            "icon": "terminal"
         }
     },
     "workbench.colorTheme": "Tomorrow Night Blue",
@@ -92,10 +95,7 @@
     "workbench.startupEditor": "none",
     "accessibility.dimUnfocused.opacity": 0.2,
     "terminal.integrated.cursorStyle": "line",
-    "terminal.integrated.automationProfile.osx": {
-        "path": "/bin/zsh",
-        "args": []
-    },
+    "terminal.integrated.enableImages": true,
     "redhat.telemetry.enabled": true,
     "window.zoomLevel": 1
 }

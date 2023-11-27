@@ -473,7 +473,9 @@ else
     source ~/.zprofile
 fi
 
-[[ "$TERM_PROGRAM" == "vscode" ]] && . "$(code --locate-shell-integration-path zsh)"
+if command -v code &> /dev/null; then
+    [[ "$TERM_PROGRAM" == "vscode" ]] && source "$(code --locate-shell-integration-path zsh)"
+fi
 
 # if exa is installed prefer that to ls
 # options aren't the same, but I also need it less often...

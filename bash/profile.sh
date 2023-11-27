@@ -1,6 +1,6 @@
 #! /bin/bash
 
-#pragma once-bash
+#pragma once
 
 source ~/.env_vars.sh
 

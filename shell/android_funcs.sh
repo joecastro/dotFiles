@@ -1,6 +1,6 @@
 #! /bin/bash
 
-#pragma once-bash
+#pragma once
 
 function repo_find() {
     if __is_in_repo; then

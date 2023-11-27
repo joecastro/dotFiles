@@ -42,6 +42,9 @@ class Host:
     def get_staging_dir(self, suffix='dot') -> str:
         return f'{CWD}/out/{self.hostname}-{suffix}'
 
+    def get_inflated_macro(self, key, file_path) -> list[str]:
+        return [v.replace('@@FILE_NAME', Path(file_path).stem.upper()) for v in self.macros[key]]
+
 
 @dataclass
 class Config:
@@ -283,7 +286,7 @@ def process_staged_files(host, files) -> None:
             for line in lines:
                 if line in host.macros:
                     is_modified = True
-                    modified_content.extend(host.macros.get(line))
+                    modified_content.extend(host.get_inflated_macro(line, file))
                 else:
                     modified_content.append(line)
         if is_modified:

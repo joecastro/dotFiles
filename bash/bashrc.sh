@@ -1,6 +1,7 @@
 #! /bin/bash
+#shellcheck disable=SC2034
 
-#pragma once-bash
+#pragma once
 
 export DISPLAY=:0
 
@@ -12,7 +13,7 @@ case $- in
       *) return;;
 esac
 
-[ "${BASH_VERSINFO}" -lt 4 ] && echo "WARN: This is a really old version of Bash. $BASH_VERSION"
+[ "${BASH_VERSINFO[0]}" -lt 4 ] && echo "WARN: This is a really old version of Bash. $BASH_VERSION"
 
 # Various PS1 aliases
 
@@ -82,33 +83,39 @@ function __is_ssh_session() {
 }
 
 function __is_in_git_repo() {
-    git branch > /dev/null 2>&1;
-    if [[ "$?" == "0" ]]; then
+    if git branch > /dev/null 2>&1; then
         return 0
     fi
     return 1
 }
 
 function __is_in_git_dir() {
-    git rev-parse --is-inside-git-dir | grep "true" > /dev/null 2>&1;
-    if [[ "$?" == "0" ]]; then
+    if git rev-parse --is-inside-git-dir | grep "true" > /dev/null 2>&1; then
         return 0
     fi
     return 1
 }
 
 function __is_in_repo() {
-    verbose=0
+    local verbose=0
     if [[ -z "$1" ]]; then
         unset verbose
     fi
 
-    repo --show-toplevel > /dev/null 2>&1;
-    if [[ "$?" == "0" ]]; then
+    if repo --show-toplevel > /dev/null 2>&1; then
         return 0
     fi
+
     if (( ${+verbose} )); then
         echo "error: Not in Android repo tree"
+    fi
+
+    return 1
+}
+
+function __is_interactive() {
+    if [[ $- == *i* ]]; then
+        return 0
     fi
     return 1
 }
@@ -117,6 +124,60 @@ function __is_in_tmux() {
     if [ "$TERM" = "screen" ]; then
         return 1
     elif [ -n "$TMUX" ]; then
+        return 0
+    fi
+    return 1
+}
+
+function __is_on_wsl() {
+    grep -qE "(Microsoft|WSL)" /proc/version &> /dev/null
+}
+
+function __is_in_windows_drive() {
+    if (( ${+WIN_SYSTEM_ROOT} )); then
+        if test "${PWD##"$WIN_SYSTEM_ROOT"}" != "${PWD}"; then
+            return 0
+        fi
+    fi
+    return 1
+}
+
+function __is_on_osx() {
+    if [[ "$(uname)" == "Darwin" ]]; then
+        return 0
+    fi
+    return 1
+}
+
+function __is_on_windows() {
+    if [[ "$(uname -s)" = "MINGW64_NT"* ]] || [[ "$(uname -s)" = "MSYS_NT"* ]]; then
+        return 0
+    fi
+    return 1
+}
+
+function __is_on_unexpected_windows() {
+    if [[ "$(uname -s)" = "MINGW32_NT"* ]]; then
+        return 0
+    fi
+    return 1
+}
+
+function __is_on_unexpected_linux() {
+    if [[ "$(uname -s)" = "Linux"* ]]; then
+        return 0
+    fi
+    return 1
+}
+
+function __is_embedded_terminal() {
+    # This isn't quite the same thing as running in an embedded terminal.
+    # Code will launch an interactive shell to resolve environment variables.
+    # This value can be used to detect that.
+    if [[ "$VSCODE_RESOLVING_ENVIRONMENT" == "1" ]]; then
+        return 0
+    fi
+    if [[ "$TERM_PROGRAM" == "vscode" ]]; then
         return 0
     fi
     return 1
@@ -156,8 +217,6 @@ NF_PYTHON_ICON=$(test -n "$EXPECT_NERD_FONTS" && echo "$PYTHON_ICON" || echo "$S
 NF_GIT_BRANCH_ICON=$(test -n "$EXPECT_NERD_FONTS" && echo "$GIT_BRANCH_ICON" || echo "(b)")
 NF_GIT_COMMIT_ICON=$(test -n "$EXPECT_NERD_FONTS" && echo "$GIT_COMMIT_ICON" || echo "(d)")
 
-ICONS=($ANCHOR_ICON $PIN_ICON $HUT_ICON $HOUSE_ICON $TREE_ICON $DISK_ICON $OFFICE_ICON)
-
 function __cute_pwd() {
     if __is_in_git_repo; then
         if ! __is_in_git_dir; then
@@ -172,7 +231,7 @@ function __cute_pwd() {
 
     # These should only match if they're exact.
     case "$PWD" in
-        $HOME)
+        "$HOME")
             echo 🏠
             return 0
             ;;
@@ -186,14 +245,8 @@ function __cute_pwd() {
     esac
 
     case "${PWD##*/}" in
-        random | rnd)
-            RANDOM=$$$(date +%s)
-            ix=$(($RANDOM % ${#ICONS[@]}))
-            echo "r$ICONS[$(($ix+1))]d"
-            return 0
-            ;;
         github)
-            echo $GITHUB_ICON
+            echo "$GITHUB_ICON"
             return 0
             ;;
         src | source | master | main)
@@ -208,7 +261,7 @@ function __cute_pwd() {
             ;;
     esac
 
-    echo -n ${PWD##*/}
+    echo -n "${PWD##*/}"
     return 0
 }
 
@@ -248,40 +301,45 @@ function __virtualenv_info() {
 # disable the default virtualenv prompt change
 export VIRTUAL_ENV_DISABLE_PROMPT=1
 
-export PS1=\\[$White\\]$(__cute_time_prompt)\\[$Color_Off\\]' '\\[$BrightGreen\\]'\u'\\[$HostColor\\]'@\h'\\[$Color_Off\\]' $(__cute_pwd) % '
+PS1=\\[$White\\]$(__cute_time_prompt)\\[$Color_Off\\]' '\\[$BrightGreen\\]'\u'\\[$HostColor\\]'@\h'\\[$Color_Off\\]' $(__cute_pwd) % '
+export PS1
 
 EFFECTIVE_DISTRIBUTION="Unhandled"
-if grep -qE "(Microsoft|WSL)" /proc/version &> /dev/null ; then
+if __is_on_wsl; then
     EFFECTIVE_DISTRIBUTION="WSL"
-elif [ "$(uname)" == "Darwin" ]; then
+elif __is_on_osx; then
     EFFECTIVE_DISTRIBUTION="OSX"
-elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
+elif __is_on_unexpected_linux; then
     EFFECTIVE_DISTRIBUTION="Unexpected Linux environment"
-elif [ "$(expr substr $(uname -s) 1 10)" == "MINGW32_NT" ]; then
+elif __is_on_unexpected_windows; then
     EFFECTIVE_DISTRIBUTION="Unexpected Win32 environment"
-elif [ "$(expr substr $(uname -s) 1 10)" == "MINGW64_NT" ] || [ "$(expr substr $(uname -s) 1 7)" == "MSYS_NT" ]; then
+elif __is_on_windows; then
     EFFECTIVE_DISTRIBUTION="Windows"
 fi
 
-if [ ! -f ${DOTFILES_CONFIG_ROOT}/git-prompt.sh ]; then
+if [ ! -f "${DOTFILES_CONFIG_ROOT}/git-prompt.sh" ]; then
     echo "Bootstrapping git-prompt installation on new machine through curl"
-    curl -o ${DOTFILES_CONFIG_ROOT}/git-prompt.sh \
+    curl -o "${DOTFILES_CONFIG_ROOT}/git-prompt.sh" \
     https://raw.githubusercontent.com/git/git/master/contrib/completion/git-prompt.sh
 fi
 
-source ${DOTFILES_CONFIG_ROOT}/git-prompt.sh # defines __git_ps1
+# shellcheck source=/dev/null
+source "${DOTFILES_CONFIG_ROOT}/git-prompt.sh" # defines __git_ps1
 
 # echo $EFFECTIVE_DISTRIBUTION
 # Variables
 case $EFFECTIVE_DISTRIBUTION in
     OSX)
-        if [ -f `brew --prefix`/etc/bash_completion.d/git-completion.bash ]; then
-            . `brew --prefix`/etc/bash_completion.d/git-completion.bash
-            . `brew --prefix`/etc/bash_completion.d/git-prompt.sh
+        if [ -f "$(brew --prefix)/etc/bash_completion.d/git-completion.bash" ]; then
+            # shellcheck source=/dev/null
+            source "$(brew --prefix)/etc/bash_completion.d/git-completion.bash"
+            # shellcheck source=/dev/null
+            source "$(brew --prefix)/etc/bash_completion.d/git-prompt.sh"
         fi
 
         export PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
-        export JAVA_HOME=`/usr/libexec/java_home`
+        JAVA_HOME=$(/usr/libexec/java_home)
+        export JAVA_HOME
 
         export PATH=$JAVA_HOME/bin:$PATH
 

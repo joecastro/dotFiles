@@ -1,6 +1,6 @@
 #! /bin/bash
 
-#pragma once-bash
+#pragma once
 
 alias myip='curl http://ipecho.net/plain; echo'
 
