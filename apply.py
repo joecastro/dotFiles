@@ -27,14 +27,14 @@ class Host:
     branch: str = 'none'
     color: str = 'default'
     file_maps: list[tuple[str, str]] | dict[str, str] = field(default_factory=list)
-    jsonnet_maps: list[tuple[str, str]] | dict[str, str] = field(default_factory=list)
+    jsonnet_maps: list[tuple[str, str, str]] | dict[str, str] = field(default_factory=list)
     macros: dict[str, list[str]] = field(default_factory=dict)
     remote_commands: list[str] = field(default_factory=list)
     remote_home: str = 'unused'
 
     def __post_init__(self):
-        self.file_maps = dict(self.file_maps)
-        self.jsonnet_maps = dict(self.jsonnet_maps)
+        self.file_maps = dict(self.file_maps) | {item2:item3 for (_, item2, item3) in self.jsonnet_maps}
+        self.jsonnet_maps = {item1:item2 for (item1, item2, _) in self.jsonnet_maps}
 
     def is_localhost(self) -> bool:
         return self.hostname == os.uname().nodename

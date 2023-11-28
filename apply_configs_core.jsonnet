@@ -2,8 +2,9 @@
     config_dir:: '.config/dotShell',
     workspace: 'dotFiles.code-workspace',
     jsonnet_maps: [
-        ['git/gitconfig.jsonnet', 'out/gitconfig.ini'],
-        ['shell/env_vars.jsonnet', 'out/env_vars.ini'],
+        ['git/gitconfig.jsonnet', 'out/gitconfig.ini', '.gitconfig'],
+        # env_vars needs to be in the home directory for bootstrapping zsh
+        ['shell/env_vars.jsonnet', 'out/env_vars.ini', '.env_vars.sh'],
     ],
     file_maps: [
         ['bash/profile.sh', '.profile'],
@@ -18,9 +19,6 @@
         ['vim/vimrc.vim', '.vimrc'],
         ['vim/colors/molokai.vim', '.vim/colors/molokai.vim'],
         ['tmux/tmux.conf', '.tmux.conf'],
-        ['out/gitconfig.ini', '.gitconfig'],
-        # env_vars needs to be in the home directory for bootstrapping zsh
-        ['out/env_vars.ini', '.env_vars.sh'],
     ],
     vim_pack_plugin_start_repos: [
         # Syntax highlighting for AOSP specific files
