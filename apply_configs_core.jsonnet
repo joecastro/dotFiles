@@ -19,6 +19,7 @@
         ['vim/vimrc.vim', '.vimrc'],
         ['vim/colors/molokai.vim', '.vim/colors/molokai.vim'],
         ['tmux/tmux.conf', '.tmux.conf'],
+        ['tmux/vscode-tmux.conf', self.config_dir + '/vscode-tmux.conf']
     ],
     vim_pack_plugin_start_repos: [
         # Syntax highlighting for AOSP specific files
