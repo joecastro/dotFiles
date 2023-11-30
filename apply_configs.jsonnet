@@ -8,7 +8,7 @@ apply_configs_core + {
     workspace_overrides: null,
     hosts: [
         {
-            hostname: std.extVar('hostname'),
+            hostname: 'localhost',
             jsonnet_maps: apply_configs_core.jsonnet_maps,
             file_maps: apply_configs_core.file_maps,
             macros: apply_configs_core.macros,

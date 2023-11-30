@@ -5,8 +5,11 @@
             if !std.isObject(root) then
                 error 'Expected a object, got %s' % std.type(value)
             else
-                local props = ['export %s="%s"' % [k, root[k]] for k in std.objectFields(root) if !std.startsWith(root[k], '`')];
-                local directives = ['export %s=%s' % [k, root[k]] for k in std.objectFields(root) if std.startsWith(root[k], '`')];
-                std.lines(['#! /bin/bash', ''] + props + directives);
+                local props = ['export %s="%s"' % [k, root.properties[k]] for k in std.objectFields(root.properties)];
+                local directives = ['export %s=`%s`' % [k, root.directives[k]] for k in std.objectFields(root.directives)];
+                local aliases = if std.objectHas(root, 'aliases')
+                    then ["alias %s='%s'" % [k, root.aliases[k]] for k in std.objectFields(root.aliases)]
+                    else [];
+                std.lines(['#! /bin/bash', '#pragma watermark', ''] + props + directives + aliases);
         aux(value)
 }

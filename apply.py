@@ -2,6 +2,7 @@
 
 # pylint: disable=too-many-arguments, missing-module-docstring, missing-function-docstring, missing-class-docstring, line-too-long
 
+from datetime import datetime
 from dataclasses import dataclass, field
 from functools import partial
 from itertools import chain
@@ -29,10 +30,10 @@ class Host:
     file_maps: list[tuple[str, str]] | dict[str, str] = field(default_factory=list)
     jsonnet_maps: list[tuple[str, str, str]] | dict[str, str] = field(default_factory=list)
     macros: dict[str, list[str]] = field(default_factory=dict)
-    remote_commands: list[str] = field(default_factory=list)
-    remote_home: str = 'unused'
 
     def __post_init__(self):
+        if self.hostname == 'localhost':
+            self.hostname = os.uname().nodename
         self.file_maps = dict(self.file_maps) | {item2:item3 for (_, item2, item3) in self.jsonnet_maps}
         self.jsonnet_maps = {item1:item2 for (item1, item2, _) in self.jsonnet_maps}
 
@@ -43,7 +44,8 @@ class Host:
         return f'{CWD}/out/{self.hostname}-{suffix}'
 
     def get_inflated_macro(self, key, file_path) -> list[str]:
-        return [v.replace('@@FILE_NAME', Path(file_path).stem.upper()) for v in self.macros[key]]
+        return [v.replace('@@FILE_NAME', Path(file_path).stem.upper())
+                 .replace('@@NOW', datetime.now().strftime("%Y-%m-%d %H:%M")) for v in self.macros[key]]
 
 
 @dataclass
@@ -219,12 +221,10 @@ def get_ext_vars(host:Host=None) -> list:
     if host is None:
         return {
             'is_localhost': 'true',
-            'hostname': os.uname().nodename,
             'cwd': os.getcwd(),
             'home': HOME,
         }
     return {
-        'hostname': host.hostname,
         'is_localhost': str(host.is_localhost()).lower(),
         'cwd': os.getcwd(),
         'home': HOME,

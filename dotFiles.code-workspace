@@ -39,7 +39,6 @@
         "jsonnet.languageServer.extVars": {
             "branch": "main",
             "is_localhost": "true",
-            "hostname": "localhost",
             "cwd": "${workspaceFolder}",
             "home": "${env:HOME}",
             "color": "#1857a4"
