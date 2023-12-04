@@ -291,11 +291,11 @@ function __print_git_worktree() {
 
     local SUBMODULE_WORKTREE=$(git rev-parse --show-superproject-working-tree)
     if [[ "${SUBMODULE_WORKTREE}" == "" ]]; then
-        echo "%{$fg[green]%}${OCT_FILE_SUBMODULE_ICON}%{%F{207}%}${ROOT_WORKTREE##*/}:%{$fg[green]%}${ACTIVE_WORKTREE##*/} "
+        echo "%{$fg[green]%}${OCT_FILE_SUBMODULE_ICON}%{%F{#ff5fff}%}${ROOT_WORKTREE##*/}:%{$fg[green]%}${ACTIVE_WORKTREE##*/} "
         return 0
     fi
 
-    echo "%{%F{207}%}${COD_FILE_SUBMODULE_ICON}${SUBMODULE_WORKTREE##*/} "
+    echo "%{%F{#ff5fff}%}${COD_FILE_SUBMODULE_ICON}${SUBMODULE_WORKTREE##*/} "
     return 0
 }
 
@@ -370,23 +370,25 @@ SKIP_WORKTREE_IN_ANDROID_REPO=0 # Repo is implemented in terms of worktrees, so 
 if [[ -z "${HOST_COLOR}" ]]; then
     # Use a different color for displaying the host name when we're logged into SSH
     if __is_ssh_session; then
-        HOST_COLOR=%F{214}
+        PromptHostColor=%F{#ffaf00}
     else
-        HOST_COLOR=$fg[yellow]
+        PromptHostColor=$fg[yellow]
     fi
+else
+    PromptHostColor="%F{${HOST_COLOR}}"
 fi
 
 if __is_ssh_session; then
     if __is_in_tmux; then
-        HostNameDisplay=""
+        PromptHostName=""
     else
-        HostNameDisplay=%M
+        PromptHostName=%M
     fi
 else
     if [[ -n $LOCALHOST_PREFERRED_DISPLAY ]]; then
-        HostNameDisplay=$LOCALHOST_PREFERRED_DISPLAY
+        PromptHostName=$LOCALHOST_PREFERRED_DISPLAY
     else
-        HostNameDisplay=%m
+        PromptHostName=%m
     fi
 fi
 
@@ -397,7 +399,7 @@ ELEVATED_END_OF_PROMPT_ICON="$"
 PROMPT=''
 PROMPT+='${white}$(__cute_time_prompt) '
 PROMPT+='$(__virtualenv_info)'
-PROMPT+='%{$fg[green]%}$USER%{$fg[yellow]%}@%B%{${HOST_COLOR}%}$HostNameDisplay%{$reset_color%} '
+PROMPT+='%{$fg[green]%}$USER%{$fg[yellow]%}@%B%{${PromptHostColor}%}$PromptHostName%{$reset_color%} '
 # Optional - spaces are embedded in output suffix if these are non-empty.
 PROMPT+='$(__print_repo_worktree)%{$reset_color%}'
 PROMPT+='$(__print_git_worktree)$(__print_git_info)%{$reset_color%}'

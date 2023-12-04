@@ -41,6 +41,11 @@ set tabstop=4
 
 set expandtab
 
+if !&diff
+    set foldmethod=indent
+    set foldcolumn=2
+endif
+
 set list
 set listchars=tab:>-,trail:`
 
@@ -183,31 +188,40 @@ function! SetAirlinePrompt()
     let g:airline_section_z = airline#section#create(['%{line(".")}', ":", '%{col(".")}'])
 endfunc
 
-" Nerdtree config
-
-map <F5> :NERDTreeToggle<CR>
-
 " Floaterm config
-
-let g:floaterm_keymap_toggle = '<F12>'
-
 let g:floaterm_width = 0.9
 " let g:floaterm_height = 0.9
 
-function! NumberCycle()
-    if &relativenumber
-        set norelativenumber
-        set number
-    elseif &number
+" 0: Clear the gutter
+" 1: Show folds and relative line numbers
+" 2: 1, but with absolute line numbers
+let g:gutter_cycle_state=0
+function! CycleGutter()
+    let g:gutter_cycle_state += 1
+    if (g:gutter_cycle_state == 3)
+        let g:gutter_cycle_state=0
+    endif
+
+    if (g:gutter_cycle_state == 0)
         set norelativenumber
         set nonumber
-    else
+        set foldcolumn=0
+    elseif (g:gutter_cycle_state == 1)
         set relativenumber
         set number
+        set foldcolumn=2
+    else
+        set norelativenumber
+        set number
+        set foldcolumn=2
     endif
 endfunc
 
-" autocmd BufReadPost * call NumberCycle()
-nnoremap <F2> :call NumberCycle()<CR>
+" autocmd BufReadPost * call CycleGutter()
+
+" Function-key mappings
+nnoremap <F2> :call CycleGutter()<CR>
+map <F5> :NERDTreeToggle<CR>
+let g:floaterm_keymap_toggle = '<F12>'
 
 autocmd User AirlineAfterInit call SetAirlinePrompt()
