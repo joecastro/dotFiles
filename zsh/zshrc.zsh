@@ -122,67 +122,7 @@ preexec() {
     _set_cursor_beam
 }
 
-#start_timer=0
-#end_timer=0
-#elapsed_timer=0
-
-#function __start_timer() {
-#    export start_timer=$(($(gdate +%s%N)/1000000))
-#    echo ""
-#}
-
-#function __complete_timer() {
-#    export end_timer=$(($(gdate +%s%N)/1000000))
-#    export elapsed_timer=$(($end_timer-$start_timer))
-#    echo ""
-#}
-
-#autoload -Uz add-zsh-hook
-#add-zsh-hook precmd __start_timer
-
-EXPECT_NERD_FONTS=1
-
-# emojipedia.org
-ANCHOR_ICON=⚓
-PIN_ICON=📌
-HUT_ICON=🛖
-HOUSE_ICON=🏠
-TREE_ICON=🌲
-DISK_ICON=💾
-OFFICE_ICON=🏢
-SNAKE_ICON=🐍
-ROBOT_ICON=🤖
-
-#Nerdfonts - https://www.nerdfonts.com/cheat-sheet
-WINDOWS_ICON=
-LINUX_PENGUIN_ICON=
-GITHUB_ICON=
-GOOGLE_ICON=
-VIM_ICON=
-ANDROID_HEAD_ICON=󰀲
-ANDROID_BODY_ICON=
-PYTHON_ICON=
-GIT_BRANCH_ICON=
-GIT_COMMIT_ICON=
-HOME_FOLDER_ICON=󱂵
-COD_FILE_SUBMODULE_ICON=
-TMUX_ICON=
-VS_CODE_ICON=󰨞
-COD_HOME_ICON=
-COD_PINNED_ICON=
-COD_TOOLS_ICON=
-COD_TAG_ICON=
-COD_PACKAGE_ICON=
-COD_SAVE_ICON=
-FAE_TREE_ICON=
-MD_SUBMARINE_ICON=󱕬
-MD_GREATER_THAN_ICON=󰥭
-MD_CHEVRON_DOUBLE_RIGHT_ICON=󰄾
-MD_MICROSOFT_VISUAL_STUDIO_CODE_ICON=󰨞
-MD_SNAPCHAT=󰒶
-OCT_FILE_SUBMODULE_ICON=
-COD_TERMINAL_BASH=
-FA_DOLLAR_ICON=
+EXPECT_NERD_FONTS=0
 
 function __cute_pwd_helper() {
     local ACTIVE_DIR=$1
@@ -266,6 +206,7 @@ function __cute_time_prompt() {
 }
 
 function __print_git_worktree() {
+    local PINK_FLAMINGO_FG="%F{#ff5fff}"
     if __is_in_repo && (( ${+SKIP_WORKTREE_IN_ANDROID_REPO} )); then
         echo ""
         return 0
@@ -291,11 +232,11 @@ function __print_git_worktree() {
 
     local SUBMODULE_WORKTREE=$(git rev-parse --show-superproject-working-tree)
     if [[ "${SUBMODULE_WORKTREE}" == "" ]]; then
-        echo "%{$fg[green]%}${OCT_FILE_SUBMODULE_ICON}%{%F{#ff5fff}%}${ROOT_WORKTREE##*/}:%{$fg[green]%}${ACTIVE_WORKTREE##*/} "
+        echo "%{$fg[green]%}${OCT_FILE_SUBMODULE_ICON}%{$PINK_FLAMINGO_FG%}${ROOT_WORKTREE##*/}:%{$fg[green]%}${ACTIVE_WORKTREE##*/} "
         return 0
     fi
 
-    echo "%{%F{#ff5fff}%}${COD_FILE_SUBMODULE_ICON}${SUBMODULE_WORKTREE##*/} "
+    echo "%{$PINK_FLAMINGO_FG%}${COD_FILE_SUBMODULE_ICON}${SUBMODULE_WORKTREE##*/} "
     return 0
 }
 
@@ -313,7 +254,7 @@ function __print_repo_worktree() {
         MANIFEST_BRANCH=$(repo info -o --outer-manifest -l | grep -i "Manifest branch" | sed 's/^Manifest branch: //')
     fi
 
-    echo "%{$fg[green]%}$ANDROID_BODY_ICON$MANIFEST_BRANCH "
+    echo "%{$fg[green]%}$ANDROID_BODY_ICON$MANIFEST_BRANCH%{$reset_color%} "
 }
 
 function __print_git_info() {
@@ -334,48 +275,42 @@ function __print_git_info() {
 
     if [[ "${IS_DETACHED_HEAD}" == "0" ]]; then
         if [[ "${IS_NOTHING_TO_COMMIT}" == "0" ]]; then
-            echo -e "%{$fg[red]%}"$(__git_ps1 ${COMMIT_TEMPLATE_STRING})" "
+            echo -e "%{$fg[red]%}"$(__git_ps1 ${COMMIT_TEMPLATE_STRING})"%{$reset_color%}  "
         else
-            echo -e "%{$fg[red]%}"$(__git_ps1 ${COMMIT_MOD_TEMPLATE_STRING})" "
+            echo -e "%{$fg[red]%}"$(__git_ps1 ${COMMIT_MOD_TEMPLATE_STRING})"%{$reset_color%}  "
         fi
     else
         if [[ "${IS_NOTHING_TO_COMMIT}" == "0" ]]; then
-            echo -e "%{$fg[green]%}"$(__git_ps1 ${BRANCH_TEMPLATE_STRING})" "
+            echo -e "%{$fg[green]%}"$(__git_ps1 ${BRANCH_TEMPLATE_STRING})"%{$reset_color%}  "
         else
-            echo -e "%{$fg[yellow]%}"$(__git_ps1 ${BRANCH_MOD_TEMPLATE_STRING})" "
+            echo -e "%{$fg[yellow]%}"$(__git_ps1 ${BRANCH_MOD_TEMPLATE_STRING})"%{$reset_color%}  "
         fi
     fi
 }
 
-function __virtualenv_info() {
-    local HAS_VIRTUALENV=1
-    if __is_in_tmux; then echo -n "%{$fg[white]%}$TMUX_ICON" && HAS_VIRTUALENV=0; fi
-    # venv="${VIRTUAL_ENV##*/}"
-    if __is_on_wsl; then
-        if __is_in_windows_drive; then echo -n "%{$fg[blue]%}$WINDOWS_ICON";
-        else; echo -n "%{$fg[blue]%}$LINUX_PENGUIN_ICON"; fi
-        HAS_VIRTUALENV=0
-    fi
-    if (( ${+VIRTUAL_ENV} )); then echo -n "%{$fg[green]%}$PYTHON_ICON" && HAS_VIRTUALENV=0; fi
-    if (( ${+VIMRUNTIME} )); then echo -n "%{$fg[green]%}$VIM_ICON" && HAS_VIRTUALENV=0; fi
-    if [[ "$HAS_VIRTUALENV" == "0" ]]; then
-        echo -n "%{$reset_color%} "
+function __print_virtualenv_info() {
+    __virtualenv_info
+    if [[ "$?" == "0" ]]; then
+        echo -n "${reset_colors} "
     fi
 }
 
 # disable the default virtualenv prompt change
 VIRTUAL_ENV_DISABLE_PROMPT=1
-SKIP_WORKTREE_IN_ANDROID_REPO=0 # Repo is implemented in terms of worktrees, so this gets noisy.
+# Repo is implemented in terms of worktrees, so this gets noisy.
+SKIP_WORKTREE_IN_ANDROID_REPO=0
 
-if [[ -z "${HOST_COLOR}" ]]; then
+local YELLOW_SEA_FG="%F{#ffaf00}"
+
+if (( ${+HOST_COLOR} )); then
+    PromptHostColor="%F{${HOST_COLOR}}"
+else
     # Use a different color for displaying the host name when we're logged into SSH
     if __is_ssh_session; then
-        PromptHostColor=%F{#ffaf00}
+        PromptHostColor=$YELLOW_SEA_FG
     else
         PromptHostColor=$fg[yellow]
     fi
-else
-    PromptHostColor="%F{${HOST_COLOR}}"
 fi
 
 if __is_ssh_session; then
@@ -396,20 +331,18 @@ fi
 END_OF_PROMPT_ICON=$MD_GREATER_THAN_ICON
 ELEVATED_END_OF_PROMPT_ICON="$"
 
+# All optional segments have spaces embedded in the output suffix if non-empty.
 PROMPT=''
-PROMPT+='${white}$(__cute_time_prompt) '
-PROMPT+='$(__virtualenv_info)'
+PROMPT+='%{$fg[white]%}$(__cute_time_prompt) '
+PROMPT+='$(__print_virtualenv_info)'
 PROMPT+='%{$fg[green]%}$USER%{$fg[yellow]%}@%B%{${PromptHostColor}%}$PromptHostName%{$reset_color%} '
-# Optional - spaces are embedded in output suffix if these are non-empty.
-PROMPT+='$(__print_repo_worktree)%{$reset_color%}'
-PROMPT+='$(__print_git_worktree)$(__print_git_info)%{$reset_color%}'
+PROMPT+='$(__print_repo_worktree)'
+PROMPT+='$(__print_git_worktree)$(__print_git_info)'
 PROMPT+='$(__cute_pwd)'
 PROMPT+=' %(!.$ELEVATED_END_OF_PROMPT_ICON.$END_OF_PROMPT_ICON) '
 
 RPROMPT=''
 # RPOMPT+='%* '
-# Optional
-# RPROMPT+='$(__virtualenv_info)'
 
 function __venv_aware_cd() {
     builtin cd "$@"
@@ -503,8 +436,8 @@ case "$(__effective_distribution)" in
 
         # RPROMPT='$(battery_charge)'
 
-        if command -v brew > /dev/null; then
-            test -e "$(brew --prefix)/opt/zsh-git-prompt/zshrc.sh" && source "$(brew --prefix)/opt/zsh-git-prompt/zshrc.sh"
+        if command -v brew > /dev/null && test -e "$(brew --prefix)/opt/zsh-git-prompt/zshrc.sh"; then
+            source "$(brew --prefix)/opt/zsh-git-prompt/zshrc.sh"
         fi
 
         if ! __is_ssh_session && ! command -v code &> /dev/null; then
@@ -522,6 +455,11 @@ case "$(__effective_distribution)" in
         WIN_SYSTEM_ROOT="/mnt/${WIN_SYSTEM_DRIVE:0:1:l}"
         WIN_USERNAME=$(powershell.exe '$env:UserName')
         WIN_USERPROFILE=$(echo $(wslpath $(powershell.exe '$env:UserProfile')) | sed $'s/\r//')
+
+        typeset -a WSL_WINDOWS_VIRTUALENV_ID=("__is_on_wsl && __is_in_windows_drive" $WINDOWS_ICON "blue")
+        typeset -a WSL_LINUX_VIRTUALENV_ID=("__is_on_wsl && ! __is_in_windows_drive" $LINUX_PENGUIN_ICON "blue")
+        VIRTUALENV_ID_FUNCS[WSL_WINDOWS]=WSL_WINDOWS_VIRTUALENV_ID
+        VIRTUALENV_ID_FUNCS[WSL_LINUX]=WSL_LINUX_VIRTUALENV_ID
 
         # export WIN_USERPROFILE=$(wslpath $(powershell.exe '$env:UserProfile'))
 

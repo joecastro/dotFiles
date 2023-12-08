@@ -12,9 +12,8 @@ function repo_find() {
     fi
 }
 
-function repo_root() {
-    pushd "$(repo_find)" || exit
-}
+alias repoGo='pushd "$(repo_find)"; cd .'
+alias repo_root='repoGo'
 
 function repo_format() {
     git diff HEAD^ --name-only | xargs -t "${ANDROID_BUILD_TOP}"/external/ktfmt/ktfmt.py
