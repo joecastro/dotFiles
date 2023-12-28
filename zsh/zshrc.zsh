@@ -445,7 +445,10 @@ case "$(__effective_distribution)" in
         fi
 
         ANDROID_SDK=~/android_sdk
-        path=($path ~/android_sdk/cmdline-tools/latest/bin)
+        ANDROID_SDK_ROOT=${ANDROID_SDK}
+        path=($path \
+            "${ANDROID_SDK}/cmdline-tools/latest/bin" \
+            "${ANDROID_SDK}/platform-tools")
         # https://developer.android.com/tools/variables
         # ANDROID_HOME=~/Library/Android/sdk
         # path=($path $ANDROID_HOME/tools $ANDROID_HOME/tools/bin $ANDROID_HOME/platform-tools)
