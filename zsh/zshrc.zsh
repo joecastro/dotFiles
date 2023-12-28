@@ -136,7 +136,7 @@ function __cute_pwd_helper() {
             return 0
             ;;
         "${WIN_USERPROFILE}")
-            echo -n %{${ICO_COLOR}%}${WINDOWS_ICON}${COD_HOME_ICON}%{$reset_color%}${SUFFIX}
+            echo -n %{${ICO_COLOR}%}${WINDOWS_ICON}%{$reset_color%}${SUFFIX}
             return 0
             ;;
         "/")

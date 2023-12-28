@@ -192,8 +192,11 @@ typeset -A VIRTUALENV_ID_FUNCS=( \
 function __virtualenv_info() {
     local HAS_VIRTUALENV=1
     for key value in ${(kv)VIRTUALENV_ID_FUNCS}; do
-        if eval ${${(P)value}:0:1}; then
-            echo -n "%{$fg[${${(P)value}:2:1}]%}${${(P)value}:1:1}"
+        local ID_FUNC=${(P)value:0:1}
+        local ICON=${(P)value:1:1}
+        local ICON_COLOR=${(P)value:2:1}
+        if eval ${ID_FUNC}; then
+            echo -n "%{$fg[${ICON_COLOR}]%}${ICON}"
             HAS_VIRTUALENV=0
         fi
     done
