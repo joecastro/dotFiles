@@ -275,15 +275,15 @@ function __print_git_info() {
 
     if [[ "${IS_DETACHED_HEAD}" == "0" ]]; then
         if [[ "${IS_NOTHING_TO_COMMIT}" == "0" ]]; then
-            echo -e "%{$fg[red]%}"$(__git_ps1 ${COMMIT_TEMPLATE_STRING})"%{$reset_color%}  "
+            echo -e "%{$fg[red]%}"$(__git_ps1 ${COMMIT_TEMPLATE_STRING})"%{$reset_color%} "
         else
-            echo -e "%{$fg[red]%}"$(__git_ps1 ${COMMIT_MOD_TEMPLATE_STRING})"%{$reset_color%}  "
+            echo -e "%{$fg[red]%}"$(__git_ps1 ${COMMIT_MOD_TEMPLATE_STRING})"%{$reset_color%} "
         fi
     else
         if [[ "${IS_NOTHING_TO_COMMIT}" == "0" ]]; then
-            echo -e "%{$fg[green]%}"$(__git_ps1 ${BRANCH_TEMPLATE_STRING})"%{$reset_color%}  "
+            echo -e "%{$fg[green]%}"$(__git_ps1 ${BRANCH_TEMPLATE_STRING})"%{$reset_color%} "
         else
-            echo -e "%{$fg[yellow]%}"$(__git_ps1 ${BRANCH_MOD_TEMPLATE_STRING})"%{$reset_color%}  "
+            echo -e "%{$fg[yellow]%}"$(__git_ps1 ${BRANCH_MOD_TEMPLATE_STRING})"%{$reset_color%} "
         fi
     fi
 }

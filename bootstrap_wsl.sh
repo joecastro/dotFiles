@@ -1,4 +1,4 @@
-#!/bin/zsh
+#!/bin/bash
 
 sudo apt-get update
 
@@ -7,21 +7,22 @@ sudo apt-get update
 
 sudo apt install -y \
     build-essential \
+    gcc \
+    make \
     vim \
     exa \
     python3 \
     python-is-python3 \
-    python3.10-venv \
+    python3-dev \
+    python3.11-venv \
     gpg \
     jsonnet
-
-# brew install gcc
 
 sudo apt-get install -y \
     repo
 
 if (( ${+ANDROID_REPO_BRANCH} )); then
-    mkdir -p $ANDROID_REPO_ROOT
-    cd $ANDROID_REPO_ROOT
-    repo init -u https://android.googlesource.com/platform/manifest -b $ANDROID_REPO_BRANCH
+    mkdir -p "${ANDROID_REPO_ROOT}"
+    cd "${ANDROID_REPO_ROOT}" || exit 1
+    repo init -u https://android.googlesource.com/platform/manifest -b "${ANDROID_REPO_BRANCH}"
 fi

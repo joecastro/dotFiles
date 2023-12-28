@@ -1,9 +1,5 @@
 set nocompatible
 
-if has('win32') || has('win64')
-  set runtimepath=$HOME/.vim,$VIM/vimfiles,$VIMRUNTIME,$VIM/vimfiles/after,$HOME/.vim/after
-endif
-
 " Ways to update this:
 " `:set guifont=*` will display the native font picker.
 " Once Vim looks as desired, it can be pasted in INSERT mode by
@@ -14,7 +10,7 @@ if has("gui_running")
         " This makes most of the expected standard keyboard shortcuts work.
         source $VIMRUNTIME/mswin.vim
         behave mswin
-        set guifont=Consolas:h11:cANSI
+        set guifont=CaskaydiaCove_Nerd_Font_Mono:h12:cANSI:qDRAFT
     elseif has("gui_gtk3")
         set guifont=Inconsolata\ 12
     elseif has("gui_macvim")
