@@ -1,12 +1,12 @@
 #!/bin/bash
 
 function install_android_sdk() {
-    if [[ -z "$ANDROID_SDK" ]]; then
-        echo "ANDROID_SDK environment variable not set. This file can be sourced and then the function 'install_android_sdk' can be called"
+    if [[ -z "$ANDROID_HOME" ]]; then
+        echo "ANDROID_HOME environment variable not set. This file can be sourced and then the function 'install_ANDROID_HOME' can be called"
         return 1
     fi
 
-    mkdir -p "$ANDROID_SDK"/cmdline-tools/latest || return 1
+    mkdir -p "$ANDROID_HOME"/cmdline-tools/latest || return 1
 
     # Download Android SDK
     # https://developer.android.com/studio#command-tools
@@ -15,15 +15,15 @@ function install_android_sdk() {
 
     wget $COMMANDLINETOOLSZIP_URL
 
-    unzip ./"$COMMANDLINETOOLSZIP_FILENAME" -d "$ANDROID_SDK"
+    unzip ./"$COMMANDLINETOOLSZIP_FILENAME" -d "$ANDROID_HOME"
 
-    mv "$ANDROID_SDK"/cmdline-tools/NOTICE.txt "$ANDROID_SDK"/cmdline-tools/latest/
-    mv "$ANDROID_SDK"/cmdline-tools/source.properties "$ANDROID_SDK"/cmdline-tools/latest/
-    mv "$ANDROID_SDK"/cmdline-tools/lib "$ANDROID_SDK"/cmdline-tools/latest/
-    mv "$ANDROID_SDK"/cmdline-tools/bin "$ANDROID_SDK"/cmdline-tools/latest/
+    mv "$ANDROID_HOME"/cmdline-tools/NOTICE.txt "$ANDROID_HOME"/cmdline-tools/latest/
+    mv "$ANDROID_HOME"/cmdline-tools/source.properties "$ANDROID_HOME"/cmdline-tools/latest/
+    mv "$ANDROID_HOME"/cmdline-tools/lib "$ANDROID_HOME"/cmdline-tools/latest/
+    mv "$ANDROID_HOME"/cmdline-tools/bin "$ANDROID_HOME"/cmdline-tools/latest/
 
-    yes | "$ANDROID_SDK"/cmdline-tools/latest/bin/sdkmanager --licenses
-    "$ANDROID_SDK"/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-34"
+    yes | "$ANDROID_HOME"/cmdline-tools/latest/bin/sdkmanager --licenses
+    "$ANDROID_HOME"/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-34"
 
     rm ./"$COMMANDLINETOOLSZIP_FILENAME"
 }
