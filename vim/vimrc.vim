@@ -215,9 +215,22 @@ endfunc
 
 " autocmd BufReadPost * call CycleGutter()
 
+let g:is_background_cleared=0
+function! ToggleBackgroundTransparency()
+    if (g:is_background_cleared == 0)
+        hi Normal ctermbg=NONE
+        let g:is_background_cleared=1
+    else
+        let g:is_background_cleared=0
+        set background&
+    endif
+endfunc
+
 " Function-key mappings
 nnoremap <F2> :call CycleGutter()<CR>
 map <F5> :NERDTreeToggle<CR>
+map <F8> :call ToggleBackgroundTransparency()<CR>
 let g:floaterm_keymap_toggle = '<F12>'
+
 
 autocmd User AirlineAfterInit call SetAirlinePrompt()
