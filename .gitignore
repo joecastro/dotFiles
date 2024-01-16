@@ -4,6 +4,8 @@
 iterm2/com.googlecode.iterm2.plist
 out/
 .venv/
+# .vscode files are managed through symlinks
+.vscode/
 __pycache__
 
 vim/vim/pack/

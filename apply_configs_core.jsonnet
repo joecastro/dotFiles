@@ -1,6 +1,5 @@
 {
     config_dir:: '.config/dotShell',
-    workspace: 'dotFiles.code-workspace',
     jsonnet_maps: [
         ['git/gitconfig.jsonnet', 'out/gitconfig.ini', '.gitconfig'],
         # env_vars needs to be in the home directory for bootstrapping zsh

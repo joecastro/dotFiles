@@ -8,26 +8,22 @@
 # promptinit
 # prompt fire
 
-setopt PROMPT_SUBST
-setopt histignorealldups sharehistory
-
 # Color cheat sheet: https://jonasjacek.github.io/colors/
 autoload -U colors && colors
 
 export LSCOLORS="Gxfxcxdxbxegedabagacad"
-zstyle ':completion:*' list-colors ${(s.:.)LS_COLORS}
 
 setopt NO_CASE_GLOB
 setopt AUTO_CD
-setopt EXTENDED_HISTORY
 
 HISTFILE=${ZDOTDIR:-$HOME}/.zsh_history
 SAVEHIST=5000
 HISTSIZE=2000
 
+setopt PROMPT_SUBST
 setopt SHARE_HISTORY
-setopt APPEND_HISTORY
-setopt INC_APPEND_HISTORY
+setopt EXTENDED_HISTORY
+setopt HIST_IGNORE_ALL_DUPS
 
 setopt CORRECT
 
@@ -46,12 +42,12 @@ bindkey \^W kill-line
 bindkey "\e[3~" delete-char
 
 # Use modern completion system
-autoload -Uz compinit
-compinit
+autoload -Uz compinit && compinit
 
 # $PATH is tied to $path - Can use one as an array and the other as a scalar.
 typeset -U path # force unique values.
 
+zstyle ':completion:*' list-colors ${(s.:.)LS_COLORS}
 # zstyle ':completion:*' auto-description 'specify: %d'
 # zstyle ':completion:*' completer _expand _complete _correct _approximate
 # zstyle ':completion:*' format 'Completing %d'

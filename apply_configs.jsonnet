@@ -4,7 +4,6 @@ apply_configs_core + {
     jsonnet_maps:: null,
     macros:: null,
     config_root: std.extVar('home') + '/' + apply_configs_core.config_dir,
-    workspace: apply_configs_core.workspace,
     workspace_overrides: null,
     hosts: [
         {

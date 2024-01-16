@@ -1,24 +1,19 @@
 {
-    "[java]": {
+    "[java][kotlin]": {
         "editor.rulers": [
-            80
-        ]
-    },
-    "[kotlin]": {
-        "editor.rulers": [
+            80,
             100
         ]
     },
     "[python]": {
-        "editor.defaultFormatter": "ms-python.black-formatter",
-        "editor.formatOnType": true
+        "editor.defaultFormatter": "ms-python.black-formatter"
     },
-    "background.windowBackgrounds": [
-        "${env:DOTFILES_SRC_HOME}/wallpaper/abstract_gray.png"
-    ],
+    "accessibility.dimUnfocused.enabled": true,
+    "accessibility.dimUnfocused.opacity": 0.8,
     "diffEditor.codeLens": true,
-    "editor.fontFamily": "caskaydiacove nerd font mono, Cascadia Code, Consolas",
+    "editor.fontFamily": "CaskaydiaCove Nerd Font Mono, Cascadia Code, Consolas",
     "editor.fontLigatures": true,
+    "editor.formatOnType": true,
     "editor.renderWhitespace": "all",
     "editor.rulers": [
         120
@@ -74,28 +69,27 @@
         }
     ],
     "terminal.external.osxExec": "iTerm.app",
+    "terminal.integrated.cursorStyle": "line",
     "terminal.integrated.defaultProfile.osx": "zsh",
-    "terminal.integrated.fontFamily": "caskaydiacove nerd font, Cascadia Code, Consolas",
+    "terminal.integrated.enableImages": true,
+    "terminal.integrated.fontFamily": "",
     "terminal.integrated.profiles.osx": {
         "bash": {
-            "path": "/opt/homebrew/bin/bash",
-            "icon": "terminal-bash"
+            "icon": "terminal-bash",
+            "path": "/opt/homebrew/bin/bash"
         },
         "JavaScript Debug Terminal": null,
         "pwsh": null,
         "zsh": {
-            "path": "/opt/homebrew/bin/zsh",
-            "icon": "terminal"
+            "icon": "terminal",
+            "path": "/opt/homebrew/bin/zsh"
         }
     },
-    "workbench.colorTheme": "Tomorrow Night Blue",
-    "workbench.editor.tabCloseButton": "right",
+    "workbench.colorTheme": "Abyss",
+    "workbench.editor.closeOnFileDelete": true,
+    "workbench.editor.tabActionLocation": "left",
     "workbench.iconTheme": "a-file-icon-vscode",
     "workbench.productIconTheme": "feather-vscode",
-    "workbench.startupEditor": "none",
-    "accessibility.dimUnfocused.opacity": 0.2,
-    "terminal.integrated.cursorStyle": "line",
-    "terminal.integrated.enableImages": true,
-    "redhat.telemetry.enabled": true,
-    "window.zoomLevel": 1
+    "workbench.settings.editor": "json",
+    "workbench.startupEditor": "none"
 }

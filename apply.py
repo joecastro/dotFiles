@@ -52,7 +52,6 @@ class Host:
 class Config:
     hosts: list[Host]
     config_root: str
-    workspace: str
     workspace_overrides: dict
     vim_pack_plugin_start_repos: list
     vim_pack_plugin_opt_repos: list
@@ -115,52 +114,54 @@ def ensure_out_dir() -> None:
 
 
 def update_workspace_extensions() -> None:
-    with open(config.workspace, encoding='utf-8') as f:
-        workspace = json.load(f)
+    repo_workspace_extensions_location = 'vscode/workspace_extensions.json'
 
     completed_proc = subprocess.run(['code', '--list-extensions'], check=True, capture_output=True)
     installed_extensions = completed_proc.stdout.decode('utf-8').splitlines()
 
-    workspace['extensions']['recommendations'] = installed_extensions
+    extensions_node = {
+        'recommendations': sorted(installed_extensions)
+    }
 
-    with open(config.workspace, 'w', encoding='utf-8') as f:
-        json.dump(workspace, f, indent=4, sort_keys=False)
+    with open(repo_workspace_extensions_location, 'w', encoding='utf-8') as f:
+        json.dump(extensions_node, f, indent=4, sort_keys=True)
 
 
 def push_vscode_user_settings() -> None:
-    dotfiles_settings_location = 'vscode/settings.json'
+    repo_user_settings_location = 'vscode/user_settings.json'
     mac_settings_location = f'{HOME}/Library/Application Support/Code/User/settings.json'
 
     # Open this as a json file first, just to make sure it parses properly.
-    with open(dotfiles_settings_location, encoding='utf-8') as f:
+    with open(repo_user_settings_location, encoding='utf-8') as f:
         json.load(f)
 
-    shutil.copyfile(dotfiles_settings_location, mac_settings_location)
+    shutil.copyfile(repo_user_settings_location, mac_settings_location)
 
 
 def pull_vscode_user_settings() -> None:
-    dotfiles_settings_location = 'vscode/settings.json'
+    dotfiles_settings_location = 'vscode/user_settings.json'
     mac_settings_location = f'{HOME}/Library/Application Support/Code/User/settings.json'
 
     shutil.copyfile(mac_settings_location, dotfiles_settings_location)
 
 
 def generate_derived_workspace() -> None:
-    if not config.workspace or not config.workspace_overrides:
+    if not config.workspace_overrides:
         print('Skipping workspace generation because no overrides were specified.')
         return
 
-    # code-workspaces are JSON files that support comments.
-    # If I want to support that, jsmin will strip comments and make the content json compliant.
-    with open(config.workspace, encoding='utf-8') as original_workspace:
-        workspace = json.load(original_workspace)
+    workspace = {}
+    with open('vscode/dotFiles_settings.json', encoding='utf-8') as ws_settings:
+        workspace['settings'] = json.load(ws_settings)
+    with open('vscode/dotFiles_extensions.json', encoding='utf-8') as ws_extensions:
+        workspace['extensions'] = json.load(ws_extensions)
 
     workspace['folders'] = config.workspace_overrides['folders']
     if config.workspace_overrides.get('settings'):
         for (key, value) in config.workspace_overrides['settings'].items():
             workspace['settings'][key] = value
 
-    print(json.dumps(workspace, indent=4, sort_keys=False))
+    print(json.dumps(workspace, indent=4, sort_keys=True))
 
 
 def install_git_plugins(host: Host, plugin_type: str, repo_list: list[str], install_root: str) -> list:
