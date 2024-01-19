@@ -2,6 +2,7 @@ local BackgroundImageNode(path, blend_percent=0.4) =
 {
     path: path,
     blend: blend_percent,
+    local_path: 'wallpaper/' + path,
 };
 {
     abstract_blue: BackgroundImageNode("abstract_blue.png"),

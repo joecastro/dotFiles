@@ -298,27 +298,23 @@ local YELLOW_SEA_FG="%F{#ffaf00}"
 
 if (( ${+HOST_COLOR} )); then
     PromptHostColor="%F{${HOST_COLOR}}"
+# Use a different color for displaying the host name when we're logged into SSH
+elif __is_ssh_session; then
+    PromptHostColor=$YELLOW_SEA_FG
 else
-    # Use a different color for displaying the host name when we're logged into SSH
-    if __is_ssh_session; then
-        PromptHostColor=$YELLOW_SEA_FG
-    else
-        PromptHostColor=$fg[yellow]
-    fi
+    PromptHostColor=$fg[yellow]
 fi
 
-if __is_ssh_session; then
-    if __is_in_tmux; then
-        PromptHostName=""
-    else
-        PromptHostName=%M
-    fi
+if __is_in_tmux; then
+    PromptHostName=""
+elif __is_embedded_terminal; then
+    PromptHostName=%m
+elif __is_ssh_session; then
+    PromptHostName=%M
+elif [[ -n $LOCALHOST_PREFERRED_DISPLAY ]]; then
+    PromptHostName=$LOCALHOST_PREFERRED_DISPLAY
 else
-    if [[ -n $LOCALHOST_PREFERRED_DISPLAY ]]; then
-        PromptHostName=$LOCALHOST_PREFERRED_DISPLAY
-    else
-        PromptHostName=%m
-    fi
+    PromptHostName=%m
 fi
 
 
@@ -394,16 +390,18 @@ fi
 test -e ~/.zshext/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh && \
     source ~/.zshext/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 
-if ! __is_embedded_terminal; then
-    alias cd='__venv_aware_cd'
-else
-    echo "Limiting zsh initialization because inside $MD_MICROSOFT_VISUAL_STUDIO_CODE_ICON terminal."
-    # Also, in some contexts .zprofile isn't sourced when started inside the Python debug console.
-    source ~/.zprofile
-fi
+if __is_embedded_terminal; then
+    echo "Limiting zsh initialization because inside $(__embedded_terminal_info) terminal."
+    if __is_vscode_terminal; then
+        if command -v code &> /dev/null; then
+            source "$(code --locate-shell-integration-path zsh)"
+        fi
 
-if command -v code &> /dev/null; then
-    [[ "$TERM_PROGRAM" == "vscode" ]] && source "$(code --locate-shell-integration-path zsh)"
+        # Also, in some contexts .zprofile isn't sourced when started inside the Python debug console.
+        source ~/.zprofile
+    fi
+else
+    alias cd='__venv_aware_cd'
 fi
 
 # if exa is installed prefer that to ls

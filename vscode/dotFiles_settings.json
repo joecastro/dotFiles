@@ -34,7 +34,8 @@
         "is_localhost": "true",
         "cwd": "${workspaceFolder}",
         "home": "${env:HOME}",
-        "color": "#1857a4"
+        "color": "#1857a4",
+        "android_wallpaper": "${workspaceFolder}/wallpaper/under_construction.jpg"
     },
     "jsonnet.languageServer.jpath": [
         "${workspaceFolder}",

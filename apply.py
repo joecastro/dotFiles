@@ -230,7 +230,8 @@ def get_ext_vars(host:Host=None) -> list:
         'cwd': os.getcwd(),
         'home': HOME,
         'branch': host.branch,
-        'color': host.color
+        'color': host.color,
+        'android_wallpaper': os.getcwd() + '/' + host.android_wallpaper.get('local_path') if host.android_wallpaper else '',
     }
 
 def preprocess_jsonnet_files(host, staging_dir) -> list:

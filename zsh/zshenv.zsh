@@ -40,6 +40,8 @@ GIT_EDITOR=vim
 [[ $EXPECT_NERD_FONTS = 0 ]] && OCT_FILE_SUBMODULE_ICON= || OCT_FILE_SUBMODULE_ICON=🗄️
 [[ $EXPECT_NERD_FONTS = 0 ]] && COD_TERMINAL_BASH= || COD_TERMINAL_BASH="{bash}"
 [[ $EXPECT_NERD_FONTS = 0 ]] && FA_DOLLAR_ICON= || FA_DOLLAR_ICON="$"
+[[ $EXPECT_NERD_FONTS = 0 ]] && FA_BEER_ICON= || FA_BEER_ICON=🍺
+CIDER_ICON=$FA_BEER_ICON
 
 function __is_ssh_session() {
     if [ -n "$SSH_CLIENT" ] || [ -n "$SSH_TTY" ] || [ -n "$SSH_CONNECTION" ]; then
@@ -139,7 +141,7 @@ function __is_on_unexpected_linux() {
     return 1
 }
 
-function __is_embedded_terminal() {
+function __is_vscode_terminal() {
     # This isn't quite the same thing as running in an embedded terminal.
     # Code will launch an interactive shell to resolve environment variables.
     # This value can be used to detect that.
@@ -149,6 +151,29 @@ function __is_embedded_terminal() {
     if [[ "$TERM_PROGRAM" == "vscode" ]]; then
         return 0
     fi
+    return 1
+}
+
+# "key" -> (test_function ICON)
+typeset -a VSCODE_TERMINAL_ID=("__is_vscode_terminal" $MD_MICROSOFT_VISUAL_STUDIO_CODE_ICON)
+typeset -A EMBEDDED_TERMINAL_ID_FUNCS=( \
+    ["VSCODE"]=VSCODE_TERMINAL_ID )
+
+function __is_embedded_terminal() {
+    __embedded_terminal_info --noshow
+}
+
+function __embedded_terminal_info() {
+    for key value in ${(kv)EMBEDDED_TERMINAL_ID_FUNCS}; do
+        local ID_FUNC=${(P)value:0:1}
+        local ICON=${(P)value:1:1}
+        if eval ${ID_FUNC}; then
+            if [[ "$1" != "--noshow" ]]; then
+                echo -n "${ICON}"
+            fi
+            return 0
+        fi
+    done
     return 1
 }
 
