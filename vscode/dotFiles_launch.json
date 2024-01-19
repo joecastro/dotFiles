@@ -18,7 +18,7 @@
             "program": "${workspaceFolder}/apply.py",
             "console": "integratedTerminal",
             "args": [
-                "--push", "--all"
+                "--push-all"
             ]
         },
         {

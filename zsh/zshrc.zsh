@@ -257,10 +257,10 @@ function __print_git_info() {
         return 0
     fi
 
-    local COMMIT_TEMPLATE_STRING=$(test -n "$EXPECT_NERD_FONTS" && echo "$GIT_COMMIT_ICON%s" || echo "%s")
-    local COMMIT_MOD_TEMPLATE_STRING=$(test -n "$EXPECT_NERD_FONTS" && echo "$GIT_COMMIT_ICON%s*" || echo "{%s *}")
-    local BRANCH_TEMPLATE_STRING=$(test -n "$EXPECT_NERD_FONTS" && echo "$GIT_BRANCH_ICON%s" || echo "(%s)")
-    local BRANCH_MOD_TEMPLATE_STRING=$(test -n "$EXPECT_NERD_FONTS" && echo "$GIT_BRANCH_ICON%s*" || echo "{%s *}")
+    local COMMIT_TEMPLATE_STRING=$([[ ${EXPECT_NERD_FONTS} = 0 ]] && echo "$GIT_COMMIT_ICON%s" || echo "%s")
+    local COMMIT_MOD_TEMPLATE_STRING=$([[ ${EXPECT_NERD_FONTS} = 0 ]] && echo "$GIT_COMMIT_ICON%s*" || echo "{%s *}")
+    local BRANCH_TEMPLATE_STRING=$([[ ${EXPECT_NERD_FONTS} = 0 ]] && echo "$GIT_BRANCH_ICON%s" || echo "(%s)")
+    local BRANCH_MOD_TEMPLATE_STRING=$([[ ${EXPECT_NERD_FONTS} = 0 ]] && echo "$GIT_BRANCH_ICON%s*" || echo "{%s *}")
 
     git status | grep "HEAD detached" > /dev/null 2>&1
     local IS_DETACHED_HEAD=$?

@@ -269,9 +269,9 @@ def push_remote(host, shallow):
     ops.extend(copy_files(config.get_localhost(), host.get_staging_dir(), host.file_maps.keys(), host, HOME, host.file_maps.values(), annotate=True))
 
     if not shallow:
-        ops.extend(install_git_plugins(host, 'Vim startup plugins', config.vim_pack_plugin_start_repos, '.vim/pack/plugins/start'))
-        ops.extend(install_git_plugins(host, 'Vim optional plugins', config.vim_pack_plugin_opt_repos, '.vim/pack/plugins/opt'))
-        ops.extend(install_git_plugins(host, 'Zsh plugins', config.zsh_plugin_repos, '.zshext'))
+        ops.extend(install_git_plugins(host, 'Vim startup plugin(s)', config.vim_pack_plugin_start_repos, '.vim/pack/plugins/start'))
+        ops.extend(install_git_plugins(host, 'Vim optional plugin(s)', config.vim_pack_plugin_opt_repos, '.vim/pack/plugins/opt'))
+        ops.extend(install_git_plugins(host, 'Zsh plugin(s)', config.zsh_plugin_repos, '.zshext'))
 
     return ops
 
@@ -424,8 +424,11 @@ def main(args) -> int:
     host_args = args[1:]
 
     if option.endswith('-local'):
-        option = option[:len('-local')]
+        option = option[:len(option)-len('-local')]
         host_args = ['--local']
+    elif option.endswith('-all'):
+        option = option[:len(option)-len('-all')]
+        host_args = ['--all']
 
     if option in ['--push', '--pull', '--stage']:
         hosts = parse_hosts_from_args(host_args)
