@@ -5,11 +5,16 @@
             100
         ]
     },
+    "[json]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
     "[python]": {
         "editor.defaultFormatter": "ms-python.black-formatter"
     },
     "accessibility.dimUnfocused.enabled": true,
     "accessibility.dimUnfocused.opacity": 0.8,
+    "background.windowBackgrounds": [],
+    "cmake.showOptionsMovedNotification": false,
     "diffEditor.codeLens": true,
     "editor.fontFamily": "CaskaydiaCove Nerd Font Mono, Cascadia Code, Consolas",
     "editor.fontLigatures": true,
@@ -30,6 +35,14 @@
     "files.trimTrailingWhitespace": true,
     "git.autofetch": true,
     "git.openRepositoryInParentFolders": "always",
+    "go.toolsManagement.autoUpdate": true,
+    "java.imports.gradle.wrapper.checksums": [
+        {
+            "allowed": true,
+            "sha256": "e2b82129ab64751fd40437007bd2f7f2afb3c6e41a9198e628650b22d5824a14"
+        }
+    ],
+    "js/ts.implicitProjectConfig.checkJs": true,
     "peacock.favoriteColors": [
         {
             "name": "Angular Red",
@@ -74,18 +87,20 @@
     "terminal.integrated.enableImages": true,
     "terminal.integrated.fontFamily": "",
     "terminal.integrated.profiles.osx": {
+        "JavaScript Debug Terminal": null,
         "bash": {
             "icon": "terminal-bash",
             "path": "/opt/homebrew/bin/bash"
         },
-        "JavaScript Debug Terminal": null,
         "pwsh": null,
         "zsh": {
             "icon": "terminal",
             "path": "/opt/homebrew/bin/zsh"
         }
     },
-    "workbench.colorTheme": "Abyss",
+    "typescript.enablePromptUseWorkspaceTsdk": true,
+    "window.zoomLevel": 1,
+    "workbench.colorTheme": "GitHub Dark",
     "workbench.editor.closeOnFileDelete": true,
     "workbench.editor.tabActionLocation": "left",
     "workbench.iconTheme": "a-file-icon-vscode",

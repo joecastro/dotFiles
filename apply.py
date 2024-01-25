@@ -114,13 +114,13 @@ def ensure_out_dir() -> None:
 
 
 def update_workspace_extensions() -> None:
-    repo_workspace_extensions_location = 'vscode/workspace_extensions.json'
+    repo_workspace_extensions_location = 'vscode/dotFiles_extensions.json'
 
     completed_proc = subprocess.run(['code', '--list-extensions'], check=True, capture_output=True)
     installed_extensions = completed_proc.stdout.decode('utf-8').splitlines()
 
     extensions_node = {
-        'recommendations': sorted(installed_extensions)
+        'recommendations': sorted(installed_extensions, key=lambda x: x.lower())
     }
 
     with open(repo_workspace_extensions_location, 'w', encoding='utf-8') as f:
@@ -142,7 +142,13 @@ def pull_vscode_user_settings() -> None:
     dotfiles_settings_location = 'vscode/user_settings.json'
     mac_settings_location = f'{HOME}/Library/Application Support/Code/User/settings.json'
 
-    shutil.copyfile(mac_settings_location, dotfiles_settings_location)
+    with open(mac_settings_location, encoding='utf-8') as f:
+        settings = json.load(f)
+
+    sorted_settings = json.dumps(settings, indent=4, sort_keys=True)
+
+    with open(dotfiles_settings_location, 'w', encoding='utf-8') as f:
+        f.write(sorted_settings)
 
 
 def generate_derived_workspace() -> None:

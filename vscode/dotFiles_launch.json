@@ -30,6 +30,14 @@
             "args": [ "--pull-vscode-settings" ]
         },
         {
+            "name": "Update Workspace recommended extensions",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/apply.py",
+            "console": "integratedTerminal",
+            "args": [ "--update-workspace-extensions" ]
+        },
+        {
             "name": "Push to local dotFiles",
             "type": "python",
             "request": "launch",

@@ -1,5 +1,6 @@
 {
     "recommendations": [
+        "amodio.toggle-excluded-files",
         "amodio.tsl-problem-matcher",
         "AntonyDalmiere.android-support",
         "atommaterial.a-file-icon-vscode",
@@ -12,12 +13,14 @@
         "dunstontc.viml",
         "eamodio.gitlens",
         "ecmel.vscode-html-css",
-        "Equinusocio.vsc-community-material-theme",
+        "Equinusocio.vsc-material-theme",
+        "equinusocio.vsc-material-theme-icons",
+        "esbenp.prettier-vscode",
         "flimberger.android-system-tools",
         "fwcd.kotlin",
         "GitHub.copilot",
         "GitHub.copilot-chat",
-        "GitHub.copilot-labs",
+        "GitHub.github-vscode-theme",
         "GitHub.vscode-pull-request-github",
         "golang.go",
         "Google.aidl-language",
