@@ -1,14 +1,22 @@
 {
     sections: {
+        user: {
+            email: "joecastr@gmail.com",
+            name: "Joe Castro"
+        },
+
+        init: {
+	        defaultBranch: "main"
+        },
+
+        pull: {
+            rebase: true
+        },
+
         'filter "lfs"': {
             clean: "git lfs clean %f",
             smudge: "git lfs smudge %f",
             required: true,
-        },
-
-        user: {
-            email: "joecastr@gmail.com",
-            name: "Joe Castro"
         },
 
         color: {
@@ -18,26 +26,22 @@
         },
 
         'color "branch"': {
-            "current": "yellow reverse",
+            current: "yellow reverse",
             "local": "yellow",
-            "remote": "green",
+            remote: "green",
         },
 
         'color "diff"': {
-            "meta": "yellow bold",
-            "frag": "magenta bold",
-            "old": "red bold",
-            "new": "green bold"
-        },
-
-        init: {
-	        "defaultBranch": "main"
+            meta: "yellow bold",
+            frag: "magenta bold",
+            old: "red bold",
+            new: "green bold"
         },
 
         'color "status"': {
-            "added": "yellow",
-            "changed": "green",
-            "untracked": "cyan",
+            added: "yellow",
+            changed: "green",
+            untracked: "cyan",
         },
     }
 }
