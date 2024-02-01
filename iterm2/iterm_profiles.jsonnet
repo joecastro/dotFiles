@@ -5,4 +5,13 @@ local iterm = import './iterm_core.libsonnet';
         iterm.Profiles.BashTheOldWay,
         iterm.Profiles.HotkeyWindow,
     ],
-s}
+
+    WindowArrangements: [],
+
+    DefaultProfile: iterm.Profiles.ZshTheHardWay,
+
+    DefaultArrangement:: {
+        Name:: "",
+    }
+
+}

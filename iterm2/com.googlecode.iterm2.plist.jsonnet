@@ -4,8 +4,8 @@ local iterm_profiles = import './iterm_profiles.jsonnet';
     "AlternateMouseScroll": true,
     "AutoHideTmuxClientSession": false,
     "Command": "",
-    "Default Arrangement Name": "",
-    "Default Bookmark Guid": iterm_profiles.ZshTheHardWay.Guid,
+    "Default Arrangement Name": iterm_profiles.DefaultArrangement.Name,
+    "Default Bookmark Guid": iterm_profiles.DefaultProfile.Guid,
     "DeleteProfile_SilenceUntil": 717726301.60112,
     "DeleteProfile_selection": 0,
     "EnableAPIServer": true,
@@ -66,7 +66,14 @@ local iterm_profiles = import './iterm_profiles.jsonnet';
         "0xf72d-0x20000": {
             "Action": 8,
             "Text": ""
-        }
+        },
+        // META-F12 - Restore Cloud9 Window Arrangement
+        "0xf70f-0x100000-0x6f": {
+            "Action": 25,
+            "Label": "",
+            "Text": "Cloud 9\nCloud 9:Restore Window Arrangement",
+            "Version": 1
+        },
     },
     "HapticFeedbackForEsc": false,
     "HotkeyMigratedFromSingleToMulti": true,
@@ -104,7 +111,10 @@ local iterm_profiles = import './iterm_profiles.jsonnet';
     "TabStyleWithAutomaticOption": 4,
     "UseBorder": true,
     "VisualIndicatorForEsc": false,
-    "Window Arrangements": {},
+    "Window Arrangements": {
+          [arrangement.Name]: [arrangement]
+          for arrangement in iterm_profiles.WindowArrangements
+    },
     "findMode_iTerm": 0,
     "kCPKSelectionViewPreferredModeKey": 0,
     "kCPKSelectionViewShowHSBTextFieldsKey": false

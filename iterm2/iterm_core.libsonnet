@@ -140,6 +140,46 @@ local ItermColorWhite = ItermColor(1, 1, 1);
         "Visual Bell": true,
         "Window Type": 0
     },
+    SessionView(profile):: {
+        "Is Active": 1,
+        "Session": {
+            "Bookmark": profile,
+            "Is UTF-8": true,
+            "Short Lived Single Use": false,
+        },
+        "View Type": "SessionView",
+    },
+    Tab(subviews):: {
+        "Subviews": subviews,
+        "View Type": "Splitter",
+        "isVertical": false
+    },
+    WindowArrangement(name, tabs):: {
+        Name:: name,
+        "Desired Columns": 140,
+        "Desired Rows": 25,
+        "Has Toolbelt": false,
+        "Height": 600.0,
+        "Hide After Opening": false,
+        "Hiding Toolbelt Should Resize Window": true,
+        "Initial Profile": {},
+        "Is Hotkey Window": false,
+        "Saved Window Type": 0,
+        "Screen": 0,
+        "Scroller Width": 0.0,
+        "Selected Tab Index": 0,
+        "Tabs": [
+            {
+                "Root": tab,
+                //"Tab GUID": tab.guid
+            } for tab in tabs],
+        //"TerminalGuid": "pty-994A17A5-BC75-46F8-B5BD-B1BAE6737A70",
+        "Use Transparency": false,
+        "Width": 1500.0,
+        "Window Type": 0,
+        "X Origin": 844.0,
+        "Y Origin": 648.0
+    },
     Profiles:: {
         ZshTheHardWay: $.ItermProfile("Zsh the Hard Way", $.private_guids[0], wallpapers.abstract_colorful),
         BashTheOldWay: $.ItermProfile("Bash the Old Way", $.private_guids[1], wallpapers.abstract_pastel) {
