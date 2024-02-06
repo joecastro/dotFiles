@@ -419,7 +419,9 @@ fi
 case "$(__effective_distribution)" in
     "GLinux")
         # echo "GLinux zshrc load complete"
-        __on_glinux_zshrc_load_complete
+        if declare -f __on_glinux_zshrc_load_complete > /dev/null; then
+            __on_glinux_zshrc_load_complete
+        fi
 
         ;;
     "OSX")
@@ -434,6 +436,10 @@ case "$(__effective_distribution)" in
 
         if ! __is_ssh_session && ! command -v code &> /dev/null; then
             echo "## CLI for VSCode is unavailable. Check https://code.visualstudio.com/docs/setup/mac"
+        fi
+
+        if declare -f __on_gmac_zshrc_load_complete > /dev/null; then
+            __on_gmac_zshrc_load_complete
         fi
 
         ;;

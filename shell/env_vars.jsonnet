@@ -4,7 +4,7 @@ local root = {
     properties: {
         DOTFILES_SRC_HOME: std.extVar('cwd'),
         DOTFILES_CONFIG_ROOT: '$HOME/' + apply_configs_core.config_dir,
-        ANDROID_HOME: if std,extVar('kernel') == 'darwin' then '~/Library/Android/sdk' else '$HOME/android_sdk',
+        ANDROID_HOME: if std.extVar('kernel') == 'darwin' then '~/Library/Android/sdk' else '$HOME/android_sdk',
     },
     directives: {
         ACTIVE_SHELL: "ps -c -p $$ -o command | awk 'END{print}'",
