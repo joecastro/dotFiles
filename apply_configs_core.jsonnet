@@ -15,6 +15,7 @@
         ['zsh/zprofile.zsh', '.zprofile'],
         ['zsh/zshenv.zsh', '.zshenv'],
         ['zsh/osx_funcs.zsh', self.config_dir + '/osx_funcs.zsh'],
+        ['zsh/batcharge.py', self.config_dir + "/batcharge.py"],
         ['vim/vimrc.vim', '.vimrc'],
         ['vim/colors/molokai.vim', '.vim/colors/molokai.vim'],
         ['tmux/tmux.conf', '.tmux.conf'],

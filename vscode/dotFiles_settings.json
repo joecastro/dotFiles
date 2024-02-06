@@ -35,7 +35,8 @@
         "cwd": "${workspaceFolder}",
         "home": "${env:HOME}",
         "color": "#1857a4",
-        "android_wallpaper": "${workspaceFolder}/wallpaper/under_construction.jpg"
+        "android_wallpaper": "${workspaceFolder}/wallpaper/under_construction.jpg",
+        "kernel": "linux"
     },
     "jsonnet.languageServer.jpath": [
         "${workspaceFolder}",

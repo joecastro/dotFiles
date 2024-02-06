@@ -23,6 +23,7 @@ CWD = '.'
 # pylint: disable-next=too-many-instance-attributes
 class Host:
     hostname: str
+    kernel: str = 'linux'
     abstract_wallpaper: dict = None
     android_wallpaper: dict = None
     branch: str = 'none'
@@ -34,6 +35,7 @@ class Host:
     def __post_init__(self):
         if self.hostname == 'localhost':
             self.hostname = os.uname().nodename
+            self.kernel = os.uname().sysname.lower()
         self.file_maps = dict(self.file_maps) | {item2:item3 for (_, item2, item3) in self.jsonnet_maps}
         self.jsonnet_maps = {item1:item2 for (item1, item2, _) in self.jsonnet_maps}
 
@@ -225,20 +227,21 @@ def parse_jsonnet(jsonnet_file, ext_vars, output_file) -> list:
 
 
 def get_ext_vars(host:Host=None) -> list:
-    if host is None:
-        return {
-            'is_localhost': 'true',
-            'cwd': os.getcwd(),
-            'home': HOME,
-        }
-    return {
-        'is_localhost': str(host.is_localhost()).lower(),
+    standard_ext_vars = {
+        'is_localhost': 'true',
         'cwd': os.getcwd(),
         'home': HOME,
-        'branch': host.branch,
-        'color': host.color,
-        'android_wallpaper': os.getcwd() + '/' + host.android_wallpaper.get('local_path') if host.android_wallpaper else '',
     }
+    ret_vars = {} | standard_ext_vars
+    if host is not None:
+        ret_vars |= {
+            'is_localhost': str(host.is_localhost()).lower(),
+            'kernel': host.kernel,
+            'branch': host.branch,
+            'color': host.color,
+            'android_wallpaper': os.getcwd() + '/' + host.android_wallpaper.get('local_path') if host.android_wallpaper else '',
+        }
+    return ret_vars
 
 def preprocess_jsonnet_files(host, staging_dir) -> list:
     if not host.jsonnet_maps:

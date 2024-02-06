@@ -436,17 +436,6 @@ case "$(__effective_distribution)" in
             echo "## CLI for VSCode is unavailable. Check https://code.visualstudio.com/docs/setup/mac"
         fi
 
-        # https://developer.android.com/tools/variables#envar
-        ANDROID_HOME=~/Library/Android/sdk
-        # "Deprecated", but keeping these for tooling that may expect to look for them.
-        ANDROID_SDK=${ANDROID_HOME}
-        ANDROID_SDK_ROOT=${ANDROID_HOME}
-
-        path=($path \
-            "${ANDROID_HOME}/cmdline-tools/latest/bin" \
-            "${ANDROID_HOME}/tools" \
-            "${ANDROID_HOME}/tools/bin" \
-            "${ANDROID_HOME}/platform-tools")
         ;;
     "WSL")
         WIN_SYSTEM_DRIVE=$(powershell.exe '$env:SystemDrive')

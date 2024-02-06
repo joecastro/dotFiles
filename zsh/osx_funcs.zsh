@@ -3,5 +3,5 @@
 #pragma once
 
 function battery_charge {
-    echo -n $(python3 ./zsh/batcharge.py)
+    echo -n $(python3 "${DOTFILES_CONFIG_ROOT}"/batcharge.py)
 }
