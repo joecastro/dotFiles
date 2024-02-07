@@ -257,10 +257,11 @@ def preprocess_jsonnet_files(host, staging_dir) -> list:
 
 
 def copy_files_local(source_root, source_files, dest_root, dest_files, annotate: bool = False):
-    full_paths = [(f'{source_root}/{src}', f'{dest_root}/{dest}') for (src, dest) in zip(source_files, dest_files)]
-    ops = [['mkdir', '-p', d] for d in {os.path.dirname(d) for (_, d) in full_paths}]
+    full_path_sources = [f'{source_root}/{src}' for src in source_files]
+    full_path_dests = [f'{dest_root}/{dest}' for dest in dest_files]
+    ops = [['mkdir', '-p', d] for d in {os.path.dirname(d) for d in full_path_dests}]
 
-    copy_ops = [['cp', src, dest] for (src, dest) in full_paths]
+    copy_ops = [['cp', src, dest] for (src, dest) in zip(full_path_sources, full_path_dests)]
     if annotate:
         copy_ops = annotate_ops(copy_ops)
 
@@ -308,11 +309,12 @@ def process_staged_files(host, files) -> None:
 def stage_local(host):
     ops = []
 
+    files_to_stage = list(host.file_maps.keys())
     ops.append('Preprocessing jsonnet files')
     ops.extend(preprocess_jsonnet_files(host, CWD))
-    ops.extend(copy_files_local(CWD, host.file_maps.keys(), host.get_staging_dir(), host.file_maps.keys()))
+    ops.extend(copy_files_local(CWD, files_to_stage, host.get_staging_dir(), files_to_stage))
     ops.append('Preprocessing macros in local staged files')
-    ops.append(partial(process_staged_files, host=host, files=[f'{host.get_staging_dir()}/{file}' for file in host.file_maps.keys()]))
+    ops.append(partial(process_staged_files, host=host, files=[f'{host.get_staging_dir()}/{file}' for file in files_to_stage]))
 
     return ops
 

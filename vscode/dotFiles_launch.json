@@ -1,9 +1,10 @@
 {
     "version": "0.2.0",
     "configurations": [
+
         {
             "name": "Generate derived workspace",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/apply.py",
             "console": "integratedTerminal",
@@ -13,7 +14,7 @@
         },
         {
             "name": "Push to remote hosts",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/apply.py",
             "console": "integratedTerminal",
@@ -22,8 +23,19 @@
             ]
         },
         {
+            "name": "Push to remote host (joec1)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/apply.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--push",
+                "joec1.c.googlers.com"
+            ]
+        },
+        {
             "name": "Pull VS Code User settings",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/apply.py",
             "console": "integratedTerminal",
@@ -31,7 +43,7 @@
         },
         {
             "name": "Update Workspace recommended extensions",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/apply.py",
             "console": "integratedTerminal",
@@ -39,7 +51,7 @@
         },
         {
             "name": "Push to local dotFiles",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/apply.py",
             "console": "integratedTerminal",
@@ -47,7 +59,7 @@
         },
         {
             "name": "Push iTerm2 Settings",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/apply.py",
             "console": "integratedTerminal",
@@ -55,7 +67,7 @@
         },
         {
             "name": "Snapshot iTerm2 Settings",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/apply.py",
             "console": "integratedTerminal",
@@ -63,7 +75,7 @@
         },
         {
             "name": "Compare iTerm2 Settings",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/apply.py",
             "console": "integratedTerminal",
@@ -71,7 +83,7 @@
         },
         {
             "name": "Bootstrap Windows Environment",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/apply.py",
             "console": "integratedTerminal",
@@ -81,7 +93,7 @@
         },
         {
             "name": "Test fonts",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/verify_fonts.py",
             "console": "integratedTerminal",
