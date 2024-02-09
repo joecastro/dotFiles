@@ -15,6 +15,12 @@ function repo_find() {
 alias repoGo='pushd "$(repo_find)"; cd .'
 alias repo_root='repoGo'
 
+function repo_upstream_branch() {
+    local upstream_branch
+    upstream_branch=$(repo info -o --outer-manifest -l | grep -i "Manifest branch" | sed 's/^Manifest branch: //')
+    echo "goog/${upstream_branch}"
+}
+
 function repo_format() {
     git diff HEAD^ --name-only | xargs -t "${ANDROID_BUILD_TOP}"/external/ktfmt/ktfmt.py
     git diff HEAD^ --name-only | xargs -t google-java-format -i --aosp
@@ -25,8 +31,9 @@ function repo_clean() {
         return 1
     fi
 
-    REPO_UPSTREAM_BRANCH=goog/$(repo info -o --outer-manifest -l | grep -i "Manifest branch" | sed 's/^Manifest branch: //')
-    repo forall -vc "git checkout $REPO_UPSTREAM_BRANCH && git reset --hard $REPO_UPSTREAM_BRANCH &&  git clean -xfd"
+    local upstream_branch
+    upstream_branch="${repo_upstream_branch}"
+    repo forall -vc "git checkout ${upstream_branch} && git reset --hard ${upstream_branch} &&  git clean -xfd"
 }
 
 function repo_pushd() {
@@ -51,27 +58,45 @@ function repo_pushd() {
 }
 
 function repo_sync_yesterday() {
-    repo_sync_at "$(date -d 'yesterday' +'%Y-%m-%d %H:%M:%S')"
-}
-
-function repo_sync_at() {
-    local LAST_SHA
-    local REPO_UPSTREAM_BRANCH
+    local maybe_days_ago=$1
+    local date_str='yesterday'
 
     if ! __is_in_repo -v; then
         return 1
     fi
 
-    repo_root
-    REPO_UPSTREAM_BRANCH=goog/$(repo info -o --outer-manifest -l | grep -i "Manifest branch" | sed 's/^Manifest branch: //')
-    repo list -p | while read -r line; do
-        pushd "$line" || return 1
-        LAST_SHA=$(git rev-list -n 1 --before="$1" "${REPO_UPSTREAM_BRANCH}")
-        git checkout "${LAST_SHA}"
-        popd || return 1
-    done
+    if [[ -n "${maybe_days_ago}" ]]; then
+        if (( maybe_days_ago < 0 )); then
+            maybe_days_ago=$(( -maybe_days_ago ))
+        fi
+        date_str="${maybe_days_ago} days ago"
+    fi
 
-    popd || return 1
+    local date_arg
+    date_arg="$(date -d "${date_str}" +'%Y-%m-%d %H:%M:%S')" || return 1
+
+    echo "Syncing from ${date_str} (${date_arg})"
+
+    repo_sync_at "${date_arg}"
+}
+
+function repo_sync_at() {
+    local last_commit_sha
+    local repo_upstream_branch
+    local repo_root_dir
+
+    if ! __is_in_repo -v; then
+        return 1
+    fi
+
+    repo_root_dir="$(repo_find)"
+    repo_upstream_branch="$(repo_upstream_branch)"
+    repo list -p | while read -r repo_path; do
+        pushd "${repo_root_dir}/${repo_path}" > /dev/null || return 1
+        last_commit_sha=$(git rev-list -n 1 --before="$1" "${repo_upstream_branch}")
+        git checkout "${last_commit_sha}"
+        popd > /dev/null || return 1
+    done
 }
 
 function refresh_build_env() {
@@ -84,7 +109,7 @@ function refresh_build_env() {
     source ./build/envsetup.sh
 
     if command -v pontis > /dev/null && pontis status 2> /dev/null; then
-        pontis set-adb -binary="$PWD/out/host/linux-x86/bin/adb" 1> /dev/null
+        pontis set-adb -binary="${PWD}/out/host/linux-x86/bin/adb" 1> /dev/null
     fi
 
     popd || return 1
@@ -92,7 +117,7 @@ function refresh_build_env() {
     return 0
 }
 
-alias whats_for_lunch='echo "$TARGET_PRODUCT-$TARGET_BUILD_VARIANT"'
+alias whats_for_lunch='echo "${TARGET_PRODUCT}-${TARGET_BUILD_VARIANT}"'
 alias lunch_pixel7='lunch aosp_panther-trunk_staging-userdebug'
 alias lunch_pixel7pro='lunch aosp_cheetah-trunk_staging-userdebug'
 alias lunch_pixelfold='lunch aosp-felix-userdebug'
@@ -100,8 +125,8 @@ alias lunch_cuttlefish='lunch aosp_cf_x86_64_phone-eng'
 
 if (( ${+ANDROID_HOME} )); then
     # https://developer.android.com/tools/variables#envar
-    export ANDROID_SDK=${ANDROID_HOME}
-    export ANDROID_SDK_ROOT=${ANDROID_HOME}
+    export ANDROID_SDK="${ANDROID_HOME}"
+    export ANDROID_SDK_ROOT="${ANDROID_HOME}"
 
     PATH="${PATH}:${ANDROID_HOME}/cmdline-tools/latest/bin"
     PATH="${PATH}:${ANDROID_HOME}/tools"

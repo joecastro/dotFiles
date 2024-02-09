@@ -430,8 +430,15 @@ case "$(__effective_distribution)" in
 
         # RPROMPT='$(battery_charge)'
 
-        if command -v brew > /dev/null && test -e "$(brew --prefix)/opt/zsh-git-prompt/zshrc.sh"; then
-            source "$(brew --prefix)/opt/zsh-git-prompt/zshrc.sh"
+        if command -v brew > /dev/null; then
+            local BREW_PREFIX=$(brew --prefix)
+            if [ -e "${BREW_PREFIX}/opt/zsh-git-prompt/zshrc.sh" ]; then
+                source "${BREW_PREFIX}/opt/zsh-git-prompt/zshrc.sh"
+            fi
+
+            if [ -d "${BREW_PREFIX}/opt/coreutils/libexec/gnubin" ]; then
+                PATH="${BREW_PREFIX}/opt/coreutils/libexec/gnubin:$PATH"
+            fi
         fi
 
         if ! __is_ssh_session && ! command -v code &> /dev/null; then
