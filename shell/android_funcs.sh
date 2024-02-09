@@ -29,60 +29,50 @@ function repo_clean() {
     repo forall -vc "git checkout $REPO_UPSTREAM_BRANCH && git reset --hard $REPO_UPSTREAM_BRANCH &&  git clean -xfd"
 }
 
-if [[ "$ACTIVE_SHELL" == *"zsh" ]]; then
-    function repo_pushd() {
-        if ! __is_in_repo -v; then
-            return 1
-        fi
+function repo_pushd() {
+    if ! __is_in_repo -v; then
+        return 1
+    fi
 
-        if [ $# -lt 1 ]; then
-            #shellcheck disable=SC2154
-            echo "${funcstack[1]} Missing sub-project"
-            return 1
-        fi
+    if [ $# -lt 1 ]; then
+        echo "Missing sub-project"
+        return 1
+    fi
 
-        IFS=$'\n' read -r -d '' -A MOUNT_PATHS < <( repo info --outer-manifest -l | grep "Mount path.*$1$" | sed 's/^Mount path: //' )
-        for MOUNT_PATH in "${MOUNT_PATHS[@]}"; do
-            if [[ "${MOUNT_PATH##*/}" == "$1" ]]; then
-                pushd "${MOUNT_PATH}" || return 1
-                break
-            fi
-        done
-
-        if [[ "$MOUNT_PATH" == "$PWD" ]]; then
+    repo list -p | while read -r line; do
+        if [[ "${line##*/}" == "$1" ]]; then
+            pushd "$(repo_find)"/"${line}" || return 1
             return 0
         fi
+    done
 
-        echo "Unknown project"
+    echo "Unknown project"
+    return 1
+}
+
+function repo_sync_yesterday() {
+    repo_sync_at "$(date -d 'yesterday' +'%Y-%m-%d %H:%M:%S')"
+}
+
+function repo_sync_at() {
+    local LAST_SHA
+    local REPO_UPSTREAM_BRANCH
+
+    if ! __is_in_repo -v; then
         return 1
-    }
-else
-    function repo_pushd() {
-        if ! __is_in_repo -v; then
-            return 1
-        fi
+    fi
 
-        if [ $# -lt 1 ]; then
-            echo "Missing sub-project"
-            return 1
-        fi
+    repo_root
+    REPO_UPSTREAM_BRANCH=goog/$(repo info -o --outer-manifest -l | grep -i "Manifest branch" | sed 's/^Manifest branch: //')
+    repo list -p | while read -r line; do
+        pushd "$line" || return 1
+        LAST_SHA=$(git rev-list -n 1 --before="$1" "${REPO_UPSTREAM_BRANCH}")
+        git checkout "${LAST_SHA}"
+        popd || return 1
+    done
 
-        IFS=$'\n' read -r -d '' -a MOUNT_PATHS < <( repo info --outer-manifest -l | grep "Mount path.*$1$" | sed 's/^Mount path: //' )
-        for MOUNT_PATH in "${MOUNT_PATHS[@]}"; do
-            if [[ "${MOUNT_PATH##*/}" == "$1" ]]; then
-                pushd "${MOUNT_PATH}" || return 1
-                break
-            fi
-        done
-
-        if [[ "$MOUNT_PATH" == "$PWD" ]]; then
-            return 0
-        fi
-
-        echo "Unknown project"
-        return 1
-    }
-fi
+    popd || return 1
+}
 
 function refresh_build_env() {
     if ! __is_in_repo -v; then
