@@ -188,6 +188,10 @@ function __cute_pwd() {
     return 0
 }
 
+function __cute_pwd_short() {
+    __cute_pwd_helper $PWD ""
+}
+
 function __cute_time_prompt() {
     case "$(date +%Z)" in
         UTC)
@@ -294,43 +298,50 @@ VIRTUAL_ENV_DISABLE_PROMPT=1
 # Repo is implemented in terms of worktrees, so this gets noisy.
 SKIP_WORKTREE_IN_ANDROID_REPO=0
 
-local YELLOW_SEA_FG="%F{#ffaf00}"
-
-if (( ${+HOST_COLOR} )); then
-    PromptHostColor="%F{${HOST_COLOR}}"
-# Use a different color for displaying the host name when we're logged into SSH
-elif __is_ssh_session; then
-    PromptHostColor=$YELLOW_SEA_FG
-else
-    PromptHostColor=$fg[yellow]
-fi
-
-if __is_in_tmux; then
-    PromptHostName=""
-elif __is_embedded_terminal; then
-    PromptHostName=%m
-elif __is_ssh_session; then
-    PromptHostName=%M
-elif [[ -n $LOCALHOST_PREFERRED_DISPLAY ]]; then
-    PromptHostName=$LOCALHOST_PREFERRED_DISPLAY
-else
-    PromptHostName=%m
-fi
-
-
 END_OF_PROMPT_ICON=$MD_GREATER_THAN_ICON
 ELEVATED_END_OF_PROMPT_ICON="$"
 
-# All optional segments have spaces embedded in the output suffix if non-empty.
-PROMPT=''
-PROMPT+='%{$fg[white]%}$(__cute_time_prompt) '
-PROMPT+='$(__print_virtualenv_info)'
-PROMPT+='%{$fg[green]%}$USER%{$fg[yellow]%}@%B%{${PromptHostColor}%}$PromptHostName%{$reset_color%} '
-PROMPT+='$(__print_repo_worktree)'
-PROMPT+='$(__print_git_worktree)$(__print_git_info)'
-PROMPT+='$(__cute_pwd)'
-PROMPT+=' %(!.$ELEVATED_END_OF_PROMPT_ICON.$END_OF_PROMPT_ICON) '
+function __generate_standard_prompt() {
+    local YELLOW_SEA_FG="%F{#ffaf00}"
 
+    local PromptHostColor=""
+    local PromptHostName=""
+
+    if (( ${+HOST_COLOR} )); then
+        PromptHostColor="%F{${HOST_COLOR}}"
+    # Use a different color for displaying the host name when we're logged into SSH
+    elif __is_ssh_session; then
+        PromptHostColor=$YELLOW_SEA_FG
+    else
+        PromptHostColor=$fg[yellow]
+    fi
+
+    if __is_in_tmux; then
+        PromptHostName=""
+    elif __is_embedded_terminal; then
+        PromptHostName=%m
+    elif __is_ssh_session; then
+        PromptHostName=%M
+    elif [[ -n ${LOCALHOST_PREFERRED_DISPLAY} ]]; then
+        PromptHostName=${LOCALHOST_PREFERRED_DISPLAY}
+    else
+        PromptHostName=%m
+    fi
+
+    # All optional segments have spaces embedded in the output suffix if non-empty.
+    local prompt_builder=''
+    prompt_builder+='%{$fg[white]%}$(__cute_time_prompt) '
+    prompt_builder+='$(__print_virtualenv_info)'
+    prompt_builder+='%{$fg[green]%}$USER%{$fg[yellow]%}@%B%{'${PromptHostColor}'%}'${PromptHostName}'%{$reset_color%} '
+    prompt_builder+='$(__print_repo_worktree)'
+    prompt_builder+='$(__print_git_worktree)$(__print_git_info)'
+    prompt_builder+='$(__cute_pwd)'
+    prompt_builder+=' %(!.$ELEVATED_END_OF_PROMPT_ICON.$END_OF_PROMPT_ICON) '
+
+    echo -n ${prompt_builder}
+}
+
+PROMPT=$(__generate_standard_prompt)
 RPROMPT=''
 # RPOMPT+='%* '
 
@@ -340,7 +351,7 @@ function __venv_aware_cd() {
     # If I am no longer in the same directory hierarchy as the venv that was last activated, deactivate.
     if [[ -n "${VIRTUAL_ENV}" ]]; then
         local P_DIR="$(dirname "$VIRTUAL_ENV")"
-        if [[ "$PWD"/ != "${P_DIR}"/* ]]; then
+        if [[ "$PWD"/ != "${P_DIR}"/* ]] && command -v deactivate &> /dev/null; ; then
             echo "$NF_PYTHON_ICON Deactivating venv for $P_DIR"
             deactivate
         fi
