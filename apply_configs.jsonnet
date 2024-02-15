@@ -1,8 +1,9 @@
 local apply_configs_core = import './apply_configs_core.jsonnet';
-apply_configs_core + {
-    file_maps:: null,
-    jsonnet_maps:: null,
-    macros:: null,
+{
+    vim_pack_plugin_opt_repos: apply_configs_core.vim_pack_plugin_opt_repos,
+    vim_pack_plugin_start_repos: apply_configs_core.vim_pack_plugin_start_repos,
+    zsh_plugin_repos: apply_configs_core.zsh_plugin_repos,
+
     config_root: std.extVar('home') + '/' + apply_configs_core.config_dir,
     workspace_overrides: null,
     hosts: [

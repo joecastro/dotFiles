@@ -19,8 +19,21 @@
         ['vim/vimrc.vim', '.vimrc'],
         ['vim/colors/molokai.vim', '.vim/colors/molokai.vim'],
         ['tmux/tmux.conf', '.tmux.conf'],
-        ['tmux/vscode-tmux.conf', self.config_dir + '/vscode-tmux.conf']
+        ['tmux/vscode-tmux.conf', self.config_dir + '/vscode-tmux.conf'],
+        ['zsh/bash_shim_zshrc.zsh', self.config_dir + '/bash_shim_zshrc.zsh'],
+        ['zsh/bash_shim_zprofile.zsh', self.config_dir + '/bash_shim_zprofile.zsh'],
+        ['zsh/bash_shim_zshenv.zsh', self.config_dir + '/bash_shim_zshenv.zsh'],
     ],
+
+    bash_file_maps_overrides: [
+        ['zsh/bash_shim_zshrc.zsh', '.zshrc'],
+        ['zsh/bash_shim_zprofile.zsh', '.zprofile'],
+        ['zsh/bash_shim_zshenv.zsh', '.zshenv'],
+        ['zsh/zshrc.zsh', self.config_dir + '/zshrc_real.zsh'],
+        ['zsh/zprofile.zsh', self.config_dir + '/zprofile_real.zsh'],
+        ['zsh/zshenv.zsh', self.config_dir + '/zshenv_real.zsh'],
+    ],
+
     vim_pack_plugin_start_repos: [
         # Syntax highlighting for AOSP specific files
         'https://github.com/rubberduck203/aosp-vim.git',

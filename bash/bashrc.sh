@@ -3,8 +3,6 @@
 
 #pragma once
 
-export DISPLAY=:0
-
 # eval "`dircolors -b ~/.dircolorsrc`"
 
 # If not running interactively, don't do anything
@@ -74,6 +72,9 @@ shopt -s checkwinsize
 
 # Use "**" in pathname expansion will match files in subdirectories - Needs Bash 4+
 shopt -s globstar >/dev/null 2>&1
+
+# Disable extdebug because it causes issues with iTerm shell integration
+shopt -u extdebug
 
 function __is_ssh_session() {
     if [ -n "$SSH_CLIENT" ] || [ -n "$SSH_TTY" ] || [ -n "$SSH_CONNECTION" ]; then
@@ -303,6 +304,19 @@ export VIRTUAL_ENV_DISABLE_PROMPT=1
 
 PS1=\\[$White\\]$(__cute_time_prompt)\\[$Color_Off\\]' '\\[$BrightGreen\\]'\u'\\[$HostColor\\]'@\h'\\[$Color_Off\\]' $(__cute_pwd) % '
 export PS1
+
+# If using iTerm2, try for shell integration.
+# When in SSH TERM_PROGRAM isn't getting propagated.
+# iTerm profile switching requires shell_integration to be installed anyways.
+if [[ "iTerm2" == "$LC_TERMINAL" ]]; then
+    if [ ! -f "${DOTFILES_CONFIG_ROOT}/iterm2_shell_integration.bash" ]; then
+        echo "Bootstrapping iTerm2 Shell Integration on a new machine through curl"
+        curl -L https://iterm2.com/shell_integration/bash -o "${DOTFILES_CONFIG_ROOT}/iterm2_shell_integration.bash"
+    fi
+    # shellcheck disable=SC1091
+    test -e "${DOTFILES_CONFIG_ROOT}/iterm2_shell_integration.bash" && \
+        source "${DOTFILES_CONFIG_ROOT}/iterm2_shell_integration.bash"
+fi
 
 EFFECTIVE_DISTRIBUTION="Unhandled"
 if __is_on_wsl; then

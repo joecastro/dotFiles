@@ -2,7 +2,7 @@
 
 #pragma once
 
-source ~/.env_vars.sh
+test -e ~/.env_vars.sh && source ~/.env_vars.sh
 
 EXPECT_NERD_FONTS="${EXPECT_NERD_FONTS:-0}"
 
