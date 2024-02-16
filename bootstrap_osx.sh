@@ -57,16 +57,19 @@ brew install --cask \
 
 brew install \
     zsh \
+    bash \
+    coreutils \
     wget \
     exa \
-    lastpass-cli \
-    java \
+    jsonnet \
     macvim \
     git \
     go \
     node \
     gradle \
+    openjdk \
     flock \
+    tmux \
     python@3
 
 brew install \
