@@ -117,13 +117,7 @@ function refresh_build_env() {
     return 0
 }
 
-alias whats_for_lunch='echo "${TARGET_PRODUCT}-${TARGET_BUILD_VARIANT}"'
-alias lunch_pixel7='lunch aosp_panther-trunk_staging-userdebug'
-alias lunch_pixel7pro='lunch aosp_cheetah-trunk_staging-userdebug'
-alias lunch_pixelfold='lunch aosp-felix-userdebug'
-alias lunch_cuttlefish='lunch aosp_cf_x86_64_phone-eng'
-
-if (( ${+ANDROID_HOME} )); then
+if [ -n "${ANDROID_HOME}" ]; then
     # https://developer.android.com/tools/variables#envar
     export ANDROID_SDK="${ANDROID_HOME}"
     export ANDROID_SDK_ROOT="${ANDROID_HOME}"
