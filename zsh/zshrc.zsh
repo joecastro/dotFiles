@@ -246,10 +246,10 @@ function __print_repo_worktree() {
 
     local MANIFEST_BRANCH=""
 
-    if (( ${+ANDROID_REPO_ROOT} )) && test "${PWD##$ANDROID_REPO_ROOT}" != "${PWD}"; then
+    if (( ${+ANDROID_REPO_ROOT} )) && [[ "${PWD}" == "${ANDROID_REPO_ROOT}" || "${PWD}" == "${ANDROID_REPO_ROOT}"/* ]]; then
         MANIFEST_BRANCH=$ANDROID_REPO_BRANCH
     else
-        MANIFEST_BRANCH=$(repo info -o --outer-manifest -l | grep -i "Manifest branch" | sed 's/^Manifest branch: //')
+        MANIFEST_BRANCH=$(repo info --outer-manifest -l -q "platform/no-project" 2>/dev/null | grep -i "Manifest branch" | sed 's/^Manifest branch: //')
     fi
 
     echo "%{$fg[green]%}$ANDROID_BODY_ICON$MANIFEST_BRANCH%{$reset_color%} "
