@@ -136,7 +136,11 @@ set background=dark
 set cursorline
 set sbr=↪\
 
-helptags ALL
+try
+    helptags ALL
+catch /E151:/
+    " echo v:exception
+endtry
 
 " Airline config
 
