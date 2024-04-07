@@ -1,17 +1,12 @@
 {
     "recommendations": [
-        "amodio.toggle-excluded-files",
         "amodio.tsl-problem-matcher",
         "antonydalmiere.android-support",
         "atommaterial.a-file-icon-vscode",
         "davidanson.vscode-markdownlint",
         "davidbwaters.macos-modern-theme",
         "dbaeumer.vscode-eslint",
-        "donjayamanne.githistory",
-        "donjayamanne.python-environment-manager",
-        "dsznajder.es7-react-js-snippets",
         "dunstontc.viml",
-        "eamodio.gitlens",
         "ecmel.vscode-html-css",
         "equinusocio.vsc-material-theme",
         "equinusocio.vsc-material-theme-icons",
@@ -20,7 +15,6 @@
         "fwcd.kotlin",
         "github.copilot",
         "github.copilot-chat",
-        "github.github-vscode-theme",
         "github.vscode-pull-request-github",
         "golang.go",
         "google.aidl-language",
@@ -30,8 +24,6 @@
         "mathiasfrohlich.kotlin",
         "melishev.feather-vscode",
         "monokai.theme-monokai-pro-vscode",
-        "mrcrowl.hg",
-        "ms-azuretools.vscode-docker",
         "ms-dotnettools.csharp",
         "ms-dotnettools.vscode-dotnet-runtime",
         "ms-python.black-formatter",
@@ -60,7 +52,6 @@
         "shd101wyy.markdown-preview-enhanced",
         "timonwong.shellcheck",
         "toroxx.vscode-avdmanager",
-        "twxs.cmake",
         "vadimcn.vscode-lldb",
         "visualstudioexptteam.intellicode-api-usage-examples",
         "visualstudioexptteam.vscodeintellicode",
@@ -70,8 +61,6 @@
         "vscjava.vscode-java-pack",
         "vscjava.vscode-java-test",
         "vscjava.vscode-maven",
-        "vscodevim.vim",
-        "waderyan.gitblame",
-        "zxh404.vscode-proto3"
+        "vscodevim.vim"
     ]
 }
