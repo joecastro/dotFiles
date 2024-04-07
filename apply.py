@@ -9,12 +9,12 @@ from itertools import chain
 import json
 import os
 from pathlib import Path
+import platform
 import plistlib
 import re
 import shutil
 import subprocess
 import sys
-import tempfile
 
 HOME = str(Path.home())
 CWD = '.'
@@ -34,16 +34,16 @@ class Host:
 
     def __post_init__(self):
         if self.hostname == 'localhost':
-            self.hostname = os.uname().nodename
-            self.kernel = os.uname().sysname.lower()
+            self.hostname = platform.uname().node
+            self.kernel = platform.uname().system.lower()
         self.file_maps = dict(self.file_maps) | {item2:item3 for (_, item2, item3) in self.jsonnet_maps}
         self.jsonnet_maps = {item1:item2 for (item1, item2, _) in self.jsonnet_maps}
 
     def is_localhost(self) -> bool:
-        return self.hostname == os.uname().nodename
+        return self.hostname == platform.uname().node
 
     def get_staging_dir(self, suffix='dot') -> str:
-        return f'{CWD}/out/{self.hostname}-{suffix}'
+        return os.path.join(CWD, 'out', f'{self.hostname}-{suffix}')
 
     def get_inflated_macro(self, key, file_path) -> list[str]:
         return [v.replace('@@FILE_NAME', Path(file_path).stem.upper())
@@ -71,9 +71,9 @@ config:Config = None
 
 def annotate_ops(ops: list) -> list:
     ret = []
-    for op_list in ops:
-        ret.append(f'local: {" ".join(op_list)}')
-        ret.append(op_list)
+    for op in ops:
+        ret.append(f'local: {op}')
+        ret.append(op)
 
     return ret
 
@@ -95,7 +95,12 @@ def run_ops(ops: list) -> None:
         if isinstance(entry, str):
             print(entry)
         elif isinstance(entry, list):
-            subprocess.run(entry, check=True)
+            try:
+                subprocess.run(entry, check=True)
+            except:
+                print(f'Failed running: {" ".join(entry)}')
+                raise
+
         elif callable(entry):
             entry()
         else:
@@ -116,7 +121,7 @@ def ensure_out_dir() -> None:
 
 
 def update_workspace_extensions() -> None:
-    repo_workspace_extensions_location = 'vscode/dotFiles_extensions.json'
+    repo_workspace_extensions_location = os.path.join('vscode', 'dotFiles_extensions.json')
 
     completed_proc = subprocess.run(['code', '--list-extensions'], check=True, capture_output=True)
     installed_extensions = completed_proc.stdout.decode('utf-8').splitlines()
@@ -130,7 +135,7 @@ def update_workspace_extensions() -> None:
 
 
 def push_vscode_user_settings() -> None:
-    repo_user_settings_location = 'vscode/user_settings.json'
+    repo_user_settings_location = os.path.join('vscode', 'user_settings.json')
     mac_settings_location = f'{HOME}/Library/Application Support/Code/User/settings.json'
 
     # Open this as a json file first, just to make sure it parses properly.
@@ -177,7 +182,7 @@ def install_git_plugins(host: Host, plugin_type: str, repo_list: list[str], inst
     plugin_root = f'{HOME if host.is_localhost() else "."}/{install_root}'
 
     ops = [f'>> Cloning {len(repo_list)} {plugin_type} for {host.hostname}']
-    ops.append(['rm', '-rf', plugin_root])
+    ops.append(partial(shutil.rmtree, path=plugin_root, ignore_errors=True))
     for (repo, target_path) in [(r, f'{plugin_root}/{pattern.search(r).group(1)}') for r in repo_list]:
         ops.append(f'Cloning into {target_path}...')
         ops.append(['git', 'clone', '-q', repo, target_path])
@@ -252,21 +257,21 @@ def preprocess_jsonnet_files(host, staging_dir) -> list:
     if not host.jsonnet_maps:
         return []
 
-    full_paths = [(str(Path.joinpath(Path.cwd(), src)), f'{staging_dir}/{dest}') for (src, dest) in host.jsonnet_maps.items()]
+    full_paths = [(os.path.join(Path.cwd(), src), os.path.join(staging_dir, dest)) for (src, dest) in host.jsonnet_maps.items()]
     staging_dests = set([os.path.dirname(d) for (_, d) in full_paths])
 
-    ops = [['mkdir', '-p', d] for d in staging_dests]
+    ops = [partial(os.makedirs, name=d, exist_ok=True) for d in staging_dests]
     ops.extend(parse_jsonnet(s, get_ext_vars(host), d) for (s, d) in full_paths)
 
     return ops
 
 
 def copy_files_local(source_root, source_files, dest_root, dest_files, annotate: bool = False):
-    full_path_sources = [f'{source_root}/{src}' for src in source_files]
-    full_path_dests = [f'{dest_root}/{dest}' for dest in dest_files]
-    ops = [['mkdir', '-p', d] for d in {os.path.dirname(d) for d in full_path_dests}]
+    full_path_sources = [os.path.join(source_root, src) for src in source_files]
+    full_path_dests = [os.path.join(dest_root, dest) for dest in dest_files]
+    ops = [partial(os.makedirs, name=d, exist_ok=True) for d in {os.path.dirname(d) for d in full_path_dests}]
 
-    copy_ops = [['cp', src, dest] for (src, dest) in zip(full_path_sources, full_path_dests)]
+    copy_ops = [partial(shutil.copyfile, src=src, dst=dest) for (src, dest) in zip(full_path_sources, full_path_dests)]
     if annotate:
         copy_ops = annotate_ops(copy_ops)
 
@@ -276,7 +281,7 @@ def copy_files_local(source_root, source_files, dest_root, dest_files, annotate:
 
 def push_remote(host, shallow):
     ops = [f'>> Synching dotFiles for {host.hostname}']
-    ops.append(['rm', '-rf', host.get_staging_dir()])
+    ops.append(partial(shutil.rmtree, path=host.get_staging_dir(), ignore_errors=True))
 
     ops.extend(stage_local(host))
 
@@ -284,8 +289,8 @@ def push_remote(host, shallow):
     ops.extend(copy_files(config.get_localhost(), host.get_staging_dir(), host.file_maps.keys(), host, HOME, host.file_maps.values(), annotate=True))
 
     if not shallow:
-        ops.extend(install_git_plugins(host, 'Vim startup plugin(s)', config.vim_pack_plugin_start_repos, '.vim/pack/plugins/start'))
-        ops.extend(install_git_plugins(host, 'Vim optional plugin(s)', config.vim_pack_plugin_opt_repos, '.vim/pack/plugins/opt'))
+        ops.extend(install_git_plugins(host, 'Vim startup plugin(s)', config.vim_pack_plugin_start_repos, os.path.join('.vim', 'pack', 'plugins', 'start')))
+        ops.extend(install_git_plugins(host, 'Vim optional plugin(s)', config.vim_pack_plugin_opt_repos, os.path.join('.vim', 'pack', 'plugins', 'opt')))
         ops.extend(install_git_plugins(host, 'Zsh plugin(s)', config.zsh_plugin_repos, '.zshext'))
 
     return ops
@@ -328,7 +333,7 @@ def pull_remote(host) -> list:
     staging_dir = host.get_staging_dir('ingest')
 
     ops = [f'>> Snapshotting dotFiles from {host.hostname} into {staging_dir}']
-    ops.extend(['rm', '-rf', staging_dir])
+    ops.extend(partial(shutil.rmtree, path=staging_dir, ignore_errors=True))
     # This doesn't decompose the files back into jsonnet. But the directories are diffable with the local staged copies
     ops.extend(copy_files(host, HOME, host.file_maps.values(), config.get_localhost(), staging_dir, host.file_maps.keys()))
 
