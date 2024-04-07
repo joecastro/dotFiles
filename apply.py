@@ -14,7 +14,7 @@ import re
 import shutil
 import subprocess
 import sys
-import _jsonnet
+import tempfile
 
 HOME = str(Path.home())
 CWD = '.'
@@ -207,17 +207,22 @@ def copy_files(source_host, source_root, source_files, dest_host, dest_root, des
 
 
 def parse_jsonnet_now(jsonnet_file, ext_vars) -> dict | list:
-    # pylint: disable-next=c-extension-no-member
-    return json.loads(_jsonnet.evaluate_file(jsonnet_file, ext_vars=ext_vars))
+    result = subprocess.run(
+        parse_jsonnet(jsonnet_file, ext_vars, None),
+        capture_output=True,
+        check=True,
+        text=True)
+    return json.loads(result.stdout)
 
 
 def parse_jsonnet(jsonnet_file, ext_vars, output_file) -> list:
     proc_args = ['jsonnet']
 
-    #-'-SS   --##u
-    if output_file.endswith('.ini'):
-        proc_args.append('-S')
-    proc_args.extend(['-o', output_file])
+    if output_file is not None:
+        #-'-SS   --##u
+        if output_file.endswith('.ini'):
+            proc_args.append('-S')
+        proc_args.extend(['-o', output_file])
 
     for (key, val) in ext_vars.items():
         proc_args.extend(['-V', f'{key}={val}'])

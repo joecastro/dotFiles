@@ -9,13 +9,16 @@ function bootstrap_env() {
     rm "$WORK_DIR/.DS_Store" 2> /dev/null
     rm -rf "$WORK_DIR/out" 2> /dev/null
     rm -rf "$WORK_DIR/.venv" 2> /dev/null
-    rm -rf "${WORK_DIR}/.vscode" 2> /dev/null
     # xargs will strip the whitespace that's printed to stdout
-    DOTCODE_FOLDER_NON_LINK_FILE_COUNT=$(find "${WORK_DIR}/.vscode" -not -type l -not -type d | wc -l | xargs)
-    if [[ "${DOTCODE_FOLDER_NON_LINK_FILE_COUNT}" != "0" ]]; then
-        echo "It seems like there are files that are directly added to the virtual folder. Not proceeding."
-        find "${WORK_DIR}" -not -type l -not -type d
-        return 1
+
+    if [[ -d "${WORK_DIR}/.vscode" ]]; then
+        DOTCODE_FOLDER_NON_LINK_FILE_COUNT=$(find "${WORK_DIR}/.vscode" -not -type l -not -type d | wc -l | xargs)
+        if [[ "${DOTCODE_FOLDER_NON_LINK_FILE_COUNT}" != "0" ]]; then
+            echo "It seems like there are files that are directly added to the virtual folder. Not proceeding."
+            find "${WORK_DIR}" -not -type l -not -type d
+            return 1
+        fi
+        rm -rf "${WORK_DIR}/.vscode" 2> /dev/null
     fi
 
     if [[ "$1" == "--clean" ]]; then
