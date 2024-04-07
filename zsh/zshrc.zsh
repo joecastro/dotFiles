@@ -467,13 +467,13 @@ case "$(__effective_distribution)" in
         WIN_USERNAME=$(powershell.exe '$env:UserName')
         WIN_USERPROFILE=$(echo $(wslpath $(powershell.exe '$env:UserProfile')) | sed $'s/\r//')
 
-        typeset -a WSL_WINDOWS_VIRTUALENV_ID=("__is_on_wsl && __is_in_windows_drive" $WINDOWS_ICON "blue")
-        typeset -a WSL_LINUX_VIRTUALENV_ID=("__is_on_wsl && ! __is_in_windows_drive" $LINUX_PENGUIN_ICON "blue")
+        typeset -a WSL_WINDOWS_VIRTUALENV_ID=("__is_on_wsl && __is_in_windows_drive" WINDOWS_ICON "blue")
+        typeset -a WSL_LINUX_VIRTUALENV_ID=("__is_on_wsl && ! __is_in_windows_drive" LINUX_PENGUIN_ICON "blue")
         VIRTUALENV_ID_FUNCS[WSL_WINDOWS]=WSL_WINDOWS_VIRTUALENV_ID
         VIRTUALENV_ID_FUNCS[WSL_LINUX]=WSL_LINUX_VIRTUALENV_ID
 
         # export WIN_USERPROFILE=$(wslpath $(powershell.exe '$env:UserProfile'))
 
-        alias winGo='pushd $WIN_USERPROFILE'
+        alias winGo='pushd $WIN_USERPROFILE; cd .'
         ;;
 esac
