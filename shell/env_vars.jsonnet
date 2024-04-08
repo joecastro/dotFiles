@@ -6,9 +6,9 @@ local root = {
         DOTFILES_CONFIG_ROOT: '$HOME/' + apply_configs_core.config_dir,
         ANDROID_HOME: if std.extVar('kernel') == 'darwin' then '~/Library/Android/sdk' else '$HOME/android_sdk',
     },
-    directives: {
-        ACTIVE_SHELL: "ps -c -p $$ -o command | awk 'END{print}'",
-    },
+    // directives: {
+    //     ACTIVE_SHELL: "ps -c -p $$ -o command | awk 'END{print}'",
+    // },
     aliases: {
         dotGo: 'pushd $DOTFILES_SRC_HOME; cd .'
     }

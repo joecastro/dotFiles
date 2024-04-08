@@ -179,11 +179,12 @@ def generate_derived_workspace() -> None:
 
 def install_git_plugins(host: Host, plugin_type: str, repo_list: list[str], install_root: str) -> list:
     pattern = re.compile("([^/]+)\\.git$")
-    plugin_root = f'{HOME if host.is_localhost() else "."}/{install_root}'
+    plugin_root = os.path.join(HOME if host.is_localhost() else ".", install_root)
 
     ops = [f'>> Cloning {len(repo_list)} {plugin_type} for {host.hostname}']
     ops.append(partial(shutil.rmtree, path=plugin_root, ignore_errors=True))
-    for (repo, target_path) in [(r, f'{plugin_root}/{pattern.search(r).group(1)}') for r in repo_list]:
+    ops.append(['rm', '-rf', plugin_root])
+    for (repo, target_path) in [(r, os.path.join(plugin_root, pattern.search(r).group(1))) for r in repo_list]:
         ops.append(f'Cloning into {target_path}...')
         ops.append(['git', 'clone', '-q', repo, target_path])
 

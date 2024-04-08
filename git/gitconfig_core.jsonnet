@@ -1,5 +1,9 @@
 {
     sections: {
+        core: {
+            editor: "vim"
+        },
+
         user: {
             email: "joecastr@gmail.com",
             name: "Joe Castro"
