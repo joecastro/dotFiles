@@ -76,118 +76,6 @@ shopt -s globstar >/dev/null 2>&1
 # Disable extdebug because it causes issues with iTerm shell integration
 shopt -u extdebug
 
-function __is_ssh_session() {
-    if [ -n "$SSH_CLIENT" ] || [ -n "$SSH_TTY" ] || [ -n "$SSH_CONNECTION" ]; then
-        return 0
-    fi
-    return 1
-}
-
-function __is_in_git_repo() {
-    if git branch > /dev/null 2>&1; then
-        return 0
-    fi
-    return 1
-}
-
-function __is_in_git_dir() {
-    if git rev-parse --is-inside-git-dir | grep "true" > /dev/null 2>&1; then
-        return 0
-    fi
-    return 1
-}
-
-function __is_in_repo() {
-    local verbose=0
-    if [[ -z "$1" ]]; then
-        unset verbose
-    fi
-
-    if repo --show-toplevel > /dev/null 2>&1; then
-        return 0
-    fi
-
-    if (( ${+verbose} )); then
-        echo "error: Not in Android repo tree"
-    fi
-
-    return 1
-}
-
-function __is_interactive() {
-    if [[ $- == *i* ]]; then
-        return 0
-    fi
-    return 1
-}
-
-function __is_in_tmux() {
-    if [ "$TERM" = "screen" ]; then
-        return 1
-    elif [ -n "$TMUX" ]; then
-        return 0
-    fi
-    return 1
-}
-
-function __is_on_wsl() {
-    grep -qE "(Microsoft|WSL)" /proc/version &> /dev/null
-}
-
-function __is_in_windows_drive() {
-    if (( ${+WIN_SYSTEM_ROOT} )); then
-        if test "${PWD##"$WIN_SYSTEM_ROOT"}" != "${PWD}"; then
-            return 0
-        fi
-    fi
-    return 1
-}
-
-function __is_on_osx() {
-    if [[ "$(uname)" == "Darwin" ]]; then
-        return 0
-    fi
-    return 1
-}
-
-function __is_on_windows() {
-    if [[ "$(uname -s)" = "MINGW64_NT"* ]] || [[ "$(uname -s)" = "MSYS_NT"* ]]; then
-        return 0
-    fi
-    return 1
-}
-
-function __is_on_unexpected_windows() {
-    if [[ "$(uname -s)" = "MINGW32_NT"* ]]; then
-        return 0
-    fi
-    return 1
-}
-
-function __is_on_unexpected_linux() {
-    if [[ "$(uname -s)" = "Linux"* ]]; then
-        return 0
-    fi
-    return 1
-}
-
-function __is_embedded_terminal() {
-    # This isn't quite the same thing as running in an embedded terminal.
-    # Code will launch an interactive shell to resolve environment variables.
-    # This value can be used to detect that.
-    if [[ "$VSCODE_RESOLVING_ENVIRONMENT" == "1" ]]; then
-        return 0
-    fi
-    if [[ "$TERM_PROGRAM" == "vscode" ]]; then
-        return 0
-    fi
-    return 1
-}
-
-# TODO: Similar to below TODO, consider not using unicode glyphs based on something like this...
-unset RESTRICT_ASCII_CHARACTERS
-EXPECT_NERD_FONTS=1
-
 # emojipedia.org
 ANCHOR_ICON=⚓
 PIN_ICON=📌
@@ -198,25 +86,6 @@ DISK_ICON=💾
 OFFICE_ICON=🏢
 SNAKE_ICON=🐍
 ROBOT_ICON=🤖
-
-#Nerdfonts - https://www.nerdfonts.com/cheat-sheet
-WINDOWS_ICON=
-GITHUB_ICON=
-GOOGLE_ICON=
-VIM_ICON=
-ANDROID_HEAD_ICON=󰀲
-ANDROID_BODY_ICON=
-PYTHON_ICON=
-GIT_BRANCH_ICON=
-GIT_COMMIT_ICON=
-HOME_FOLDER_ICON=󱂵
-TMUX_ICON=
-
-NF_VIM_ICON=$(test -n "$EXPECT_NERD_FONTS" && echo $VIM_ICON || echo "{vim}")
-NF_ANDROID_ICON=$(test -n "$EXPECT_NERD_FONTS" && echo "$ANDROID_BODY_ICON" || echo "$ROBOT_ICON")
-NF_PYTHON_ICON=$(test -n "$EXPECT_NERD_FONTS" && echo "$PYTHON_ICON" || echo "$SNAKE_ICON")
-NF_GIT_BRANCH_ICON=$(test -n "$EXPECT_NERD_FONTS" && echo "$GIT_BRANCH_ICON" || echo "(b)")
-NF_GIT_COMMIT_ICON=$(test -n "$EXPECT_NERD_FONTS" && echo "$GIT_COMMIT_ICON" || echo "(d)")
 
 function __cute_pwd() {
     if __is_in_git_repo; then
@@ -295,8 +164,8 @@ function __virtualenv_info() {
         echo -n "$TMUX_ICON "
     fi
     # venv="${VIRTUAL_ENV##*/}"
-    test -n "$VIRTUAL_ENV" && echo "$NF_PYTHON_ICON "
-    test -n "$VIMRUNTIME" && echo "$NF_VIM_ICON "
+    test -n "$VIRTUAL_ENV" && echo "$PYTHON_ICON "
+    test -n "$VIMRUNTIME" && echo "$VIM_ICON "
 }
 
 # disable the default virtualenv prompt change
@@ -375,6 +244,5 @@ case $EFFECTIVE_DISTRIBUTION in
 
         export JAVA_HOME=/c/Program\ Files/Java/jdk1.8.0_161/bin/
         export PATH=$JAVA_HOME/bin:$PATH
-        export PATH=/c/Program\ Files\ \(x86\)/Vim/vim81/:$PATH
         ;;
 esac

@@ -352,7 +352,7 @@ function __venv_aware_cd() {
     if [[ -n "${VIRTUAL_ENV}" ]]; then
         local P_DIR="$(dirname "$VIRTUAL_ENV")"
         if [[ "$PWD"/ != "${P_DIR}"/* ]] && command -v deactivate &> /dev/null; ; then
-            echo "$NF_PYTHON_ICON Deactivating venv for $P_DIR"
+            echo "$PYTHON_ICON Deactivating venv for $P_DIR"
             deactivate
         fi
     fi
@@ -361,7 +361,7 @@ function __venv_aware_cd() {
     if [[ -d ./.venv ]]; then
         if [[ -z "$VIRTUAL_ENV" ]]; then
             source ./.venv/bin/activate
-            echo "$NF_PYTHON_ICON Activating venv with $(python --version) for $PWD/.venv"
+            echo "$PYTHON_ICON Activating venv with $(python --version) for $PWD/.venv"
         # else: CONSIDER: test "$PWD" -ef "$VIRUAL_ENV" && "🐍 Avoiding implicit activation of .venv environment because $VIRTUAL_ENV is already active"
         fi
     fi

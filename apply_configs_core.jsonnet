@@ -9,6 +9,7 @@
         ['bash/profile.sh', '.profile'],
         ['bash/bashrc.sh', '.bashrc'],
         ['bash/dircolorsrc', '.dircolorsrc'],
+        ['shell/env_funcs.sh', self.config_dir + '/env_funcs.sh'],
         ['shell/util_funcs.sh', self.config_dir + '/util_funcs.sh'],
         ['shell/android_funcs.sh', self.config_dir + '/android_funcs.sh'],
         ['zsh/zshrc.zsh', '.zshrc'],
