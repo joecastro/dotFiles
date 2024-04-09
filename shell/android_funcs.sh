@@ -5,7 +5,7 @@
 function repo_find() {
     if __is_in_repo; then
         repo --show-toplevel
-    elif (( ${+ANDROID_REPO_ROOT} )); then
+    elif [[ -n ${ANDROID_REPO_ROOT} ]]; then
         echo "${ANDROID_REPO_ROOT}"
     else
         find . -type d -name '.repo' -print -quit | sed 's#/\.repo$##'
@@ -27,7 +27,8 @@ function repo_format() {
 }
 
 function repo_clean() {
-    if ! __is_in_repo -v; then
+    if ! __is_in_repo; then
+        echo "error: Not in Android repo tree"
         return 1
     fi
 
@@ -37,7 +38,8 @@ function repo_clean() {
 }
 
 function repo_pushd() {
-    if ! __is_in_repo -v; then
+    if ! __is_in_repo; then
+        echo "error: Not in Android repo tree"
         return 1
     fi
 
@@ -61,7 +63,9 @@ function repo_sync_yesterday() {
     local maybe_days_ago=$1
     local date_str='yesterday'
 
-    if ! __is_in_repo -v; then
+    if ! __is_in_repo; then
+        echo "error: Not in Android repo tree"
+
         return 1
     fi
 
@@ -85,7 +89,8 @@ function repo_sync_at() {
     local repo_upstream_branch
     local repo_root_dir
 
-    if ! __is_in_repo -v; then
+    if ! __is_in_repo; then
+        echo "error: Not in Android repo tree"
         return 1
     fi
 
@@ -100,7 +105,8 @@ function repo_sync_at() {
 }
 
 function refresh_build_env() {
-    if ! __is_in_repo -v; then
+    if ! __is_in_repo; then
+        echo "error: Not in Android repo tree"
         return 1
     fi
 

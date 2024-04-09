@@ -8,52 +8,10 @@ EXPECT_NERD_FONTS="${EXPECT_NERD_FONTS:-0}"
 
 EDITOR=vim
 
-function __refresh_icon_vars() {
-    # Ensure all icon variables are exported
-    emulate -L zsh
-    setopt all_export
-
-    # emojipedia.org
-    #Nerdfonts - https://www.nerdfonts.com/cheat-sheet
-    [[ ${EXPECT_NERD_FONTS} = 0 ]] && WINDOWS_ICON= || WINDOWS_ICON=🪟
-    [[ ${EXPECT_NERD_FONTS} = 0 ]] && LINUX_PENGUIN_ICON= || LINUX_PENGUIN_ICON=🐧
-    [[ ${EXPECT_NERD_FONTS} = 0 ]] && GITHUB_ICON= || GITHUB_ICON="🐈‍🐙" # octo-cat
-    [[ ${EXPECT_NERD_FONTS} = 0 ]] && GOOGLE_ICON= || GOOGLE_ICON="{G}"
-    [[ ${EXPECT_NERD_FONTS} = 0 ]] && VIM_ICON= || VIM_ICON="{vim}"
-    [[ ${EXPECT_NERD_FONTS} = 0 ]] && ANDROID_HEAD_ICON=󰀲 || ANDROID_HEAD_ICON=🤖
-    [[ ${EXPECT_NERD_FONTS} = 0 ]] && ANDROID_BODY_ICON= || ANDROID_BODY_ICON=🤖
-    [[ ${EXPECT_NERD_FONTS} = 0 ]] && PYTHON_ICON= || PYTHON_ICON=🐍
-    [[ ${EXPECT_NERD_FONTS} = 0 ]] && GIT_BRANCH_ICON= || GIT_BRANCH_ICON=️"(b)"
-    [[ ${EXPECT_NERD_FONTS} = 0 ]] && GIT_COMMIT_ICON= || GIT_COMMIT_ICON="(c)"
-    [[ ${EXPECT_NERD_FONTS} = 0 ]] && HOME_FOLDER_ICON=󱂵 || HOME_FOLDER_ICON="📁‍🏠"
-    [[ ${EXPECT_NERD_FONTS} = 0 ]] && COD_FILE_SUBMODULE_ICON= || COD_FILE_SUBMODULE_ICON=📂
-    [[ ${EXPECT_NERD_FONTS} = 0 ]] && TMUX_ICON= || TMUX_ICON=🤵
-    [[ ${EXPECT_NERD_FONTS} = 0 ]] && VS_CODE_ICON=󰨞 || VS_CODE_ICON=♾️
-    [[ ${EXPECT_NERD_FONTS} = 0 ]] && COD_HOME_ICON= || COD_HOME_ICON=🏠
-    [[ ${EXPECT_NERD_FONTS} = 0 ]] && COD_PINNED_ICON= || COD_PINNED_ICON=📌
-    [[ ${EXPECT_NERD_FONTS} = 0 ]] && COD_TOOLS_ICON= || COD_TOOLS_ICON=🛠️
-    [[ ${EXPECT_NERD_FONTS} = 0 ]] && COD_TAG_ICON= || COD_TAG_ICON=🏷️
-    [[ ${EXPECT_NERD_FONTS} = 0 ]] && COD_PACKAGE_ICON= || COD_PACKAGE_ICON=📦
-    [[ ${EXPECT_NERD_FONTS} = 0 ]] && COD_SAVE_ICON= || COD_SAVE_ICON=💾
-    [[ ${EXPECT_NERD_FONTS} = 0 ]] && FAE_TREE_ICON= || FAE_TREE_ICON=🌲
-    [[ ${EXPECT_NERD_FONTS} = 0 ]] && MD_SUBMARINE_ICON=󱕬 || MD_SUBMARINE_ICON="{sub}"
-    [[ ${EXPECT_NERD_FONTS} = 0 ]] && MD_GREATER_THAN_ICON=󰥭 || MD_GREATER_THAN_ICON=">"
-    [[ ${EXPECT_NERD_FONTS} = 0 ]] && MD_CHEVRON_DOUBLE_RIGHT_ICON=󰄾 || MD_CHEVRON_DOUBLE_RIGHT_ICON=">>"
-    [[ ${EXPECT_NERD_FONTS} = 0 ]] && MD_MICROSOFT_VISUAL_STUDIO_CODE_ICON=󰨞 || MD_MICROSOFT_VISUAL_STUDIO_CODE_ICON=♾️
-    [[ ${EXPECT_NERD_FONTS} = 0 ]] && MD_SNAPCHAT=󰒶 || MD_SNAPCHAT=👻
-    [[ ${EXPECT_NERD_FONTS} = 0 ]] && OCT_FILE_SUBMODULE_ICON= || OCT_FILE_SUBMODULE_ICON=🗄️
-    [[ ${EXPECT_NERD_FONTS} = 0 ]] && COD_TERMINAL_BASH= || COD_TERMINAL_BASH="{bash}"
-    [[ ${EXPECT_NERD_FONTS} = 0 ]] && FA_DOLLAR_ICON= || FA_DOLLAR_ICON="$"
-    [[ ${EXPECT_NERD_FONTS} = 0 ]] && FA_BEER_ICON= || FA_BEER_ICON=🍺
-    CIDER_ICON=$FA_BEER_ICON
-}
-
-__refresh_icon_vars
-
 source "${DOTFILES_CONFIG_ROOT}/env_funcs.sh"
 
 # "key" -> (test_function ICON)
-typeset -a VSCODE_TERMINAL_ID=("__is_vscode_terminal" MD_MICROSOFT_VISUAL_STUDIO_CODE_ICON)
+typeset -a VSCODE_TERMINAL_ID=("__is_vscode_terminal" "ICON_MAP[MD_MICROSOFT_VISUAL_STUDIO_CODE]")
 typeset -A EMBEDDED_TERMINAL_ID_FUNCS=( \
     [VSCODE]=VSCODE_TERMINAL_ID )
 
@@ -98,9 +56,9 @@ function __effective_distribution() {
 }
 
 # "key" -> (test_function ICON ICON_COLOR)
-typeset -a TMUX_VIRTUALENV_ID=("__is_in_tmux" TMUX_ICON "white"])
-typeset -a VIM_VIRTUALENV_ID=("(( \${+VIMRUNTIME} ))" VIM_ICON "green")
-typeset -a PYTHON_VIRTUALENV_ID=("(( \${+VIRTUAL_ENV} ))" PYTHON_ICON "blue")
+typeset -a TMUX_VIRTUALENV_ID=("__is_in_tmux" "ICON_MAP[TMUX]" "white"])
+typeset -a VIM_VIRTUALENV_ID=("(( \${+VIMRUNTIME} ))" "ICON_MAP[VIM]" "green")
+typeset -a PYTHON_VIRTUALENV_ID=("(( \${+VIRTUAL_ENV} ))" "ICON_MAP[PYTHON]" "blue")
 typeset -A VIRTUALENV_ID_FUNCS=( \
     [TMUX]=TMUX_VIRTUALENV_ID \
     [VIM]=VIM_VIRTUALENV_ID \

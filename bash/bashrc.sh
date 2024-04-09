@@ -13,6 +13,9 @@ esac
 
 [ "${BASH_VERSINFO[0]}" -lt 4 ] && echo "WARN: This is a really old version of Bash. $BASH_VERSION"
 
+# shellcheck source=/dev/null
+source ~/.profile
+
 # Various PS1 aliases
 
 Time12h="\T"
@@ -76,23 +79,12 @@ shopt -s globstar >/dev/null 2>&1
 # Disable extdebug because it causes issues with iTerm shell integration
 shopt -u extdebug
 
-# emojipedia.org
-ANCHOR_ICON=⚓
-PIN_ICON=📌
-HUT_ICON=🛖
-HOUSE_ICON=🏠
-TREE_ICON=🌲
-DISK_ICON=💾
-OFFICE_ICON=🏢
-SNAKE_ICON=🐍
-ROBOT_ICON=🤖
-
 function __cute_pwd() {
     if __is_in_git_repo; then
         if ! __is_in_git_dir; then
             # If we're in a git repo then show the current directory relative to the root of that repo.
             # These commands wind up spitting out an extra slash, so backspace to remove it on the console.
-            echo -e "$ANCHOR_ICON$(git rev-parse --show-toplevel | xargs basename)/$(git rev-parse --show-prefix)\b"
+            echo -e "⚓$(git rev-parse --show-toplevel | xargs basename)/$(git rev-parse --show-prefix)\b"
         else
             echo "🚧"
         fi
@@ -106,7 +98,7 @@ function __cute_pwd() {
             return 0
             ;;
         # ${WIN_USERPROFILE##*/})
-        #    echo $WINDOWS_ICON$HOUSE_ICON
+        #    echo ${ICON_MAP[WINDOWS]}🏠
         #    ;;
         /)
             echo 🌲
@@ -116,7 +108,7 @@ function __cute_pwd() {
 
     case "${PWD##*/}" in
         github)
-            echo "$GITHUB_ICON"
+            echo "${ICON_MAP[GITHUB]}"
             return 0
             ;;
         src | source | master | main)
@@ -161,11 +153,11 @@ fi
 
 function __virtualenv_info() {
     if __is_in_tmux; then
-        echo -n "$TMUX_ICON "
+        echo -n "${ICON_MAP[TMUX]} "
     fi
     # venv="${VIRTUAL_ENV##*/}"
-    test -n "$VIRTUAL_ENV" && echo "$PYTHON_ICON "
-    test -n "$VIMRUNTIME" && echo "$VIM_ICON "
+    test -n "$VIRTUAL_ENV" && echo "${ICON_MAP[PYTHON]} "
+    test -n "$VIMRUNTIME" && echo "${ICON_MAP[VIM]} "
 }
 
 # disable the default virtualenv prompt change

@@ -12,6 +12,6 @@
                 local aliases = if std.objectHas(root, 'aliases')
                     then ["alias %s='%s'" % [k, root.aliases[k]] for k in std.objectFields(root.aliases)]
                     else [];
-                std.lines(['#! /bin/bash', '#pragma watermark', ''] + props + directives + aliases);
+                std.lines(['#! /bin/bash', '', '#pragma watermark', '', '#pragma once', ''] + props + directives + aliases);
         aux(value)
 }

@@ -2,6 +2,79 @@
 
 #pragma once
 
+# emojipedia.org
+#Nerdfonts - https://www.nerdfonts.com/cheat-sheet
+if [[ ${EXPECT_NERD_FONTS} = 0 ]]; then
+    declare -A ICON_MAP=(
+        [WINDOWS]=
+        [LINUX_PENGUIN]=
+        [GITHUB]=
+        [GOOGLE]=
+        [VIM]=
+        [ANDROID_HEAD]=󰀲
+        [ANDROID_BODY]=
+        [PYTHON]=
+        [GIT_BRANCH]=
+        [GIT_COMMIT]=
+        [HOME_FOLDER]=󱂵
+        [COD_FILE_SUBMODULE]=
+        [TMUX]=
+        [VS_CODE]=󰨞
+        [COD_HOME]=
+        [COD_PINNED]=
+        [COD_TOOLS]=
+        [COD_TAG]=
+        [COD_PACKAGE]=
+        [COD_SAVE]=
+        [FAE_TREE]=
+        [MD_SUBMARINE]=󱕬
+        [MD_GREATER_THAN]=󰥭
+        [MD_CHEVRON_DOUBLE_RIGHT]=󰄾
+        [MD_MICROSOFT_VISUAL_STUDIO_CODE]=󰨞
+        [MD_SNAPCHAT]=󰒶
+        [OCT_FILE_SUBMODULE]=
+        [COD_TERMINAL_BASH]=
+        [FA_DOLLAR]=
+        [FA_BEER]=
+        [CIDER]=
+    )
+else
+    declare -A ICON_MAP=(
+        [WINDOWS]=🪟
+        [LINUX_PENGUIN]=🐧
+        [GITHUB]="🐈‍🐙" # octo-cat
+        [GOOGLE]="{G}"
+        [VIM]="{vim}"
+        [ANDROID_HEAD]=🤖
+        [ANDROID_BODY]=🤖
+        [PYTHON]=🐍
+        [GIT_BRANCH]=️"(b)"
+        [GIT_COMMIT]="(c)"
+        [HOME_FOLDER]="📁‍🏠"
+        [COD_FILE_SUBMODULE]=📂
+        [TMUX]=🤵
+        [VS_CODE]=♾️
+        [COD_HOME]=🏠
+        [COD_PINNED]=📌
+        [COD_TOOLS]=🛠️
+        [COD_TAG]=🏷️
+        [COD_PACKAGE]=📦
+        [COD_SAVE]=💾
+        [FAE_TREE]=🌲
+        [MD_SUBMARINE]="{sub}"
+        [MD_GREATER_THAN]=">"
+        [MD_CHEVRON_DOUBLE_RIGHT]=">>"
+        [MD_MICROSOFT_VISUAL_STUDIO_CODE]=♾️
+        [MD_SNAPCHAT]=👻
+        [OCT_FILE_SUBMODULE]=🗄️
+        [COD_TERMINAL_BASH]="{bash}"
+        [FA_DOLLAR]=$
+        [FA_BEER]=🍺
+        [CIDER]=🍺
+    )
+fi
+export ICON_MAP
+
 function __is_ssh_session() {
     [ -n "${SSH_CLIENT}" ] || [ -n "${SSH_TTY}" ] || [ -n "${SSH_CONNECTION}" ]
 }
@@ -15,20 +88,7 @@ function __is_in_git_dir() {
 }
 
 function __is_in_repo() {
-    local verbose=0
-    if [[ -z "$1" ]]; then
-        unset verbose
-    fi
-
-    if repo --show-toplevel > /dev/null 2>&1; then
-        return 0
-    fi
-
-    if [[ ${verbose} -eq 0 ]]; then
-        echo "error: Not in Android repo tree"
-    fi
-
-    return 1
+    repo --show-toplevel > /dev/null 2>&1
 }
 
 function __is_interactive() {

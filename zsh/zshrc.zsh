@@ -126,33 +126,33 @@ function __cute_pwd_helper() {
     # These should only match if they're exact.
     case "${ACTIVE_DIR}" in
         "${HOME}")
-            echo -n %{${ICO_COLOR}%}${COD_HOME_ICON}%{$reset_color%}${SUFFIX}
+            echo -n %{${ICO_COLOR}%}${ICON_MAP[COD_HOME]}%{$reset_color%}${SUFFIX}
             return 0
             ;;
         "${WIN_USERPROFILE}")
-            echo -n %{${ICO_COLOR}%}${WINDOWS_ICON}%{$reset_color%}${SUFFIX}
+            echo -n %{${ICO_COLOR}%}${ICON_MAP[WINDOWS]}%{$reset_color%}${SUFFIX}
             return 0
             ;;
         "/")
-            echo -n %{${ICO_COLOR}%}${FAE_TREE_ICON}%{$reset_color%}${SUFFIX}
+            echo -n %{${ICO_COLOR}%}${ICON_MAP[FAE_TREE]}%{$reset_color%}${SUFFIX}
             return 0
             ;;
     esac
 
     if (( ${+ANDROID_REPO_BRANCH} )); then
         if [[ "${ACTIVE_DIR##*/}" == "${ANDROID_REPO_BRANCH}" ]]; then
-            echo -n %{${ICO_COLOR}%}${ANDROID_HEAD_ICON}%{$reset_color%}${SUFFIX}
+            echo -n %{${ICO_COLOR}%}${ICON_MAP[ANDROID_HEAD]}%{$reset_color%}${SUFFIX}
             return 0
         fi
     fi
 
     case "${ACTIVE_DIR##*/}" in
         "github")
-            echo -n %{${ICO_COLOR}%}${GITHUB_ICON}%{$reset_color%}${SUFFIX}
+            echo -n %{${ICO_COLOR}%}${ICON_MAP[GITHUB]}%{$reset_color%}${SUFFIX}
             return 0
             ;;
         "src" | "source")
-            echo -n %{${ICO_COLOR}%}${COD_SAVE_ICON}%{$reset_color%}${SUFFIX}
+            echo -n %{${ICO_COLOR}%}${ICON_MAP[COD_SAVE]}%{$reset_color%}${SUFFIX}
             return 0
             ;;
         *)
@@ -174,7 +174,7 @@ function __cute_pwd() {
             # These commands wind up spitting out an extra slash, so backspace to remove it on the console.
             # Because this messes with the shell's perception of where the cursor is, make the anchor icon
             # appear like an escape sequence instead of a printed character.
-            echo -e "%{${COD_PINNED_ICON} %}$(git rev-parse --show-toplevel | xargs basename)/$(git rev-parse --show-prefix)\b"
+            echo -e "%{${ICON_MAP[COD_PINNED]} %}$(git rev-parse --show-toplevel | xargs basename)/$(git rev-parse --show-prefix)\b"
         else
             echo -n $PWD
         fi
@@ -216,7 +216,7 @@ function __print_git_worktree() {
     fi
 
     if __is_in_git_dir; then
-        echo "${fg[yellow]%}${COD_TOOLS_ICON} "
+        echo "${fg[yellow]%}${ICON_MAP[COD_TOOLS]} "
         return 0
     fi
 
@@ -230,11 +230,11 @@ function __print_git_worktree() {
 
     local SUBMODULE_WORKTREE=$(git rev-parse --show-superproject-working-tree)
     if [[ "${SUBMODULE_WORKTREE}" == "" ]]; then
-        echo "%{$fg[green]%}${OCT_FILE_SUBMODULE_ICON}%{$PINK_FLAMINGO_FG%}${ROOT_WORKTREE##*/}:%{$fg[green]%}${ACTIVE_WORKTREE##*/} "
+        echo "%{$fg[green]%}${ICON_MAP[OCT_FILE_SUBMODULE]}%{$PINK_FLAMINGO_FG%}${ROOT_WORKTREE##*/}:%{$fg[green]%}${ACTIVE_WORKTREE##*/} "
         return 0
     fi
 
-    echo "%{$PINK_FLAMINGO_FG%}${COD_FILE_SUBMODULE_ICON}${SUBMODULE_WORKTREE##*/} "
+    echo "%{$PINK_FLAMINGO_FG%}${ICON_MAP[COD_FILE_SUBMODULE]}${SUBMODULE_WORKTREE##*/} "
     return 0
 }
 
@@ -252,7 +252,7 @@ function __print_repo_worktree() {
         MANIFEST_BRANCH=$(repo info --outer-manifest -l -q "platform/no-project" 2>/dev/null | grep -i "Manifest branch" | sed 's/^Manifest branch: //')
     fi
 
-    echo "%{$fg[green]%}$ANDROID_BODY_ICON$MANIFEST_BRANCH%{$reset_color%} "
+    echo "%{$fg[green]%}${ICON_MAP[ANDROID_BODY]}${MANIFEST_BRANCH}%{$reset_color%} "
 }
 
 function __print_git_info() {
@@ -261,10 +261,10 @@ function __print_git_info() {
         return 0
     fi
 
-    local COMMIT_TEMPLATE_STRING=$([[ ${EXPECT_NERD_FONTS} = 0 ]] && echo "$GIT_COMMIT_ICON%s" || echo "%s")
-    local COMMIT_MOD_TEMPLATE_STRING=$([[ ${EXPECT_NERD_FONTS} = 0 ]] && echo "$GIT_COMMIT_ICON%s*" || echo "{%s *}")
-    local BRANCH_TEMPLATE_STRING=$([[ ${EXPECT_NERD_FONTS} = 0 ]] && echo "$GIT_BRANCH_ICON%s" || echo "(%s)")
-    local BRANCH_MOD_TEMPLATE_STRING=$([[ ${EXPECT_NERD_FONTS} = 0 ]] && echo "$GIT_BRANCH_ICON%s*" || echo "{%s *}")
+    local COMMIT_TEMPLATE_STRING=$([[ ${EXPECT_NERD_FONTS} = 0 ]] && echo "${ICON_MAP[GIT_COMMIT]}%s" || echo "%s")
+    local COMMIT_MOD_TEMPLATE_STRING=$([[ ${EXPECT_NERD_FONTS} = 0 ]] && echo "${ICON_MAP[GIT_COMMIT]}%s*" || echo "{%s *}")
+    local BRANCH_TEMPLATE_STRING=$([[ ${EXPECT_NERD_FONTS} = 0 ]] && echo "${ICON_MAP[GIT_BRANCH]}%s" || echo "(%s)")
+    local BRANCH_MOD_TEMPLATE_STRING=$([[ ${EXPECT_NERD_FONTS} = 0 ]] && echo "${ICON_MAP[GIT_BRANCH]}%s*" || echo "{%s *}")
 
     git status | grep "HEAD detached" > /dev/null 2>&1
     local IS_DETACHED_HEAD=$?
@@ -298,7 +298,7 @@ VIRTUAL_ENV_DISABLE_PROMPT=1
 # Repo is implemented in terms of worktrees, so this gets noisy.
 SKIP_WORKTREE_IN_ANDROID_REPO=0
 
-END_OF_PROMPT_ICON=$MD_GREATER_THAN_ICON
+END_OF_PROMPT_ICON=${ICON_MAP[MD_GREATER_THAN]}
 ELEVATED_END_OF_PROMPT_ICON="$"
 
 function __generate_standard_prompt() {
@@ -352,7 +352,7 @@ function __venv_aware_cd() {
     if [[ -n "${VIRTUAL_ENV}" ]]; then
         local P_DIR="$(dirname "$VIRTUAL_ENV")"
         if [[ "$PWD"/ != "${P_DIR}"/* ]] && command -v deactivate &> /dev/null; ; then
-            echo "$PYTHON_ICON Deactivating venv for $P_DIR"
+            echo "${ICON_MAP[PYTHON]} Deactivating venv for ${P_DIR}"
             deactivate
         fi
     fi
@@ -361,7 +361,7 @@ function __venv_aware_cd() {
     if [[ -d ./.venv ]]; then
         if [[ -z "$VIRTUAL_ENV" ]]; then
             source ./.venv/bin/activate
-            echo "$PYTHON_ICON Activating venv with $(python --version) for $PWD/.venv"
+            echo "${ICON_MAP[PYTHON]} Activating venv with $(python --version) for $PWD/.venv"
         # else: CONSIDER: test "$PWD" -ef "$VIRUAL_ENV" && "🐍 Avoiding implicit activation of .venv environment because $VIRTUAL_ENV is already active"
         fi
     fi
@@ -467,8 +467,8 @@ case "$(__effective_distribution)" in
         WIN_USERNAME=$(powershell.exe '$env:UserName')
         WIN_USERPROFILE=$(echo $(wslpath $(powershell.exe '$env:UserProfile')) | sed $'s/\r//')
 
-        typeset -a WSL_WINDOWS_VIRTUALENV_ID=("__is_on_wsl && __is_in_windows_drive" WINDOWS_ICON "blue")
-        typeset -a WSL_LINUX_VIRTUALENV_ID=("__is_on_wsl && ! __is_in_windows_drive" LINUX_PENGUIN_ICON "blue")
+        typeset -a WSL_WINDOWS_VIRTUALENV_ID=("__is_on_wsl && __is_in_windows_drive" "ICON_MAP[WINDOWS]" "blue")
+        typeset -a WSL_LINUX_VIRTUALENV_ID=("__is_on_wsl && ! __is_in_windows_drive" "ICON_MAP[LINUX_PENGUIN]" "blue")
         VIRTUALENV_ID_FUNCS[WSL_WINDOWS]=WSL_WINDOWS_VIRTUALENV_ID
         VIRTUALENV_ID_FUNCS[WSL_LINUX]=WSL_LINUX_VIRTUALENV_ID
 
