@@ -147,3 +147,7 @@ function __is_vscode_terminal() {
     fi
     return 1
 }
+
+function __is_tool_window() {
+    [[ -n "${TOOL_WINDOW}" ]];
+}

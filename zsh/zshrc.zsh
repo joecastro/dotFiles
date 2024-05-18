@@ -401,18 +401,20 @@ fi
 test -e ~/.zshext/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh && \
     source ~/.zshext/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 
-if __is_embedded_terminal; then
-    echo "Limiting zsh initialization because inside $(__embedded_terminal_info) terminal."
-    if __is_vscode_terminal; then
-        if command -v code &> /dev/null; then
-            source "$(code --locate-shell-integration-path zsh)"
-        fi
+if ! __is_tool_window; then
+    if __is_embedded_terminal; then
+        echo "Limiting zsh initialization because inside $(__embedded_terminal_info) terminal."
+        if __is_vscode_terminal; then
+            if command -v code &> /dev/null; then
+                source "$(code --locate-shell-integration-path zsh)"
+            fi
 
-        # Also, in some contexts .zprofile isn't sourced when started inside the Python debug console.
-        source ~/.zprofile
+            # Also, in some contexts .zprofile isn't sourced when started inside the Python debug console.
+            source ~/.zprofile
+        fi
+    else
+        alias cd='__venv_aware_cd'
     fi
-else
-    alias cd='__venv_aware_cd'
 fi
 
 # if exa is installed prefer that to ls
