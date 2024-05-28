@@ -49,6 +49,11 @@ class Host:
         return [v.replace('@@FILE_NAME', Path(file_path).stem.upper())
                  .replace('@@NOW', datetime.now().strftime("%Y-%m-%d %H:%M")) for v in self.macros[key]]
 
+    def is_reachable(self) -> bool:
+        if self.is_localhost():
+            return True
+        return subprocess.run(['ssh', '-t',  self.hostname, 'echo "ping check"'], capture_output=True).returncode == 0
+
 
 @dataclass
 class Config:
@@ -282,6 +287,10 @@ def copy_files_local(source_root, source_files, dest_root, dest_files, annotate:
 
 def push_remote(host, shallow):
     ops = [f'>> Synching dotFiles for {host.hostname}']
+    if not host.is_reachable():
+        ops.append(f'Host {host.hostname} is not reachable')
+        return ops
+
     ops.append(partial(shutil.rmtree, path=host.get_staging_dir(), ignore_errors=True))
 
     ops.extend(stage_local(host))
