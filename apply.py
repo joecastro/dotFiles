@@ -218,12 +218,22 @@ def copy_files(source_host, source_root, source_files, dest_host, dest_root, des
 
 
 def parse_jsonnet_now(jsonnet_file, ext_vars) -> dict | list:
-    result = subprocess.run(
-        parse_jsonnet(jsonnet_file, ext_vars, None),
-        capture_output=True,
-        check=True,
-        text=True)
-    return json.loads(result.stdout)
+    try:
+        result = subprocess.run(
+            parse_jsonnet(jsonnet_file, ext_vars, None),
+            capture_output=True,
+            check=True,
+            text=True)
+        return json.loads(result.stdout)
+    except subprocess.CalledProcessError as e:
+        print(f'Error running jsonnet command: "{" ".join(parse_jsonnet(jsonnet_file, ext_vars, None))}"')
+        # try again, but just let the error be printed.
+        subprocess.run(
+            parse_jsonnet(jsonnet_file, ext_vars, None),
+            capture_output=False,
+            check=False,
+            text=True)
+        raise
 
 
 def parse_jsonnet(jsonnet_file, ext_vars, output_file) -> list:
