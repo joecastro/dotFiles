@@ -47,7 +47,7 @@ autoload -Uz compinit && compinit
 # $PATH is tied to $path - Can use one as an array and the other as a scalar.
 typeset -U path # force unique values.
 
-zstyle ':completion:*' list-colors ${(s.:.)LS_COLORS}
+zstyle ':completion:*' list-colors ${(s.:.)LSCOLORS}
 # zstyle ':completion:*' auto-description 'specify: %d'
 # zstyle ':completion:*' completer _expand _complete _correct _approximate
 # zstyle ':completion:*' format 'Completing %d'
@@ -113,8 +113,12 @@ zle-line-init() {
 
 zle -N zle-line-init
 
-# Use beam shape cursor for each new prompt.
+CMD_LAST_START=$(date +%s)
+
+# This gets run before any new command.
 preexec() {
+    CMD_LAST_START=$(date +%s)
+    # Use beam shape cursor for each new prompt.
     _set_cursor_beam
 }
 
@@ -293,6 +297,46 @@ function __print_virtualenv_info() {
     fi
 }
 
+# Tricks adapted from anothermark@google
+# Global variable to track command interruption
+CMD_INTERRUPTED=1
+CMD_LONG_RUNNING_THRESHOLD_SECONDS=15
+
+# SIGINT (Ctrl-C) Handler
+TRAPINT() {
+    CMD_INTERRUPTED=0
+    return $(( 128 + $1 ))
+}
+
+function __print_did_last_command_take_a_while() {
+    if [[ "${CMD_INTERRUPTED}" == "0" ]]; then
+        # Clear this.
+        CMD_INTERRUPTED=1
+        echo -n ""
+        return 0
+    fi
+
+    local NOW=$(date +%s)
+    local CMD_DURATION=$(( NOW - CMD_LAST_START ))
+
+    if [[ $CMD_DURATION -lt ${CMD_LONG_RUNNING_THRESHOLD_SECONDS} ]]; then
+        echo -n ""
+        return 0
+    fi
+
+    echo -n "${ICON_MAP[YAWN]} "
+    if (( ${+BE_LOUD_ABOUT_SLOW_COMMANDS} )); then
+        if __is_iterm2_terminal; then
+            if __is_in_screen ; then
+                printf "\033Ptmux;\033\033]" && printf "1337;RequestAttention=fireworks"  && printf "\a\033\\"
+            else
+                printf "\033]" && printf "1337;RequestAttention=fireworks" && printf "\a"
+            fi
+        fi
+    fi
+    return 0;
+}
+
 # disable the default virtualenv prompt change
 VIRTUAL_ENV_DISABLE_PROMPT=1
 # Repo is implemented in terms of worktrees, so this gets noisy.
@@ -332,12 +376,14 @@ function __generate_standard_prompt() {
     local prompt_builder=''
     prompt_builder+='%{$fg[white]%}$(__cute_time_prompt) '
     prompt_builder+='$(__print_virtualenv_info)'
+    prompt_builder+='$(__print_did_last_command_take_a_while)'
     prompt_builder+='%{$fg[green]%}$USER%{$fg[yellow]%}@%B%{'${PromptHostColor}'%}'${PromptHostName}'%{$reset_color%} '
     prompt_builder+='$(__print_repo_worktree)'
     prompt_builder+='$(__print_git_worktree)$(__print_git_info)'
     prompt_builder+='$(__cute_pwd)'
     prompt_builder+=' %(!.$ELEVATED_END_OF_PROMPT_ICON.$END_OF_PROMPT_ICON) '
 
+    # If I ever want to profile the generation of the prompt: "print -P $PROMPT"
     echo -n ${prompt_builder}
 }
 
@@ -387,9 +433,8 @@ command -v hub &> /dev/null && eval "$(hub alias -s)"
 command -v chjava &> /dev/null && chjava 18
 
 # If using iTerm2, try for shell integration.
-# When in SSH TERM_PROGRAM isn't getting propagated.
 # iTerm profile switching requires shell_integration to be installed anyways.
-if [[ "iTerm2" == "$LC_TERMINAL" ]]; then
+if __is_iterm2_terminal; then
     if [ ! -f ${DOTFILES_CONFIG_ROOT}/iterm2_shell_integration.zsh ]; then
         echo "Bootstrapping iTerm2 Shell Integration on a new machine through curl"
         curl -L https://iterm2.com/shell_integration/zsh -o ${DOTFILES_CONFIG_ROOT}/iterm2_shell_integration.zsh

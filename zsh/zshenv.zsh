@@ -5,6 +5,7 @@
 test -e ~/.env_vars.sh && source ~/.env_vars.sh
 
 EXPECT_NERD_FONTS="${EXPECT_NERD_FONTS:-0}"
+BE_LOUD_ABOUT_SLOW_COMMANDS=0
 
 EDITOR=vim
 

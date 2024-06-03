@@ -110,7 +110,7 @@ local ItermColorWhite = ItermColor(1, 1, 1);
         "Mouse Reporting": true,
         "Name": profile_name,
         "Non-ASCII Anti Aliased": true,
-        "Normal Font": "CaskaydiaCoveNerdFontCompleteM-Regular 14",
+        "Normal Font": "CaskaydiaCoveNFM-Regular 14",
         "Only The Default BG Color Uses Transparency": false,
         "Option Key Sends": 0,
         "Prompt Before Closing 2": false,

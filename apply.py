@@ -74,15 +74,6 @@ class Config:
 config:Config = None
 
 
-def annotate_ops(ops: list) -> list:
-    ret = []
-    for op in ops:
-        ret.append(f'local: {op}')
-        ret.append(op)
-
-    return ret
-
-
 def print_ops(ops: list) -> None:
     for entry in ops:
         if isinstance(entry, str):
@@ -211,8 +202,13 @@ def copy_files(source_host, source_root, source_files, dest_host, dest_root, des
     dest_subfolders = {os.path.dirname(d) for d in dest_files if os.path.dirname(d)}
 
     ops = make_remote_ops(dest_host, [['mkdir', '-p', f'{dest_root}/{sub}'] for sub in dest_subfolders])
-    ops.extend([['scp', f'{source_prefix}/{src}', f'{dest_prefix}/{dest}']
-                 for (src, dest) in zip(source_files, dest_files)])
+    copy_ops = [['scp', f'{source_prefix}/{src}', f'{dest_prefix}/{dest}']
+                 for (src, dest) in zip(source_files, dest_files)]
+    if annotate:
+        annotated_copy_ops = [" ".join(o) for o in copy_ops]
+        copy_ops = [item for sublist in zip(annotated_copy_ops, copy_ops) for item in sublist]
+
+    ops.extend(copy_ops)
 
     return ops
 
@@ -289,7 +285,8 @@ def copy_files_local(source_root, source_files, dest_root, dest_files, annotate:
 
     copy_ops = [partial(shutil.copyfile, src=src, dst=dest) for (src, dest) in zip(full_path_sources, full_path_dests)]
     if annotate:
-        copy_ops = annotate_ops(copy_ops)
+        annotated_copy_ops = [f'local: cp {src} {dest}' for (src, dest) in zip(full_path_sources, full_path_dests)]
+        copy_ops = [item for sublist in zip(annotated_copy_ops, copy_ops) for item in sublist]
 
     ops.extend(copy_ops)
     return ops
@@ -472,9 +469,17 @@ def main(args) -> int:
         host_args = ['--all']
 
     if option in ['--push', '--pull', '--stage']:
-        hosts = parse_hosts_from_args(host_args)
-        if len(hosts) == 0:
+        all_hosts = parse_hosts_from_args(host_args)
+        if len(all_hosts) == 0:
             raise ValueError(f'No hosts found in "{host_args}"')
+        # This has the additional benefit of frontloading any ssh related prompts
+        remote_hosts = [h for h in all_hosts if not h.is_localhost()]
+        print(f'Checking reachability of {len(remote_hosts)} hosts...')
+        hosts = [h for h in all_hosts if h.is_reachable()]
+        if len(hosts) == 0:
+            raise ValueError(f'No reachable hosts found in "{host_args}"')
+        if all_hosts != hosts:
+            print(f'Warning: skipping unreachable hosts: {", ".join(h.hostname for h in all_hosts if h not in hosts)}')
 
     ops = []
     match option:
