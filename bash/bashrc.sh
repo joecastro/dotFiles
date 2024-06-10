@@ -175,8 +175,7 @@ if [[ "iTerm2" == "$LC_TERMINAL" ]]; then
         curl -L https://iterm2.com/shell_integration/bash -o "${DOTFILES_CONFIG_ROOT}/iterm2_shell_integration.bash"
     fi
     # shellcheck disable=SC1091
-    test -e "${DOTFILES_CONFIG_ROOT}/iterm2_shell_integration.bash" && \
-        source "${DOTFILES_CONFIG_ROOT}/iterm2_shell_integration.bash"
+    __source_if_exists "${DOTFILES_CONFIG_ROOT}/iterm2_shell_integration.bash"
 fi
 
 EFFECTIVE_DISTRIBUTION="Unhandled"
@@ -190,12 +189,6 @@ elif __is_on_unexpected_windows; then
     EFFECTIVE_DISTRIBUTION="Unexpected Win32 environment"
 elif __is_on_windows; then
     EFFECTIVE_DISTRIBUTION="Windows"
-fi
-
-if [ ! -f "${DOTFILES_CONFIG_ROOT}/git-prompt.sh" ]; then
-    echo "Bootstrapping git-prompt installation on new machine through curl"
-    curl -o "${DOTFILES_CONFIG_ROOT}/git-prompt.sh" \
-    https://raw.githubusercontent.com/git/git/master/contrib/completion/git-prompt.sh
 fi
 
 # shellcheck source=/dev/null

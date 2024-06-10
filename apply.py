@@ -30,14 +30,18 @@ class Host:
     color: str = 'default'
     file_maps: list[tuple[str, str]] | dict[str, str] = field(default_factory=list)
     jsonnet_maps: list[tuple[str, str, str]] | dict[str, str] = field(default_factory=list)
+    curl_maps: list[tuple[str, str, str]] | dict[str, str] = field(default_factory=list)
     macros: dict[str, list[str]] = field(default_factory=dict)
 
     def __post_init__(self):
         if self.hostname == 'localhost':
             self.hostname = platform.uname().node
             self.kernel = platform.uname().system.lower()
-        self.file_maps = dict(self.file_maps) | {item2:item3 for (_, item2, item3) in self.jsonnet_maps}
+        self.file_maps = dict(self.file_maps)
+        self.file_maps |= {item2:item3 for (_, item2, item3) in self.jsonnet_maps}
         self.jsonnet_maps = {item1:item2 for (item1, item2, _) in self.jsonnet_maps}
+        self.file_maps |= {item2:item3 for (_, item2, item3) in self.curl_maps}
+        self.curl_maps = {item1:item2 for (item1, item2, _) in self.curl_maps}
 
     def is_localhost(self) -> bool:
         return self.hostname == platform.uname().node
@@ -265,9 +269,22 @@ def get_ext_vars(host:Host=None) -> list:
         }
     return ret_vars
 
+
+def preprocess_curl_files(host, staging_dir) -> list:
+    if not host.curl_maps:
+        return ['No curl maps found']
+
+    full_paths = [(src, os.path.join(staging_dir, dest)) for (src, dest) in host.curl_maps.items()]
+    staging_dests = set([os.path.dirname(d) for (_, d) in full_paths])
+
+    ops = [partial(os.makedirs, name=d, exist_ok=True) for d in staging_dests]
+    ops.extend(['curl', '-L', s, '-o', d] for (s, d) in full_paths)
+
+    return ops
+
 def preprocess_jsonnet_files(host, staging_dir) -> list:
     if not host.jsonnet_maps:
-        return []
+        return ['No jsonnet maps found']
 
     full_paths = [(os.path.join(Path.cwd(), src), os.path.join(staging_dir, dest)) for (src, dest) in host.jsonnet_maps.items()]
     staging_dests = set([os.path.dirname(d) for (_, d) in full_paths])
@@ -279,6 +296,7 @@ def preprocess_jsonnet_files(host, staging_dir) -> list:
 
 
 def copy_files_local(source_root, source_files, dest_root, dest_files, annotate: bool = False):
+
     full_path_sources = [os.path.join(source_root, src) for src in source_files]
     full_path_dests = [os.path.join(dest_root, dest) for dest in dest_files]
     ops = [partial(os.makedirs, name=d, exist_ok=True) for d in {os.path.dirname(d) for d in full_path_dests}]
@@ -337,6 +355,8 @@ def stage_local(host):
     ops = []
 
     files_to_stage = list(host.file_maps.keys())
+    ops.append('Precaching curl files')
+    ops.extend(preprocess_curl_files(host, CWD))
     ops.append('Preprocessing jsonnet files')
     ops.extend(preprocess_jsonnet_files(host, CWD))
     ops.extend(copy_files_local(CWD, files_to_stage, host.get_staging_dir(), files_to_stage))

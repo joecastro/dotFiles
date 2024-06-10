@@ -5,6 +5,10 @@
         # env_vars needs to be in the home directory for bootstrapping zsh
         ['shell/env_vars.jsonnet', 'out/env_vars.ini', '.env_vars.sh'],
     ],
+    curl_maps: [
+        ['https://raw.githubusercontent.com/git/git/master/contrib/completion/git-prompt.sh', 'out/git-prompt.sh', self.config_dir + '/git-prompt.sh'],
+        ['https://iterm2.com/shell_integration/zsh', 'out/iterm2_shell_integration.zsh', self.config_dir + '/iterm2_shell_integration.zsh'],
+    ],
     file_maps: [
         ['bash/profile.sh', '.profile'],
         ['bash/bashrc.sh', '.bashrc'],

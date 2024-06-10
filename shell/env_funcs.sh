@@ -38,6 +38,8 @@ if [[ ${EXPECT_NERD_FONTS} = 0 ]]; then
     [FA_BEER]=
     [CIDER]=
     [YAWN]=
+    [ACCOUNT]=
+    [CLOUD]=󰅟
     )
 else
     declare -A ICON_MAP=(
@@ -73,9 +75,27 @@ else
     [FA_BEER]=🍺
     [CIDER]=🍺
     [YAWN]=🥱
+    [ACCOUNT]=🙋
+    [CLOUD]=☁️
     )
 fi
 export ICON_MAP
+
+function __source_if_exists() {
+    local file="$1"
+    if [[ -f "$file" ]]; then
+        # shellcheck disable=SC1090
+        source "$file"
+        return 0
+    fi
+    return 1
+}
+
+function __invoke_if_exists() {
+    if declare -f "$1" > /dev/null; then
+        "$1"
+    fi
+}
 
 function __is_ssh_session() {
     [ -n "${SSH_CLIENT}" ] || [ -n "${SSH_TTY}" ] || [ -n "${SSH_CONNECTION}" ]
@@ -93,7 +113,7 @@ function __is_in_repo() {
     repo --show-toplevel > /dev/null 2>&1
 }
 
-function __is_interactive() {
+function __is_shell_interactive() {
     [[ $- == *i* ]]
 }
 

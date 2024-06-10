@@ -78,10 +78,13 @@ brew install \
     docker-compose
 
 #brew install --cask unity-hub
-brew tap homebrew/cask-fonts
-brew install font-inconsolata
-brew install font-cascadia-code
-brew install font-caskaydia-cove-nerd-font
+brew install --cask \
+    font-inconsolata \
+    font-inconsolata-nerd-font \
+    font-cascadia-code \
+    font-caskaydia-cove-nerd-font \
+    font-jetbrains-mono \
+    font-jetbrains-mono-nerd-font
 
 brew tap gdubw/gng
 brew install gng

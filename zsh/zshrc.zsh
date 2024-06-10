@@ -12,6 +12,7 @@
 autoload -U colors && colors
 
 export LSCOLORS="Gxfxcxdxbxegedabagacad"
+export LS_COLORS="di=1;36:ln=35:so=32:pi=33:ex=31:bd=34;46:cd=34;43:su=30;41:sg=30;46:tw=30;42:ow=30;43"
 
 setopt NO_CASE_GLOB
 setopt AUTO_CD
@@ -47,7 +48,7 @@ autoload -Uz compinit && compinit
 # $PATH is tied to $path - Can use one as an array and the other as a scalar.
 typeset -U path # force unique values.
 
-zstyle ':completion:*' list-colors ${(s.:.)LSCOLORS}
+zstyle ':completion:*:default' list-colors ${(s.:.)LS_COLORS}
 # zstyle ':completion:*' auto-description 'specify: %d'
 # zstyle ':completion:*' completer _expand _complete _correct _approximate
 # zstyle ':completion:*' format 'Completing %d'
@@ -113,7 +114,7 @@ zle-line-init() {
 
 zle -N zle-line-init
 
-CMD_LAST_START=$(date +%s)
+CMD_LAST_START=0
 
 # This gets run before any new command.
 preexec() {
@@ -157,6 +158,14 @@ function __cute_pwd_helper() {
             ;;
         "src" | "source")
             echo -n %{${ICO_COLOR}%}${ICON_MAP[COD_SAVE]}%{$reset_color%}${SUFFIX}
+            return 0
+            ;;
+        "cloud")
+            echo -n %{${ICO_COLOR}%}${ICON_MAP[CLOUD]}%{$reset_color%}${SUFFIX}
+            return 0
+            ;;
+        "$USER")
+            echo -n %{${ICO_COLOR}%}${ICON_MAP[ACCOUNT]}%{$reset_color%}${SUFFIX}
             return 0
             ;;
         *)
@@ -293,7 +302,7 @@ function __print_git_info() {
 function __print_virtualenv_info() {
     __virtualenv_info
     if [[ "$?" == "0" ]]; then
-        echo -n "${reset_colors} "
+        echo -n "%{${reset_colors}%} "
     fi
 }
 
@@ -308,23 +317,43 @@ TRAPINT() {
     return $(( 128 + $1 ))
 }
 
+# Don't use this... Args will often get interpreted as regular expressions.
+# Fix this at some point...
+function __is_cmd_interactive() {
+    ARG="$1 "
+    local CMDS_THAT_NEVER_RETURN=(vim less ssh screen tmux tmx2)
+    for cmd in "${CMDS_THAT_NEVER_RETURN[@]}"; do
+        if [[ "${cmd} " =~ ^"${ARG}" ]]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
 function __print_did_last_command_take_a_while() {
-    if [[ "${CMD_INTERRUPTED}" == "0" ]]; then
+    if [[ "${CMD_INTERRUPTED}" == "0" ]] || [[ "${CMD_LAST_START}" == "0" ]]; then
         # Clear this.
         CMD_INTERRUPTED=1
+        CMD_LAST_START=0
         echo -n ""
         return 0
     fi
 
+    # if __is_cmd_interactive "$(fc -ln -1)"; then
+    #     echo -n "SALUTE"
+    #     return 0
+    # fi
+
     local NOW=$(date +%s)
     local CMD_DURATION=$(( NOW - CMD_LAST_START ))
+    CMD_LAST_START=0
 
     if [[ $CMD_DURATION -lt ${CMD_LONG_RUNNING_THRESHOLD_SECONDS} ]]; then
         echo -n ""
         return 0
     fi
 
-    echo -n "${ICON_MAP[YAWN]} "
+    echo -n "%{$fg[yellow]%}${ICON_MAP[YAWN]}%{${reset_colors}%} "
     if (( ${+BE_LOUD_ABOUT_SLOW_COMMANDS} )); then
         if __is_iterm2_terminal; then
             if __is_in_screen ; then
@@ -380,6 +409,9 @@ function __generate_standard_prompt() {
     prompt_builder+='%{$fg[green]%}$USER%{$fg[yellow]%}@%B%{'${PromptHostColor}'%}'${PromptHostName}'%{$reset_color%} '
     prompt_builder+='$(__print_repo_worktree)'
     prompt_builder+='$(__print_git_worktree)$(__print_git_info)'
+    if declare -f __print_citc_workspace > /dev/null; then
+        prompt_builder+='$(__print_citc_workspace)'
+    fi
     prompt_builder+='$(__cute_pwd)'
     prompt_builder+=' %(!.$ELEVATED_END_OF_PROMPT_ICON.$END_OF_PROMPT_ICON) '
 
@@ -421,13 +453,8 @@ function ___venv_aware_cd() {
 
 compdef ___venv_aware_cd __venv_aware_cd
 
-if [ ! -f ${DOTFILES_CONFIG_ROOT}/git-prompt.sh ]; then
-    echo "Bootstrapping git-prompt installation on new machine through curl"
-    curl -o ${DOTFILES_CONFIG_ROOT}/git-prompt.sh \
-    https://raw.githubusercontent.com/git/git/master/contrib/completion/git-prompt.sh
-fi
-
-source ${DOTFILES_CONFIG_ROOT}/git-prompt.sh # defines __git_ps1
+# defines __git_ps1
+__source_if_exists "${DOTFILES_CONFIG_ROOT}/git-prompt.sh" || echo ">> Missing git-prompt.sh"
 
 command -v hub &> /dev/null && eval "$(hub alias -s)"
 command -v chjava &> /dev/null && chjava 18
@@ -435,16 +462,10 @@ command -v chjava &> /dev/null && chjava 18
 # If using iTerm2, try for shell integration.
 # iTerm profile switching requires shell_integration to be installed anyways.
 if __is_iterm2_terminal; then
-    if [ ! -f ${DOTFILES_CONFIG_ROOT}/iterm2_shell_integration.zsh ]; then
-        echo "Bootstrapping iTerm2 Shell Integration on a new machine through curl"
-        curl -L https://iterm2.com/shell_integration/zsh -o ${DOTFILES_CONFIG_ROOT}/iterm2_shell_integration.zsh
-    fi
-    test -e ${DOTFILES_CONFIG_ROOT}/iterm2_shell_integration.zsh && \
-        source ${DOTFILES_CONFIG_ROOT}/iterm2_shell_integration.zsh
+    __source_if_exists "${DOTFILES_CONFIG_ROOT}/iterm2_shell_integration.zsh"
 fi
 
-test -e ~/.zshext/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh && \
-    source ~/.zshext/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+__source_if_exists ~/.zshext/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 
 if ! __is_tool_window; then
     if __is_embedded_terminal; then
@@ -477,22 +498,18 @@ fi
 case "$(__effective_distribution)" in
     "GLinux")
         # echo "GLinux zshrc load complete"
-        if declare -f __on_glinux_zshrc_load_complete > /dev/null; then
-            __on_glinux_zshrc_load_complete
-        fi
+        __invoke_if_exists "__on_glinux_zshrc_load_complete"
 
         ;;
     "OSX")
         # echo "OSX zshrc load complete"
-        source ${DOTFILES_CONFIG_ROOT}/osx_funcs.zsh
+        __source_if_exists "${DOTFILES_CONFIG_ROOT}/osx_funcs.zsh"
 
         # RPROMPT='$(battery_charge)'
 
         if command -v brew > /dev/null; then
             local BREW_PREFIX=$(brew --prefix)
-            if [ -e "${BREW_PREFIX}/opt/zsh-git-prompt/zshrc.sh" ]; then
-                source "${BREW_PREFIX}/opt/zsh-git-prompt/zshrc.sh"
-            fi
+            __source_if_exists "${BREW_PREFIX}/opt/zsh-git-prompt/zshrc.sh"
 
             if [ -d "${BREW_PREFIX}/opt/coreutils/libexec/gnubin" ]; then
                 PATH="${BREW_PREFIX}/opt/coreutils/libexec/gnubin:$PATH"
@@ -503,9 +520,7 @@ case "$(__effective_distribution)" in
             echo "## CLI for VSCode is unavailable. Check https://code.visualstudio.com/docs/setup/mac"
         fi
 
-        if declare -f __on_gmac_zshrc_load_complete > /dev/null; then
-            __on_gmac_zshrc_load_complete
-        fi
+        __invoke_if_exists "__on_gmac_zshrc_load_complete"
 
         ;;
     "WSL")
