@@ -469,6 +469,7 @@ __source_if_exists ~/.zshext/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 
 if ! __is_tool_window; then
     if __is_embedded_terminal; then
+        __refresh_icon_map 1 # No nerdfonts in embedded terminals.
         echo "Limiting zsh initialization because inside $(__embedded_terminal_info) terminal."
         if __is_vscode_terminal; then
             if command -v code &> /dev/null; then

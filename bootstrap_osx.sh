@@ -89,6 +89,14 @@ brew install --cask \
 brew tap gdubw/gng
 brew install gng
 
+# https://github.com/Genymobile/scrcpy
+brew install \
+    sdl2 \
+    ffmpeg \
+    libusb \
+    pkg-config \
+    meson
+
 cd ~ || exit
 
 install_android_sdk
