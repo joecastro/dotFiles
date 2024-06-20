@@ -42,6 +42,7 @@ bindkey \^U backward-kill-line
 bindkey \^W kill-line
 bindkey "\e[3~" delete-char
 
+fpath=("${DOTFILES_CONFIG_ROOT}/zfuncs" $fpath)
 # Use modern completion system
 autoload -Uz compinit && compinit
 
@@ -484,14 +485,16 @@ if ! __is_tool_window; then
     fi
 fi
 
-# if exa is installed prefer that to ls
+# if eza is installed prefer that to ls
 # options aren't the same, but I also need it less often...
-if ! command -v exa &> /dev/null; then
-    echo "## Using native ls because missing exa"
+if ! command -v eza &> /dev/null; then
+    echo "## Using native ls because missing eza"
     # by default, show slashes, follow symbolic links, colorize
     alias ls='ls -FHG'
 else
-    alias ls='exa -l'
+    alias ls='eza -l'
+    # https://github.com/orgs/eza-community/discussions/239#discussioncomment-9834010
+    alias kd='eza'
     alias realls='\ls -FHG'
 fi
 

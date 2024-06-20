@@ -60,7 +60,7 @@ brew install \
     bash \
     coreutils \
     wget \
-    exa \
+    eza \
     jsonnet \
     macvim \
     git \

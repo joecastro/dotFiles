@@ -24,7 +24,7 @@ sudo apt install -y \
     zsh \
     wget \
     git \
-    exa \
+    eza \
     apt-utils \
     vim-gtk3 \
     jsonnet \
