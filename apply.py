@@ -56,7 +56,18 @@ class Host:
     def is_reachable(self) -> bool:
         if self.is_localhost():
             return True
-        return subprocess.run(['ssh', '-t',  self.hostname, 'echo "ping check"'], capture_output=True).returncode == 0
+        return subprocess.run(['ssh', '-o', 'ConnectTimeout=10', '-t',  self.hostname, 'echo "ping check"'], capture_output=True).returncode == 0
+
+    def does_directory_exist(self, path) -> bool:
+        if self.is_localhost():
+            return os.path.exists(path)
+        return subprocess.run(['ssh', self.hostname, f'test -d {path}'], capture_output=True).returncode == 0
+
+    def make_ops(self, ops: list) -> list:
+        if self.is_localhost():
+            return ops
+
+        return [['ssh', self.hostname, ' '.join(op)] if isinstance(op, list) else op for op in ops]
 
 
 @dataclass
@@ -78,10 +89,11 @@ class Config:
 config:Config = None
 
 
-def print_ops(ops: list) -> None:
+def print_ops(ops: list, quiet=False) -> None:
     for entry in ops:
         if isinstance(entry, str):
-            print(entry)
+            if not quiet:
+                print(entry)
         elif isinstance(entry, list):
             print(f'DEBUG: {" ".join(entry)}')
         elif callable(entry):
@@ -90,10 +102,11 @@ def print_ops(ops: list) -> None:
             raise TypeError('Bad operation type')
 
 
-def run_ops(ops: list) -> None:
+def run_ops(ops: list, quiet=False) -> None:
     for entry in ops:
         if isinstance(entry, str):
-            print(entry)
+            if not quiet:
+                print(entry)
         elif isinstance(entry, list):
             try:
                 subprocess.run(entry, check=True)
@@ -105,13 +118,6 @@ def run_ops(ops: list) -> None:
             entry()
         else:
             raise TypeError('Bad operation type')
-
-
-def make_remote_ops(host: Host, ops: list) -> list:
-    if host.is_localhost():
-        return ops
-
-    return [['ssh', host.hostname, ' '.join(op)] if isinstance(op, list) else op for op in ops]
 
 
 def ensure_out_dir() -> None:
@@ -177,21 +183,21 @@ def generate_derived_workspace() -> None:
     print(json.dumps(workspace, indent=4, sort_keys=True))
 
 
-def install_git_plugins(host: Host, plugin_type: str, repo_list: list[str], install_root: str) -> list:
+def install_git_plugins(host: Host, plugin_type: str, repo_list: list[str], install_root: str, verbose=False) -> list:
     pattern = re.compile("([^/]+)\\.git$")
     plugin_root = os.path.join(HOME if host.is_localhost() else ".", install_root)
 
     ops = [f'>> Cloning {len(repo_list)} {plugin_type} for {host.hostname}']
-    ops.append(partial(shutil.rmtree, path=plugin_root, ignore_errors=True))
     ops.append(['rm', '-rf', plugin_root])
+    git_prefix = ['git', 'clone', '-q'] if not verbose else ['git', 'clone']
     for (repo, target_path) in [(r, os.path.join(plugin_root, pattern.search(r).group(1))) for r in repo_list]:
         ops.append(f'Cloning into {target_path}...')
-        ops.append(['git', 'clone', '-q', repo, target_path])
+        ops.append(git_prefix + [repo, target_path])
 
-    return make_remote_ops(host, ops)
+    return host.make_ops(ops)
 
 
-def copy_files(source_host, source_root, source_files, dest_host, dest_root, dest_files, annotate=False) -> list:
+def copy_files(source_host, source_root, source_files, dest_host, dest_root, dest_files, annotate=False, verbose=False) -> list:
     if source_host.is_localhost() and dest_host.is_localhost():
         return copy_files_local(source_root, source_files, dest_root, dest_files, annotate)
 
@@ -205,9 +211,11 @@ def copy_files(source_host, source_root, source_files, dest_host, dest_root, des
 
     dest_subfolders = {os.path.dirname(d) for d in dest_files if os.path.dirname(d)}
 
-    ops = make_remote_ops(dest_host, [['mkdir', '-p', f'{dest_root}/{sub}'] for sub in dest_subfolders])
-    copy_ops = [['scp', f'{source_prefix}/{src}', f'{dest_prefix}/{dest}']
+    ops = dest_host.make_ops([['mkdir', '-p', f'{dest_root}/{sub}'] for sub in dest_subfolders])
+    scp_prefix = ['scp', '-q'] if not verbose else ['scp']
+    copy_ops = [scp_prefix + [f'{source_prefix}/{src}', f'{dest_prefix}/{dest}']
                  for (src, dest) in zip(source_files, dest_files)]
+
     if annotate:
         annotated_copy_ops = [" ".join(o) for o in copy_ops]
         copy_ops = [item for sublist in zip(annotated_copy_ops, copy_ops) for item in sublist]
@@ -270,7 +278,7 @@ def get_ext_vars(host:Host=None) -> list:
     return ret_vars
 
 
-def preprocess_curl_files(host, staging_dir) -> list:
+def preprocess_curl_files(host, staging_dir, verbose=False) -> list:
     if not host.curl_maps:
         return ['No curl maps found']
 
@@ -278,11 +286,12 @@ def preprocess_curl_files(host, staging_dir) -> list:
     staging_dests = set([os.path.dirname(d) for (_, d) in full_paths])
 
     ops = [partial(os.makedirs, name=d, exist_ok=True) for d in staging_dests]
-    ops.extend(['curl', '-L', s, '-o', d] for (s, d) in full_paths)
+    curl_prefix = ['curl', '-s', '-S'] if not verbose else ['curl']
+    ops.extend(curl_prefix + ['-L', s, '-o', d] for (s, d) in full_paths)
 
     return ops
 
-def preprocess_jsonnet_files(host, staging_dir) -> list:
+def preprocess_jsonnet_files(host, staging_dir, verbose=False) -> list:
     if not host.jsonnet_maps:
         return ['No jsonnet maps found']
 
@@ -290,7 +299,13 @@ def preprocess_jsonnet_files(host, staging_dir) -> list:
     staging_dests = set([os.path.dirname(d) for (_, d) in full_paths])
 
     ops = [partial(os.makedirs, name=d, exist_ok=True) for d in staging_dests]
-    ops.extend(parse_jsonnet(s, get_ext_vars(host), d) for (s, d) in full_paths)
+    jsonnet_commands = [parse_jsonnet(s, get_ext_vars(host), d) for (s, d) in full_paths]
+
+    if verbose:
+        annotated_jsonnet_commands = [' '.join(j) for j in jsonnet_commands]
+        jsonnet_commands = [item for sublist in zip(annotated_jsonnet_commands, jsonnet_commands) for item in sublist]
+
+    ops.extend(jsonnet_commands)
 
     return ops
 
@@ -310,7 +325,7 @@ def copy_files_local(source_root, source_files, dest_root, dest_files, annotate:
     return ops
 
 
-def push_remote(host, shallow):
+def push_remote(host, shallow, verbose=False) -> list:
     ops = [f'>> Synching dotFiles for {host.hostname}']
     if not host.is_reachable():
         ops.append(f'Host {host.hostname} is not reachable')
@@ -318,16 +333,17 @@ def push_remote(host, shallow):
 
     ops.append(partial(shutil.rmtree, path=host.get_staging_dir(), ignore_errors=True))
 
-    ops.extend(stage_local(host))
+    ops.extend(stage_local(host, verbose=verbose))
 
     ops.append(f'Copying {len(host.file_maps)} files to {host.hostname} home directory')
-    ops.extend(copy_files(config.get_localhost(), host.get_staging_dir(), host.file_maps.keys(), host, HOME, host.file_maps.values(), annotate=True))
+    ops.extend(copy_files(config.get_localhost(), host.get_staging_dir(), host.file_maps.keys(), host, HOME, host.file_maps.values(), annotate=True, verbose=verbose))
 
     if not shallow:
-        ops.extend(install_git_plugins(host, 'Vim startup plugin(s)', config.vim_pack_plugin_start_repos, os.path.join('.vim', 'pack', 'plugins', 'start')))
-        ops.extend(install_git_plugins(host, 'Vim optional plugin(s)', config.vim_pack_plugin_opt_repos, os.path.join('.vim', 'pack', 'plugins', 'opt')))
-        ops.extend(install_git_plugins(host, 'Zsh plugin(s)', config.zsh_plugin_repos, '.zshext'))
+        ops.extend(install_git_plugins(host, 'Vim startup plugin(s)', config.vim_pack_plugin_start_repos, os.path.join('.vim', 'pack', 'plugins', 'start'), verbose=verbose))
+        ops.extend(install_git_plugins(host, 'Vim optional plugin(s)', config.vim_pack_plugin_opt_repos, os.path.join('.vim', 'pack', 'plugins', 'opt'), verbose=verbose))
+        ops.extend(install_git_plugins(host, 'Zsh plugin(s)', config.zsh_plugin_repos, '.zshext', verbose=verbose))
 
+    ops.append(f'Finished pushing files to {host.hostname}')
     return ops
 
 
@@ -351,14 +367,14 @@ def process_staged_files(host, files) -> None:
                 f.writelines(line + '\n' for line in modified_content)
 
 
-def stage_local(host):
+def stage_local(host, verbose=False) -> list[str]:
     ops = []
 
     files_to_stage = list(host.file_maps.keys())
     ops.append('Precaching curl files')
-    ops.extend(preprocess_curl_files(host, CWD))
+    ops.extend(preprocess_curl_files(host, CWD, verbose=verbose))
     ops.append('Preprocessing jsonnet files')
-    ops.extend(preprocess_jsonnet_files(host, CWD))
+    ops.extend(preprocess_jsonnet_files(host, CWD, verbose=verbose))
     ops.extend(copy_files_local(CWD, files_to_stage, host.get_staging_dir(), files_to_stage))
     ops.append('Preprocessing macros in local staged files')
     ops.append(partial(process_staged_files, host=host, files=[f'{host.get_staging_dir()}/{file}' for file in files_to_stage]))
@@ -477,6 +493,20 @@ def main(args) -> int:
         args.remove('--working-dir')
         args.remove(working_dir)
         os.chdir(working_dir)
+    verbose=False
+    if '--verbose' in args:
+        verbose = True
+        args.remove('--verbose')
+    if '-v' in args:
+        verbose = True
+        args.remove('-v')
+    quiet=False
+    if '--quiet' in args:
+        quiet = True
+        args.remove('--quiet')
+    if '-q' in args:
+        quiet = True
+        args.remove('-q')
 
     option = args[0]
     host_args = args[1:]
@@ -494,7 +524,8 @@ def main(args) -> int:
             raise ValueError(f'No hosts found in "{host_args}"')
         # This has the additional benefit of frontloading any ssh related prompts
         remote_hosts = [h for h in all_hosts if not h.is_localhost()]
-        print(f'Checking reachability of {len(remote_hosts)} hosts...')
+        if not quiet:
+            print(f'Checking reachability of {len(remote_hosts)} hosts...')
         hosts = [h for h in all_hosts if h.is_reachable()]
         if len(hosts) == 0:
             raise ValueError(f'No reachable hosts found in "{host_args}"')
@@ -524,9 +555,9 @@ def main(args) -> int:
         case '--install-sublime-plugins':
             ops.extend(push_sublimetext_windows_plugins())
         case '--push':
-            ops.extend(chain.from_iterable([push_remote(host, shallow) for host in hosts]))
+            ops.extend(chain.from_iterable([push_remote(host, shallow, verbose=verbose) for host in hosts]))
         case '--stage':
-            ops.extend(chain.from_iterable([stage_local(host) for host in hosts]))
+            ops.extend(chain.from_iterable([stage_local(host, verbose=verbose) for host in hosts]))
         case '--pull':
             if len(hosts) != 1:
                 raise ValueError('Cannot pull from multiple hosts')
@@ -536,9 +567,9 @@ def main(args) -> int:
             return 1
 
     if print_only:
-        print_ops(ops)
+        print_ops(ops, quiet=quiet)
     else:
-        run_ops(ops)
+        run_ops(ops, quiet=quiet)
     return 0
 
 

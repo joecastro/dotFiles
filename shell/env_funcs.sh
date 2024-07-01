@@ -80,12 +80,14 @@ function __refresh_icon_map() {
         [CIDER]=🍺
         [YAWN]=🥱
         [ACCOUNT]=🙋
-        [CLOUD]=☁️
+        [CLOUD]=🌥️
         )
     fi
 }
+
 __refresh_icon_map "${EXPECT_NERD_FONTS:-0}"
 export ICON_MAP
+
 function __source_if_exists() {
     local file="$1"
     if [[ -f "$file" ]]; then
@@ -143,11 +145,7 @@ function __is_in_windows_drive() {
         return 1
     fi
 
-    if test "${PWD##"${WIN_SYSTEM_ROOT}"}" != "${PWD}"; then
-        return 0
-    fi
-
-    return 1
+    [[ "${PWD##"${WIN_SYSTEM_ROOT}"}" != "${PWD}" ]]
 }
 
 function __is_on_osx() {
