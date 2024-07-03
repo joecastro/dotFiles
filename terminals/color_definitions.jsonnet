@@ -102,12 +102,53 @@ local AnsiColorScheme(black, red, green, yellow, blue, magenta, cyan, white, bri
         brightRed: bright_red.hexcolor,
         brightWhite: bright_white.hexcolor,
         brightYellow: bright_yellow.hexcolor
+    },
+
+    printable:: {
+        black: black.hexcolor,
+        red: red.hexcolor,
+        green: green.hexcolor,
+        yellow: yellow.hexcolor,
+        blue: blue.hexcolor,
+        magenta: magenta.hexcolor,
+        cyan: cyan.hexcolor,
+        white: white.hexcolor,
+        bright_black: bright_black.hexcolor,
+        bright_red: bright_red.hexcolor,
+        bright_green: bright_green.hexcolor,
+        bright_yellow: bright_yellow.hexcolor,
+        bright_blue: bright_blue.hexcolor,
+        bright_magenta: bright_magenta.hexcolor,
+        bright_cyan: bright_cyan.hexcolor,
+        bright_white: bright_white.hexcolor,
     }
 };
-
+local ExtendedTerminalColors(
+        foreground,
+        background,
+        bold,
+        link,
+        selection_background,
+        selection_foreground,
+        cursor_background,
+        cursor_foreground,
+        underline,
+        tab) = {
+    foreground: foreground,
+    background: background,
+    bold: bold,
+    link: link,
+    selection_background: selection_background,
+    selection_foreground: selection_foreground,
+    cursor_foreground: cursor_foreground,
+    cursor_background: cursor_background,
+    underline: underline,
+    tab: tab
+};
 {
     Color: Color,
     AnsiColorScheme: AnsiColorScheme,
+    ExtendedTerminalColors: ExtendedTerminalColors,
     ColorFromHex: ColorFromHex,
     # https://hexcolor.co
     Colors: {

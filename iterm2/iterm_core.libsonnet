@@ -3,7 +3,21 @@ local color_defs = import '../terminals/color_definitions.jsonnet';
 
 local Color = color_defs.Color;
 local Colors = color_defs.Colors;
+local ExtendedTerminalColors = color_defs.ExtendedTerminalColors;
+
 local default_color_scheme = color_defs.Schemes.itermColors;
+
+local default_extended_colors = ExtendedTerminalColors(
+    Colors.White, // foreground
+    Colors.Black, // background
+    null, // bold
+    null, // link
+    Color(0.71, 0.84, 1), // selection_background
+    Colors.Black, // selection_foreground
+    Colors.White, // cursor_background
+    Colors.Black, // cursor_foreground
+    null, // underline
+    null); // tab
 
 local ItermColor(color) =
 {
@@ -19,6 +33,38 @@ local ItermColorAlpha(color) = {
     "Blue Component": color.blue,
     "Alpha Component": color.alpha,
 };
+local ItermColorPreset(name, color_scheme, extended_colors) = {
+    [if name != null then "name"]:: name,
+
+    "Ansi 0 Color": ItermColor(color_scheme.color0),
+    "Ansi 1 Color": ItermColor(color_scheme.color1),
+    "Ansi 2 Color": ItermColor(color_scheme.color2),
+    "Ansi 3 Color": ItermColor(color_scheme.color3),
+    "Ansi 4 Color": ItermColor(color_scheme.color4),
+    "Ansi 5 Color": ItermColor(color_scheme.color5),
+    "Ansi 6 Color": ItermColor(color_scheme.color6),
+    "Ansi 7 Color": ItermColor(color_scheme.color7),
+    "Ansi 8 Color": ItermColor(color_scheme.color8),
+    "Ansi 9 Color": ItermColor(color_scheme.color9),
+    "Ansi 10 Color": ItermColor(color_scheme.color10),
+    "Ansi 11 Color": ItermColor(color_scheme.color11),
+    "Ansi 12 Color": ItermColor(color_scheme.color12),
+    "Ansi 13 Color": ItermColor(color_scheme.color13),
+    "Ansi 14 Color": ItermColor(color_scheme.color14),
+    "Ansi 15 Color": ItermColor(color_scheme.color15),
+
+    [if extended_colors.background != null then "Background Color"]: ItermColor(extended_colors.background),
+    [if extended_colors.foreground != null then "Foreground Color"]: ItermColor(extended_colors.foreground),
+    [if extended_colors.bold != null then "Bold Color"]: ItermColor(extended_colors.bold),
+    [if extended_colors.link != null then "Link Color"]: ItermColor(extended_colors.link),
+    [if extended_colors.selection_background != null then "Selection Color"]: ItermColor(extended_colors.selection_background),
+    [if extended_colors.selection_foreground != null then "Selected Text Color"]: ItermColor(extended_colors.selection_foreground),
+    [if extended_colors.cursor_background != null then "Cursor Color"]: ItermColor(extended_colors.cursor_background),
+    [if extended_colors.cursor_foreground != null then "Cursor Text Color"]: ItermColor(extended_colors.cursor_foreground),
+    [if extended_colors.underline != null then "Underline Color"]: ItermColor(extended_colors.underline),
+    [if extended_colors.tab != null then "Tab Color"]: ItermColor(extended_colors.tab)
+};
+
 local ItermColorBlack = ItermColor(Colors.Black);
 local ItermColorWhite = ItermColor(Colors.White);
 {
@@ -49,37 +95,12 @@ local ItermColorWhite = ItermColor(Colors.White);
         "FA66AC80-6AAA-4A3B-9CFE-B934F789D5EF",
         "658b147e-4e39-48a1-8ecc-92eeed6c0104"
     ],
-    ItermProfileTrigger(regex, action, parameter, partial=false)::
+    ItermProfileTemplate::
     {
-        action : action,
-        parameter : parameter,
-        regex : regex,
-        [if partial then "partial"]: true,
-    },
-    ItermProfileColorScheme(color_scheme):: {
-        "Ansi 0 Color": ItermColor(color_scheme.color0),
-        "Ansi 1 Color": ItermColor(color_scheme.color1),
-        "Ansi 2 Color": ItermColor(color_scheme.color2),
-        "Ansi 3 Color": ItermColor(color_scheme.color3),
-        "Ansi 4 Color": ItermColor(color_scheme.color4),
-        "Ansi 5 Color": ItermColor(color_scheme.color5),
-        "Ansi 6 Color": ItermColor(color_scheme.color6),
-        "Ansi 7 Color": ItermColor(color_scheme.color7),
-        "Ansi 8 Color": ItermColor(color_scheme.color8),
-        "Ansi 9 Color": ItermColor(color_scheme.color9),
-        "Ansi 10 Color": ItermColor(color_scheme.color10),
-        "Ansi 11 Color": ItermColor(color_scheme.color11),
-        "Ansi 12 Color": ItermColor(color_scheme.color12),
-        "Ansi 13 Color": ItermColor(color_scheme.color13),
-        "Ansi 14 Color": ItermColor(color_scheme.color14),
-        "Ansi 15 Color": ItermColor(color_scheme.color15),
-    },
-    ItermProfileTemplate:: {
         "ASCII Anti Aliased": true,
         "ASCII Ligatures": true,
         "Ambiguous Double Width": false,
         "BM Growl": true,
-        "Background Color": ItermColorBlack,
         "Background Image Mode": 2,
         "Badge Color": ItermColorAlpha(Color(1, 0.15, 0, 0.5)),
         "Blink Allowed": false,
@@ -91,9 +112,7 @@ local ItermColorWhite = ItermColor(Colors.White);
         "Close Sessions On End": true,
         "Columns": 140,
         "Command": "/opt/homebrew/bin/zsh",
-        "Cursor Color": ItermColorWhite,
         "Cursor Guide Color": ItermColorAlpha(Color(0.70, 0.93, 1, 0.25)),
-        "Cursor Text Color": ItermColorBlack,
         "Custom Command": "Custom Shell",
         "Custom Directory": "No",
         "Default Bookmark": "No",
@@ -101,7 +120,6 @@ local ItermColorWhite = ItermColor(Colors.White);
         "Disable Window Resizing": true,
         "Enable Triggers in Interactive Apps": false,
         "Flashing Bell": false,
-        "Foreground Color": ItermColorWhite,
         "Horizontal Spacing": 1,
         "Icon": 1,
         "Idle Code": 0,
@@ -120,8 +138,6 @@ local ItermColorWhite = ItermColor(Colors.White);
         "Rows": 25,
         "Screen": -1,
         "Scrollback Lines": 0,
-        "Selected Text Color": ItermColorBlack,
-        "Selection Color": ItermColor(Color(0.71, 0.84, 1)),
         "Send Code When Idle": false,
         "Shortcut": "",
         "Silence Bell": false,
@@ -142,8 +158,17 @@ local ItermColorWhite = ItermColor(Colors.White);
         "Visual Bell": true,
         "Window Type": 0
     },
+    ITermColorPreset:: ItermColorPreset,
+    DefaultExtendedTerminalColors:: default_extended_colors,
+    ItermProfileTrigger(regex, action, parameter, partial=false)::
+    {
+        action : action,
+        parameter : parameter,
+        regex : regex,
+        [if partial then "partial"]: true,
+    },
     ItermProfile(profile_name, guid, wallpaper)::
-        $.ItermProfileColorScheme(default_color_scheme) +
+        ItermColorPreset(null, default_color_scheme, default_extended_colors) +
         $.ItermProfileTemplate +
     {
         "Background Image Location": std.extVar("cwd") + "/wallpaper/" + wallpaper.path,

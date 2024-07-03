@@ -464,6 +464,7 @@ command -v chjava &> /dev/null && chjava 18
 # iTerm profile switching requires shell_integration to be installed anyways.
 if __is_iterm2_terminal; then
     __source_if_exists "${DOTFILES_CONFIG_ROOT}/iterm2_shell_integration.zsh"
+    __source_if_exists "${DOTFILES_CONFIG_ROOT}/iterm2_funcs.sh"
 fi
 
 __source_if_exists ~/.zshext/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
