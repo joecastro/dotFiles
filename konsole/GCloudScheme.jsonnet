@@ -1,38 +1,48 @@
-local ColorschemeColor(r, g, b) = {
-    Color: "%d,%d,%d" % [r, g, b],
+
+local color_defs = import '../terminals/color_definitions.jsonnet';
+
+local Color = color_defs.Color;
+local gcloud_color_scheme = color_defs.Schemes.Solarized;
+local ColorschemeColor(color) = {
+    Color: "%d,%d,%d" % [color.red255, color.green255, color.blue255],
 };
+
+local BackgroundColor = Color(0.14, 0.15, 0.15);
+local BackgroundIntenseColor = color_defs.Colors.Black;
+local ForegroundColor = Color(0.99, 0.99, 0.99);
+local ForegroundIntenseColor = color_defs.Colors.White;
 std.manifestIni({
     sections: {
-        Background: ColorschemeColor(35, 38, 39),
-        BackgroundFaint: ColorschemeColor(49, 54, 59),
-        BackgroundIntense: ColorschemeColor(0, 0, 0),
-        Color0: ColorschemeColor(35, 38, 39),
-        Color0Faint: ColorschemeColor(49, 54, 54),
-        Color0Intense: ColorschemeColor(127, 140, 140),
-        Color1: ColorschemeColor(237, 21, 21),
-        Color1Faint: ColorschemeColor(120, 50, 50),
-        Color1Intense: ColorschemeColor(192, 57, 57),
-        Color2: ColorschemeColor(17, 209, 209),
-        Color2Faint: ColorschemeColor(23, 162, 162),
-        Color2Intense: ColorschemeColor(28, 220, 220),
-        Color3: ColorschemeColor(246, 116, 116),
-        Color3Faint: ColorschemeColor(182, 86, 86),
-        Color3Intense: ColorschemeColor(253, 188, 188),
-        Color4: ColorschemeColor(29, 153, 153),
-        Color4Faint: ColorschemeColor(27, 102, 102),
-        Color4Intense: ColorschemeColor(61, 174, 174),
-        Color5: ColorschemeColor(155, 89, 89),
-        Color5Faint: ColorschemeColor(97, 74, 74),
-        Color5Intense: ColorschemeColor(142, 68, 68),
-        Color6: ColorschemeColor(26, 188, 188),
-        Color6Faint: ColorschemeColor(24, 108, 108),
-        Color6Intense: ColorschemeColor(22, 160, 160),
-        Color7: ColorschemeColor(252, 252, 252),
-        Color7Faint: ColorschemeColor(99, 104, 104),
-        Color7Intense: ColorschemeColor(255, 255, 255),
-        Foreground: ColorschemeColor(252, 252, 252),
-        ForegroundFaint: ColorschemeColor(239, 240, 240),
-        ForegroundIntense: ColorschemeColor(255, 255, 255),
+        Background: ColorschemeColor(BackgroundColor),
+        BackgroundFaint: ColorschemeColor(BackgroundColor),
+        BackgroundIntense: ColorschemeColor(BackgroundIntenseColor),
+        Color0: ColorschemeColor(gcloud_color_scheme.color0),
+        Color0Faint: ColorschemeColor(gcloud_color_scheme.color0),
+        Color0Intense: ColorschemeColor(gcloud_color_scheme.color0_bold),
+        Color1: ColorschemeColor(gcloud_color_scheme.color1),
+        Color1Faint: ColorschemeColor(gcloud_color_scheme.color1),
+        Color1Intense: ColorschemeColor(gcloud_color_scheme.color1_bold),
+        Color2: ColorschemeColor(gcloud_color_scheme.color2),
+        Color2Faint: ColorschemeColor(gcloud_color_scheme.color2),
+        Color2Intense: ColorschemeColor(gcloud_color_scheme.color2_bold),
+        Color3: ColorschemeColor(gcloud_color_scheme.color3),
+        Color3Faint: ColorschemeColor(gcloud_color_scheme.color3),
+        Color3Intense: ColorschemeColor(gcloud_color_scheme.color3_bold),
+        Color4: ColorschemeColor(gcloud_color_scheme.color4),
+        Color4Faint: ColorschemeColor(gcloud_color_scheme.color4),
+        Color4Intense: ColorschemeColor(gcloud_color_scheme.color4_bold),
+        Color5: ColorschemeColor(gcloud_color_scheme.color5),
+        Color5Faint: ColorschemeColor(gcloud_color_scheme.color5),
+        Color5Intense: ColorschemeColor(gcloud_color_scheme.color5_bold),
+        Color6: ColorschemeColor(gcloud_color_scheme.color6),
+        Color6Faint: ColorschemeColor(gcloud_color_scheme.color6),
+        Color6Intense: ColorschemeColor(gcloud_color_scheme.color6_bold),
+        Color7: ColorschemeColor(gcloud_color_scheme.color7),
+        Color7Faint: ColorschemeColor(gcloud_color_scheme.color7),
+        Color7Intense: ColorschemeColor(gcloud_color_scheme.color7_bold),
+        Foreground: ColorschemeColor(ForegroundColor),
+        ForegroundFaint: ColorschemeColor(ForegroundColor),
+        ForegroundIntense: ColorschemeColor(ForegroundIntenseColor),
         General: {
             Anchor: "0.5,0.5",
             Blur: false,
