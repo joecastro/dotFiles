@@ -1,4 +1,4 @@
-local color_defs = import '../terminals/color_definitions.jsonnet';
+local color_defs = import '../terminals/color_definitions.libsonnet';
 
 {
     [scheme.key]: scheme.value.printable

@@ -1,11 +1,11 @@
 local wallpapers = import '../wallpaper/wallpapers.jsonnet';
-local color_defs = import '../terminals/color_definitions.jsonnet';
+local color_defs = import '../terminals/color_definitions.libsonnet';
 
 local Color = color_defs.Color;
 local Colors = color_defs.Colors;
 local ExtendedTerminalColors = color_defs.ExtendedTerminalColors;
 
-local default_color_scheme = color_defs.Schemes.itermColors;
+local default_color_scheme = color_defs.Schemes.Iterm;
 
 local default_extended_colors = ExtendedTerminalColors(
     Colors.White, // foreground

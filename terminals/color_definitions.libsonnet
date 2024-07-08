@@ -160,9 +160,11 @@ local ExtendedTerminalColors(
         Black: ColorFromHex("#000000"),
         White: ColorFromHex("#FFFFFF"),
         BlueBell: ColorFromHex("#95a0c5"),
+        YellowSea: ColorFromHex("#ffaf00"),
+        SelectiveYellow: ColorFromHex("#ffb506"),
     },
     Schemes: {
-        itermColors: AnsiColorScheme(
+        Iterm: AnsiColorScheme(
             Color(0, 0, 0),
             Color(0.8, 0, 0),
             Color(0.31, 0.60, 0.02),
@@ -179,7 +181,7 @@ local ExtendedTerminalColors(
             Color(0.68, 0.50, 0.66),
             Color(0.20, 0.89, 0.89),
             Color(0.93, 0.93, 0.92)),
-        gcloudColors: AnsiColorScheme(
+        GCloud: AnsiColorScheme(
             Color(0.14, 0.15, 0.15),
             Color(0.93, 0.08, 0.08),
             Color(0.07, 0.82, 0.82),

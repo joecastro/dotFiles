@@ -1,5 +1,5 @@
 local iterm = import './iterm_core.libsonnet';
-local color_defs = import '../terminals/color_definitions.jsonnet';
+local color_defs = import '../terminals/color_definitions.libsonnet';
 
 {
     Profiles: [

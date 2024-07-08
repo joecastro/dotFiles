@@ -5,7 +5,7 @@
 test -e ~/.env_vars.sh && source ~/.env_vars.sh
 
 EXPECT_NERD_FONTS="${EXPECT_NERD_FONTS:-0}"
-BE_LOUD_ABOUT_SLOW_COMMANDS=0
+# BE_LOUD_ABOUT_SLOW_COMMANDS=0
 
 EDITOR=vim
 
@@ -79,6 +79,6 @@ function __virtualenv_info() {
     return ${has_virtualenv}
 }
 
-test -e ${DOTFILES_CONFIG_ROOT}/google_funcs.zsh && source ${DOTFILES_CONFIG_ROOT}/google_funcs.zsh
+__source_if_exists "${DOTFILES_CONFIG_ROOT}/google_funcs.zsh"
 source ${DOTFILES_CONFIG_ROOT}/android_funcs.sh # Android shell utility functions
 source ${DOTFILES_CONFIG_ROOT}/util_funcs.sh

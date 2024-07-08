@@ -24,7 +24,7 @@ function __update_java_home() {
     export PATH
 }
 
-if command -v /usr/libexec/java_home &> /dev/null; then
+if command -v /usr/libexec/java_home &>/dev/null; then
     __update_java_home 18
     alias chjava='__update_java_home'
 fi
@@ -43,7 +43,7 @@ function wintitle() {
 }
 
 # https://unix.stackexchange.com/questions/481285/linux-how-to-get-window-title-with-just-shell-script
-function get_title() {(
+function get_title() { (
     set -e
     ss=$(stty -g)
     trap 'exit 11' INT QUIT TERM
@@ -56,37 +56,48 @@ function get_title() {(
     while c=$(dd bs=1 count=1 2>/dev/null) && [ "$c" ]; do
         t="$t$c"
         case "$t" in
-            $e*$e\\|$e*$st)
-                t=${t%"$e"\\}
-                t=${t%"$st"}
-                printf '%s\n' "${t#"$e"\][lL]}"
-                exit 0
-                ;;
-            $e*)
-                ;;
-            *) break
-                ;;
+        $e*$e\\ | $e*$st)
+            t=${t%"$e"\\}
+            t=${t%"$st"}
+            printf '%s\n' "${t#"$e"\][lL]}"
+            exit 0
+            ;;
+        $e*) ;;
+        *)
+            break
+            ;;
         esac
     done
     printf %s "$t"
     exit 1
-)}
+); }
 
 function list_colors() {
+    local COLUMN_WIDTH=${1:-6}
     echo "echoti colors - $(echoti colors)"
     echo "COLORTERM - $COLORTERM"
 
-	for color in {000..015}; do
-		print -nP "%F{$color}$color %f"
-	done
-	printf "\n"
+    for color in {000..015}; do
+        print -nP "%F{$color}$color %f"
+    done
+    printf "\n"
 
-	for color in {016..255}; do
-		print -nP "%F{$color}$color %f"
-		if [ $(($((color-16))%6)) -eq 5 ]; then
-			printf "\n"
-		fi
-	done
+    for x in {0..0}; do # {0..8}
+        for i in {30..37}; do
+            for a in {40..47}; do
+                print -nP "\e[$x;$i;$a""m\\\e[$x;$i;$a""m\e[0;37;40m "
+            done
+            printf "\033[0m\n"
+        done
+    done
+    printf "\n"
+
+    for color in {016..255}; do
+        print -nP "%F{$color}$color %f"
+        if [ $(($((color - 16)) % "${COLUMN_WIDTH}")) -eq $((COLUMN_WIDTH-1)) ]; then
+            printf "\n"
+        fi
+    done
 }
 
 function clear_pragmas() {
