@@ -185,3 +185,84 @@ function __is_iterm2_terminal() {
 function __is_tool_window() {
     [[ -n "${TOOL_WINDOW}" ]];
 }
+
+function __cute_pwd_helper() {
+    local ACTIVE_DIR=$1
+    local SUFFIX=$2
+
+    # These should only match if they're exact.
+    case "${ACTIVE_DIR}" in
+    "${HOME}")
+        echo -n "${ICON_MAP[COD_HOME]}${SUFFIX}"
+        return 0
+        ;;
+    "${WIN_USERPROFILE}")
+        echo -n "${ICON_MAP[WINDOWS]}${SUFFIX}"
+        return 0
+        ;;
+    "/")
+        echo -n "${ICON_MAP[FAE_TREE]}${SUFFIX}"
+        return 0
+        ;;
+    esac
+
+    if [[ -v ANDROID_REPO_BRANCH ]]; then
+        if [[ "${ACTIVE_DIR##*/}" == "${ANDROID_REPO_BRANCH}" ]]; then
+            echo -n "${ICON_MAP[ANDROID_HEAD]}${SUFFIX}"
+            return 0
+        fi
+    fi
+
+    case "${ACTIVE_DIR##*/}" in
+    "github")
+        echo -n "${ICON_MAP[GITHUB]}${SUFFIX}"
+        return 0
+        ;;
+    "src" | "source")
+        echo -n "${ICON_MAP[COD_SAVE]}${SUFFIX}"
+        return 0
+        ;;
+    "cloud")
+        echo -n "${ICON_MAP[CLOUD]}${SUFFIX}"
+        return 0
+        ;;
+    "${USER}")
+        echo -n "${ICON_MAP[ACCOUNT]}${SUFFIX}"
+        return 0
+        ;;
+    *)
+        ;;
+    esac
+
+    # If there is a suffix here then don't print the directory.
+    if [[ "${SUFFIX}" == "" ]]; then
+        echo -n "${ACTIVE_DIR##*/}"
+    fi
+
+    return 0
+}
+
+function __cute_pwd() {
+    if __is_in_git_repo; then
+        if ! __is_in_git_dir; then
+            # If we're in a git repo then show the current directory relative to the root of that repo.
+            # These commands wind up spitting out an extra slash, so backspace to remove it on the console.
+            # Because this messes with the shell's perception of where the cursor is, make the anchor icon
+            # appear like an escape sequence instead of a printed character.
+            echo -e "%{${ICON_MAP[COD_PINNED]} %}$(git rev-parse --show-toplevel | xargs basename)/$(git rev-parse --show-prefix)\b"
+        else
+            echo -n "${PWD}"
+        fi
+        return 0
+    fi
+
+    if [[ "${PWD}" != "/" ]]; then
+        __cute_pwd_helper "$(dirname "${PWD}")" "/"
+    fi
+    __cute_pwd_helper "${PWD}" ""
+    return 0
+}
+
+function __cute_pwd_short() {
+    __cute_pwd_helper "${PWD}" ""
+}

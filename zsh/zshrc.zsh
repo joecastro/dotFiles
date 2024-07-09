@@ -11,9 +11,6 @@
 # Color cheat sheet: https://jonasjacek.github.io/colors/
 autoload -U colors && colors
 
-export LSCOLORS="GxDxbxhbcxegedabagacad"
-export LS_COLORS="di=1;36:ln=1;33:so=31:pi=37;41:ex=32:bd=34;46:cd=34;43:su=30;41:sg=30;46:tw=30;42:ow=30;43"
-
 setopt NO_CASE_GLOB
 setopt AUTO_CD
 
@@ -50,13 +47,12 @@ autoload -Uz compinit && compinit
 typeset -U path # force unique values.
 
 zstyle ':completion:*:default' list-colors ${(s.:.)LS_COLORS}
+
 # zstyle ':completion:*' auto-description 'specify: %d'
 # zstyle ':completion:*' completer _expand _complete _correct _approximate
 # zstyle ':completion:*' format 'Completing %d'
 # zstyle ':completion:*' group-name ''
 # zstyle ':completion:*' menu select=2
-# eval "$(dircolors -b)"
-# zstyle ':completion:*:default' list-colors ${(s.:.)LS_COLORS}
 # zstyle ':completion:*' list-colors ''
 # zstyle ':completion:*' list-prompt %SAt %p: Hit TAB for more, or the character to insert%s
 # zstyle ':completion:*' matcher-list '' 'm:{a-z}={A-Z}' 'm:{a-zA-Z}={A-Za-z}' 'r:|[._-]=* r:|=* l:|=*'
@@ -122,88 +118,6 @@ preexec() {
     CMD_LAST_START=$(date +%s)
     # Use beam shape cursor for each new prompt.
     _set_cursor_beam
-}
-
-function __cute_pwd_helper() {
-    local ACTIVE_DIR=$1
-    local SUFFIX=$2
-    local ICO_COLOR=$reset_color
-
-    # These should only match if they're exact.
-    case "${ACTIVE_DIR}" in
-    "${HOME}")
-        echo -n %{${ICO_COLOR}%}${ICON_MAP[COD_HOME]}%{$reset_color%}${SUFFIX}
-        return 0
-        ;;
-    "${WIN_USERPROFILE}")
-        echo -n %{${ICO_COLOR}%}${ICON_MAP[WINDOWS]}%{$reset_color%}${SUFFIX}
-        return 0
-        ;;
-    "/")
-        echo -n %{${ICO_COLOR}%}${ICON_MAP[FAE_TREE]}%{$reset_color%}${SUFFIX}
-        return 0
-        ;;
-    esac
-
-    if (( ${+ANDROID_REPO_BRANCH} )); then
-        if [[ "${ACTIVE_DIR##*/}" == "${ANDROID_REPO_BRANCH}" ]]; then
-            echo -n %{${ICO_COLOR}%}${ICON_MAP[ANDROID_HEAD]}%{$reset_color%}${SUFFIX}
-            return 0
-        fi
-    fi
-
-    case "${ACTIVE_DIR##*/}" in
-    "github")
-        echo -n %{${ICO_COLOR}%}${ICON_MAP[GITHUB]}%{$reset_color%}${SUFFIX}
-        return 0
-        ;;
-    "src" | "source")
-        echo -n %{${ICO_COLOR}%}${ICON_MAP[COD_SAVE]}%{$reset_color%}${SUFFIX}
-        return 0
-        ;;
-    "cloud")
-        echo -n %{${ICO_COLOR}%}${ICON_MAP[CLOUD]}%{$reset_color%}${SUFFIX}
-        return 0
-        ;;
-    "$USER")
-        echo -n %{${ICO_COLOR}%}${ICON_MAP[ACCOUNT]}%{$reset_color%}${SUFFIX}
-        return 0
-        ;;
-    *)
-        ;;
-    esac
-
-    # If there is a suffix here then don't print the directory.
-    if [[ ${SUFFIX} == "" ]]; then
-        echo -n ${ACTIVE_DIR##*/}
-    fi
-
-    return 0
-}
-
-function __cute_pwd() {
-    if __is_in_git_repo; then
-        if ! __is_in_git_dir; then
-            # If we're in a git repo then show the current directory relative to the root of that repo.
-            # These commands wind up spitting out an extra slash, so backspace to remove it on the console.
-            # Because this messes with the shell's perception of where the cursor is, make the anchor icon
-            # appear like an escape sequence instead of a printed character.
-            echo -e "%{${ICON_MAP[COD_PINNED]} %}$(git rev-parse --show-toplevel | xargs basename)/$(git rev-parse --show-prefix)\b"
-        else
-            echo -n $PWD
-        fi
-        return 0
-    fi
-
-    if [[ $PWD != "/" ]]; then
-        __cute_pwd_helper "$(dirname $PWD)" "/"
-    fi
-    __cute_pwd_helper $PWD ""
-    return 0
-}
-
-function __cute_pwd_short() {
-    __cute_pwd_helper $PWD ""
 }
 
 function __cute_time_prompt() {
@@ -417,7 +331,7 @@ function __generate_standard_prompt() {
     prompt_builder+=' %(!.$ELEVATED_END_OF_PROMPT_ICON.$END_OF_PROMPT_ICON) '
 
     # If I ever want to profile the generation of the prompt: "print -P $PROMPT"
-    echo -n ${prompt_builder}
+    echo -n "${prompt_builder}"
 }
 
 PROMPT=$(__generate_standard_prompt)

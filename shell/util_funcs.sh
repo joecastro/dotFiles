@@ -24,7 +24,7 @@ function __update_java_home() {
     export PATH
 }
 
-if command -v /usr/libexec/java_home &>/dev/null; then
+if command -v /usr/libexec/java_home &> /dev/null; then
     __update_java_home 18
     alias chjava='__update_java_home'
 fi
