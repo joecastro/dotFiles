@@ -1,16 +1,20 @@
 local sh = import './manifestShellVars.libsonnet';
-local apply_configs_core = import '../apply_configs_core.jsonnet';
+local env_vars_core = import './env_vars_core.libsonnet';
+
+local localhost_properties = if std.extVar('is_localhost') == 'true'
+    then env_vars_core.localhost_properties
+    else {};
+local localhost_directives = if std.extVar('is_localhost') == 'true'
+    then env_vars_core.localhost_directives
+    else {};
+local localhost_aliases = if std.extVar('is_localhost') == 'true'
+    then env_vars_core.localhost_aliases
+    else {};
+
 local root = {
-    properties: {
-        DOTFILES_SRC_HOME: std.extVar('cwd'),
-        DOTFILES_CONFIG_ROOT: '$HOME/' + apply_configs_core.config_dir,
-        ANDROID_HOME: if std.extVar('kernel') == 'darwin' then '~/Library/Android/sdk' else '$HOME/android_sdk',
-    },
-    // directives: {
-    //     ACTIVE_SHELL: "ps -c -p $$ -o command | awk 'END{print}'",
-    // },
-    aliases: {
-        dotGo: 'pushd $DOTFILES_SRC_HOME; cd .'
-    }
+    properties: env_vars_core.properties + localhost_properties,
+    directives: env_vars_core.directives + localhost_directives,
+    aliases: env_vars_core.aliases + localhost_aliases,
 };
+
 sh.manifestShellVars(root)
