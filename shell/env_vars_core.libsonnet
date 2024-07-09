@@ -12,7 +12,6 @@ local apply_configs_core = import '../apply_configs_core.jsonnet';
     },
     localhost_properties:: {
         DOTFILES_SRC_HOME: std.extVar('cwd'),
-
     },
     aliases:: {},
     localhost_aliases:: {

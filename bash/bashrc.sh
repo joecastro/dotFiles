@@ -175,7 +175,7 @@ if [[ "iTerm2" == "$LC_TERMINAL" ]]; then
         curl -L https://iterm2.com/shell_integration/bash -o "${DOTFILES_CONFIG_ROOT}/iterm2_shell_integration.bash"
     fi
     # shellcheck disable=SC1091
-    __source_if_exists "${DOTFILES_CONFIG_ROOT}/iterm2_shell_integration.bash"
+    [[ -f "${DOTFILES_CONFIG_ROOT}/iterm2_shell_integration.bash" ]] && source "${DOTFILES_CONFIG_ROOT}/iterm2_shell_integration.bash"
 fi
 
 EFFECTIVE_DISTRIBUTION="Unhandled"

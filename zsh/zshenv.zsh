@@ -79,6 +79,6 @@ function __virtualenv_info() {
     return ${has_virtualenv}
 }
 
-__source_if_exists "${DOTFILES_CONFIG_ROOT}/google_funcs.zsh"
-source ${DOTFILES_CONFIG_ROOT}/android_funcs.sh # Android shell utility functions
-source ${DOTFILES_CONFIG_ROOT}/util_funcs.sh
+[[ -f "${DOTFILES_CONFIG_ROOT}/google_funcs.zsh" ]] && source "${DOTFILES_CONFIG_ROOT}/google_funcs.zsh"
+source "${DOTFILES_CONFIG_ROOT}/android_funcs.sh" # Android shell utility functions
+source "${DOTFILES_CONFIG_ROOT}/util_funcs.sh"

@@ -453,7 +453,7 @@ function ___venv_aware_cd() {
 compdef ___venv_aware_cd __venv_aware_cd
 
 # defines __git_ps1
-__source_if_exists "${DOTFILES_CONFIG_ROOT}/git-prompt.sh" || echo ">> Missing git-prompt.sh"
+[[ -f "${DOTFILES_CONFIG_ROOT}/git-prompt.sh" ]] && source "${DOTFILES_CONFIG_ROOT}/git-prompt.sh"
 
 command -v hub &> /dev/null && eval "$(hub alias -s)"
 command -v chjava &> /dev/null && chjava 18
@@ -461,11 +461,11 @@ command -v chjava &> /dev/null && chjava 18
 # If using iTerm2, try for shell integration.
 # iTerm profile switching requires shell_integration to be installed anyways.
 if __is_iterm2_terminal; then
-    __source_if_exists "${DOTFILES_CONFIG_ROOT}/iterm2_shell_integration.zsh"
-    __source_if_exists "${DOTFILES_CONFIG_ROOT}/iterm2_funcs.sh"
+    [[ -f "${DOTFILES_CONFIG_ROOT}/iterm2_shell_integration.zsh" ]] && source "${DOTFILES_CONFIG_ROOT}/iterm2_shell_integration.zsh"
+    [[ -f "${DOTFILES_CONFIG_ROOT}/iterm2_funcs.sh" ]] && source "${DOTFILES_CONFIG_ROOT}/iterm2_funcs.sh"
 fi
 
-__source_if_exists ~/.zshext/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+[[ -f "~/.zshext/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" ]] && source "~/.zshext/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
 
 if ! __is_tool_window; then
     if __is_embedded_terminal; then
@@ -503,31 +503,32 @@ fi
 case "$(__effective_distribution)" in
 "GLinux")
     # echo "GLinux zshrc load complete"
-    __invoke_if_exists "__on_glinux_zshrc_load_complete"
+    if declare -f __on_glinux_zshrc_load_complete > /dev/null; then
+        __on_glinux_zshrc_load_complete
+    fi
 
     ;;
 "OSX")
     # echo "OSX zshrc load complete"
-    __source_if_exists "${DOTFILES_CONFIG_ROOT}/osx_funcs.zsh"
+    [[ -f "${DOTFILES_CONFIG_ROOT}/osx_funcs.zsh" ]] && source "${DOTFILES_CONFIG_ROOT}/osx_funcs.zsh"
 
     # RPROMPT='$(battery_charge)'
 
     if command -v brew > /dev/null; then
-        local BREW_PREFIX=$(brew --prefix)
-        __source_if_exists "${BREW_PREFIX}/opt/zsh-git-prompt/zshrc.sh"
+        [[ -f "$(brew --prefix)/opt/zsh-git-prompt/zshrc.sh" ]] && source "$(brew --prefix)/opt/zsh-git-prompt/zshrc.sh"
 
-        if [ -d "${BREW_PREFIX}/opt/coreutils/libexec/gnubin" ]; then
-            PATH="${BREW_PREFIX}/opt/coreutils/libexec/gnubin:$PATH"
+        if [ -d "$(brew --prefix)/opt/coreutils/libexec/gnubin" ]; then
+            PATH="$(brew --prefix)/opt/coreutils/libexec/gnubin:$PATH"
         fi
-
-        unset BREW_PREFIX
     fi
 
     if ! __is_ssh_session && ! command -v code &> /dev/null; then
         echo "## CLI for VSCode is unavailable. Check https://code.visualstudio.com/docs/setup/mac"
     fi
 
-    __invoke_if_exists "__on_gmac_zshrc_load_complete"
+    if declare -f __on_gmac_zshrc_load_complete > /dev/null; then
+        __on_gmac_zshrc_load_complete
+    fi
 
     ;;
 "WSL")
