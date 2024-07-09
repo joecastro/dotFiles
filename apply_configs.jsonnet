@@ -11,6 +11,7 @@ local apply_configs_core = import './apply_configs_core.jsonnet';
             hostname: 'localhost',
             jsonnet_maps: apply_configs_core.jsonnet_maps,
             file_maps: apply_configs_core.file_maps,
+            curl_maps: apply_configs_core.curl_maps,
             macros: apply_configs_core.macros,
         }
     ],
