@@ -5,6 +5,7 @@ local iterm_profiles = import './iterm_profiles.jsonnet';
     "AutoHideTmuxClientSession": false,
     "Command": "",
     "Default Arrangement Name": iterm_profiles.DefaultArrangement.Name,
+    "Custom Color Presets": iterm_profiles.CustomColorPresets,
     "Default Bookmark Guid": iterm_profiles.DefaultProfile.Guid,
     "DeleteProfile_SilenceUntil": 717726301.60112,
     "DeleteProfile_selection": 0,

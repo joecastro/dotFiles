@@ -11,8 +11,6 @@
 # Color cheat sheet: https://jonasjacek.github.io/colors/
 autoload -U colors && colors
 
-export LSCOLORS="Gxfxcxdxbxegedabagacad"
-export LS_COLORS="di=1;36:ln=35:so=32:pi=33:ex=31:bd=34;46:cd=34;43:su=30;41:sg=30;46:tw=30;42:ow=30;43"
 
 setopt NO_CASE_GLOB
 setopt AUTO_CD
@@ -92,12 +90,12 @@ function _set_cursor_block() {
 
 function zle-keymap-select {
     case $KEYMAP in
-        vicmd)
-            _set_cursor_block
-            ;;
-        viins|main)
-            _set_cursor_beam
-            ;;
+    vicmd)
+        _set_cursor_block
+        ;;
+    viins|main)
+        _set_cursor_beam
+        ;;
     esac
 }
 
@@ -131,18 +129,18 @@ function __cute_pwd_helper() {
 
     # These should only match if they're exact.
     case "${ACTIVE_DIR}" in
-        "${HOME}")
-            echo -n %{${ICO_COLOR}%}${ICON_MAP[COD_HOME]}%{$reset_color%}${SUFFIX}
-            return 0
-            ;;
-        "${WIN_USERPROFILE}")
-            echo -n %{${ICO_COLOR}%}${ICON_MAP[WINDOWS]}%{$reset_color%}${SUFFIX}
-            return 0
-            ;;
-        "/")
-            echo -n %{${ICO_COLOR}%}${ICON_MAP[FAE_TREE]}%{$reset_color%}${SUFFIX}
-            return 0
-            ;;
+    "${HOME}")
+        echo -n %{${ICO_COLOR}%}${ICON_MAP[COD_HOME]}%{$reset_color%}${SUFFIX}
+        return 0
+        ;;
+    "${WIN_USERPROFILE}")
+        echo -n %{${ICO_COLOR}%}${ICON_MAP[WINDOWS]}%{$reset_color%}${SUFFIX}
+        return 0
+        ;;
+    "/")
+        echo -n %{${ICO_COLOR}%}${ICON_MAP[FAE_TREE]}%{$reset_color%}${SUFFIX}
+        return 0
+        ;;
     esac
 
     if (( ${+ANDROID_REPO_BRANCH} )); then
@@ -153,24 +151,24 @@ function __cute_pwd_helper() {
     fi
 
     case "${ACTIVE_DIR##*/}" in
-        "github")
-            echo -n %{${ICO_COLOR}%}${ICON_MAP[GITHUB]}%{$reset_color%}${SUFFIX}
-            return 0
-            ;;
-        "src" | "source")
-            echo -n %{${ICO_COLOR}%}${ICON_MAP[COD_SAVE]}%{$reset_color%}${SUFFIX}
-            return 0
-            ;;
-        "cloud")
-            echo -n %{${ICO_COLOR}%}${ICON_MAP[CLOUD]}%{$reset_color%}${SUFFIX}
-            return 0
-            ;;
-        "$USER")
-            echo -n %{${ICO_COLOR}%}${ICON_MAP[ACCOUNT]}%{$reset_color%}${SUFFIX}
-            return 0
-            ;;
-        *)
-            ;;
+    "github")
+        echo -n %{${ICO_COLOR}%}${ICON_MAP[GITHUB]}%{$reset_color%}${SUFFIX}
+        return 0
+        ;;
+    "src" | "source")
+        echo -n %{${ICO_COLOR}%}${ICON_MAP[COD_SAVE]}%{$reset_color%}${SUFFIX}
+        return 0
+        ;;
+    "cloud")
+        echo -n %{${ICO_COLOR}%}${ICON_MAP[CLOUD]}%{$reset_color%}${SUFFIX}
+        return 0
+        ;;
+    "$USER")
+        echo -n %{${ICO_COLOR}%}${ICON_MAP[ACCOUNT]}%{$reset_color%}${SUFFIX}
+        return 0
+        ;;
+    *)
+        ;;
     esac
 
     # If there is a suffix here then don't print the directory.
@@ -208,12 +206,12 @@ function __cute_pwd_short() {
 
 function __cute_time_prompt() {
     case "$(date +%Z)" in
-        UTC)
-            echo -n "%Tz"
-            ;;
-        *)
-            echo -n "%T %D{%Z}"
-            ;;
+    UTC)
+        echo -n "%Tz"
+        ;;
+    *)
+        echo -n "%T %D{%Z}"
+        ;;
     esac
 }
 
@@ -376,7 +374,7 @@ END_OF_PROMPT_ICON=${ICON_MAP[MD_GREATER_THAN]}
 ELEVATED_END_OF_PROMPT_ICON="$"
 
 function __generate_standard_prompt() {
-    local YELLOW_SEA_FG="%F{#ffaf00}"
+    local SELECTIVE_YELLOW_FG="%F{#ffb506}"
 
     local PromptHostColor=""
     local PromptHostName=""
@@ -385,7 +383,7 @@ function __generate_standard_prompt() {
         PromptHostColor="%F{${HOST_COLOR}}"
     # Use a different color for displaying the host name when we're logged into SSH
     elif __is_ssh_session; then
-        PromptHostColor=$YELLOW_SEA_FG
+        PromptHostColor=$SELECTIVE_YELLOW_FG
     else
         PromptHostColor=$fg[yellow]
     fi
@@ -464,6 +462,7 @@ command -v chjava &> /dev/null && chjava 18
 # iTerm profile switching requires shell_integration to be installed anyways.
 if __is_iterm2_terminal; then
     __source_if_exists "${DOTFILES_CONFIG_ROOT}/iterm2_shell_integration.zsh"
+    __source_if_exists "${DOTFILES_CONFIG_ROOT}/iterm2_funcs.sh"
 fi
 
 __source_if_exists ~/.zshext/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
@@ -492,54 +491,58 @@ if ! command -v eza &> /dev/null; then
     # by default, show slashes, follow symbolic links, colorize
     alias ls='ls -FHG'
 else
-    alias ls='eza -l'
+    export EZA_STRICT=0
+    export EZA_ICONS_AUTO=0
+    alias ls='eza -l --group-directories-first'
     # https://github.com/orgs/eza-community/discussions/239#discussioncomment-9834010
-    alias kd='eza'
+    alias kd='eza --group-directories-first'
     alias realls='\ls -FHG'
 fi
 
 # echo "Welcome to $(__effective_distribution)!"
 case "$(__effective_distribution)" in
-    "GLinux")
-        # echo "GLinux zshrc load complete"
-        __invoke_if_exists "__on_glinux_zshrc_load_complete"
+"GLinux")
+    # echo "GLinux zshrc load complete"
+    __invoke_if_exists "__on_glinux_zshrc_load_complete"
 
-        ;;
-    "OSX")
-        # echo "OSX zshrc load complete"
-        __source_if_exists "${DOTFILES_CONFIG_ROOT}/osx_funcs.zsh"
+    ;;
+"OSX")
+    # echo "OSX zshrc load complete"
+    __source_if_exists "${DOTFILES_CONFIG_ROOT}/osx_funcs.zsh"
 
-        # RPROMPT='$(battery_charge)'
+    # RPROMPT='$(battery_charge)'
 
-        if command -v brew > /dev/null; then
-            local BREW_PREFIX=$(brew --prefix)
-            __source_if_exists "${BREW_PREFIX}/opt/zsh-git-prompt/zshrc.sh"
+    if command -v brew > /dev/null; then
+        local BREW_PREFIX=$(brew --prefix)
+        __source_if_exists "${BREW_PREFIX}/opt/zsh-git-prompt/zshrc.sh"
 
-            if [ -d "${BREW_PREFIX}/opt/coreutils/libexec/gnubin" ]; then
-                PATH="${BREW_PREFIX}/opt/coreutils/libexec/gnubin:$PATH"
-            fi
+        if [ -d "${BREW_PREFIX}/opt/coreutils/libexec/gnubin" ]; then
+            PATH="${BREW_PREFIX}/opt/coreutils/libexec/gnubin:$PATH"
         fi
 
-        if ! __is_ssh_session && ! command -v code &> /dev/null; then
-            echo "## CLI for VSCode is unavailable. Check https://code.visualstudio.com/docs/setup/mac"
-        fi
+        unset BREW_PREFIX
+    fi
 
-        __invoke_if_exists "__on_gmac_zshrc_load_complete"
+    if ! __is_ssh_session && ! command -v code &> /dev/null; then
+        echo "## CLI for VSCode is unavailable. Check https://code.visualstudio.com/docs/setup/mac"
+    fi
 
-        ;;
-    "WSL")
-        WIN_SYSTEM_DRIVE=$(powershell.exe '$env:SystemDrive')
-        WIN_SYSTEM_ROOT="/mnt/${WIN_SYSTEM_DRIVE:0:1:l}"
-        WIN_USERNAME=$(powershell.exe '$env:UserName')
-        WIN_USERPROFILE=$(echo $(wslpath $(powershell.exe '$env:UserProfile')) | sed $'s/\r//')
+    __invoke_if_exists "__on_gmac_zshrc_load_complete"
 
-        typeset -a WSL_WINDOWS_VIRTUALENV_ID=("__is_on_wsl && __is_in_windows_drive" "ICON_MAP[WINDOWS]" "blue")
-        typeset -a WSL_LINUX_VIRTUALENV_ID=("__is_on_wsl && ! __is_in_windows_drive" "ICON_MAP[LINUX_PENGUIN]" "blue")
-        VIRTUALENV_ID_FUNCS[WSL_WINDOWS]=WSL_WINDOWS_VIRTUALENV_ID
-        VIRTUALENV_ID_FUNCS[WSL_LINUX]=WSL_LINUX_VIRTUALENV_ID
+    ;;
+"WSL")
+    export WIN_SYSTEM_DRIVE=$(powershell.exe '$env:SystemDrive')
+    export WIN_SYSTEM_ROOT="/mnt/${WIN_SYSTEM_DRIVE:0:1:l}"
+    export WIN_USERNAME=$(powershell.exe '$env:UserName')
+    export WIN_USERPROFILE=$(echo $(wslpath $(powershell.exe '$env:UserProfile')) | sed $'s/\r//')
 
-        # export WIN_USERPROFILE=$(wslpath $(powershell.exe '$env:UserProfile'))
+    typeset -a WSL_WINDOWS_VIRTUALENV_ID=("__is_on_wsl && __is_in_windows_drive" "ICON_MAP[WINDOWS]" "blue")
+    typeset -a WSL_LINUX_VIRTUALENV_ID=("__is_on_wsl && ! __is_in_windows_drive" "ICON_MAP[LINUX_PENGUIN]" "blue")
+    VIRTUALENV_ID_FUNCS[WSL_WINDOWS]=WSL_WINDOWS_VIRTUALENV_ID
+    VIRTUALENV_ID_FUNCS[WSL_LINUX]=WSL_LINUX_VIRTUALENV_ID
 
-        alias winGo='pushd $WIN_USERPROFILE; cd .'
-        ;;
+    # export WIN_USERPROFILE=$(wslpath $(powershell.exe '$env:UserProfile'))
+
+    alias winGo='pushd $WIN_USERPROFILE; cd .'
+    ;;
 esac

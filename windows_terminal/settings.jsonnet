@@ -1,3 +1,9 @@
+local color_defs = import '../terminals/color_definitions.libsonnet';
+
+local Schemes = color_defs.Schemes;
+local Colors = color_defs.Colors;
+local ColorFromHex = color_defs.ColorFromHex;
+
 local CopyCommand = {
     command:
     {
@@ -46,72 +52,26 @@ local Theme(name, applicationTheme) = {
     }
 };
 
-local ColorPack(black, blue, cyan, green, purple, red, white, yellow) = {
-    black: black,
-    blue: blue,
-    cyan: cyan,
-    green: green,
-    purple: purple,
-    red: red,
-    white: white,
-    yellow: yellow
-};
-
-local BrightColorPack(black, blue, cyan, green, purple, red, white, yellow) = {
-    brightBlack: black,
-    brightBlue: blue,
-    brightCyan: cyan,
-    brightGreen: green,
-    brightPurple: purple,
-    brightRed: red,
-    brightWhite: white,
-    brightYellow: yellow
-};
-
-local colorPacks = {
-   Campbell:     ColorPack("#0C0C0C", "#0037DA", "#3A96DD", "#13A10E", "#881798", "#C50F1F", "#CCCCCC", "#C19C00"),
-   OneHalfDark:  ColorPack("#282C34", "#61AFEF", "#56B6C2", "#98C379", "#C678DD", "#E06C75", "#DCDFE4", "#E5C07B"),
-   OneHalfLight: ColorPack("#383A42", "#0184BC", "#0997B3", "#50A14F", "#A626A4", "#E45649", "#FAFAFA", "#C18301"),
-   Solarized:    ColorPack("#002B36", "#268BD2", "#2AA198", "#859900", "#D33682", "#DC322F", "#EEE8D5", "#B58900"),
-   Tango:        ColorPack("#000000", "#3465A4", "#06989A", "#4E9A06", "#75507B", "#CC0000", "#D3D7CF", "#C4A000"),
-   Ubuntu:       ColorPack("#171421", "#0037DA", "#3A96DD", "#26A269", "#881798", "#C21A23", "#CCCCCC", "#A2734C"),
-   Ubuntu2:      ColorPack("#2e3436", "#3465a4", "#06989a", "#4e9a06", "#75507b", "#cc0000", "#d3d7cf", "#c4a000"),
-   Vintage:      ColorPack("#000000", "#000080", "#008080", "#008000", "#800080", "#800000", "#C0C0C0", "#808000"),
-   Frost:        ColorPack("#3C5712", "#17b2ff", "#3C96A6", "#6AAE08", "#991070", "#8D0C0C", "#6E386E", "#991070"),
-};
-
-local brightColorPacks = {
-    Campbell:     BrightColorPack("#767676", "#3B78FF", "#61D6D6", "#16C60C", "#B4009E", "#E74856", "#F2F2F2", "#F9F1A5"),
-    OneHalfDark:  BrightColorPack("#5A6374", "#61AFEF", "#56B6C2", "#98C379", "#C678DD", "#E06C75", "#DCDFE4", "#E5C07B"),
-    OneHalfLight: BrightColorPack("#4F525D", "#61AFEF", "#56B5C1", "#98C379", "#C577DD", "#DF6C75", "#FFFFFF", "#E4C07A"),
-    Solarized:    BrightColorPack("#073642", "#839496", "#93A1A1", "#586E75", "#6C71C4", "#CB4B16", "#FDF6E3", "#657B83"),
-    Tango:        BrightColorPack("#555753", "#729FCF", "#34E2E2", "#8AE234", "#AD7FA8", "#EF2929", "#EEEEEC", "#FCE94F"),
-    Ubuntu:       BrightColorPack("#767676", "#08458F", "#2C9FB3", "#26A269", "#A347BA", "#C01C28", "#F2F2F2", "#A2734C"),
-    Ubuntu2:      BrightColorPack("#555753", "#729fcf", "#34e2e2", "#8ae234", "#ad7fa8", "#ef2929", "#eeeeec", "#fce94f"),
-    Vintage:      BrightColorPack("#808080", "#0000FF", "#00FFFF", "#00FF00", "#FF00FF", "#FF0000", "#FFFFFF", "#FFFF00"),
-    Frost:        BrightColorPack("#749B36", "#27B2F6", "#13A8C0", "#89AF50", "#F2A20A", "#F49B36", "#741274", "#991070"),
-};
-
-local Scheme(name, colors, brightColors, background, foreground, cursorColor="#FFFFFF", selectionBackground="#FFFFFF") = {
+local Scheme(name, scheme, background, foreground, cursorColor=Colors.White, selectionBackground=Colors.White) = {
     name: name,
-    background: background,
-    cursorColor: cursorColor,
-    foreground: foreground,
-    selectionBackground: selectionBackground,
-} + colors + brightColors;
+    background: background.hexcolor,
+    cursorColor: cursorColor.hexcolor,
+    foreground: foreground.hexcolor,
+    selectionBackground: selectionBackground.hexcolor,
+} + scheme.color_pack + scheme.bright_color_pack;
 
 local schemes = {
-    Campbell: Scheme("Campbell", colorPacks.Campbell, brightColorPacks.Campbell,                      colorPacks.Campbell.black, colorPacks.Campbell.white),
-    CampbellPowershell: Scheme("Campbell Powershell", colorPacks.Campbell, brightColorPacks.Campbell, "#012456", colorPacks.Campbell.white),
-    OneHalfDark: Scheme("One Half Dark", colorPacks.OneHalfDark, brightColorPacks.OneHalfDark,        "#282C34", colorPacks.OneHalfDark.white),
-    OneHalfLight: Scheme("One Half Light", colorPacks.OneHalfLight, brightColorPacks.OneHalfLight,    colorPacks.OneHalfLight.white, colorPacks.OneHalfLight.black, brightColorPacks.OneHalfLight.brightBlack),
-    SolarizedDark: Scheme("Solarized Dark", colorPacks.Solarized, brightColorPacks.Solarized,         colorPacks.Solarized.black, brightColorPacks.Solarized.brightBlue),
-    SolarizedLight: Scheme("Solarized Light", colorPacks.Solarized, brightColorPacks.Solarized,       brightColorPacks.Solarized.brightWhite, brightColorPacks.Solarized.brightYellow, colorPacks.Solarized.black),
-    TangoDark: Scheme("Tango Dark", colorPacks.Tango, brightColorPacks.Tango,                         colorPacks.Tango.black, colorPacks.Tango.white),
-    TangoLight: Scheme("Tango Light", colorPacks.Tango, brightColorPacks.Tango,                       "#FFFFFF", $.TangoDark.brightBlack, colorPacks.Tango.black),
-    Ubuntu: Scheme("Ubuntu", colorPacks.Ubuntu, brightColorPacks.Ubuntu,                              "#300A24", "#FFFFFF"),
-    Ubuntu2: Scheme("Ubuntu2", colorPacks.Ubuntu2, brightColorPacks.Ubuntu2,                          "#300A24", "#eeeeec", "#bbbbbb", "#b5d5ff"),
-    Vintage: Scheme("Vintage", colorPacks.Vintage, brightColorPacks.Vintage,                          colorPacks.Vintage.black, colorPacks.Vintage.white),
+    Campbell: Scheme("Campbell", Schemes.Campbell,                      Schemes.Campbell.black, Schemes.Campbell.white),
+    CampbellPowershell: Scheme("Campbell Powershell", Schemes.Campbell, ColorFromHex("#012456"), Schemes.Campbell.white),
+    OneHalfDark: Scheme("One Half Dark", Schemes.OneHalfDark,           ColorFromHex("#282C34"), Schemes.OneHalfDark.white),
+    OneHalfLight: Scheme("One Half Light", Schemes.OneHalfLight,        Schemes.OneHalfLight.white, Schemes.OneHalfLight.black, Schemes.OneHalfLight.bright_black),
+    SolarizedDark: Scheme("Solarized Dark", Schemes.Solarized,          Schemes.Solarized.black, Schemes.Solarized.bright_blue),
+    SolarizedLight: Scheme("Solarized Light", Schemes.Solarized,        Schemes.Solarized.bright_white, Schemes.Solarized.bright_yellow, Schemes.Solarized.black),
+    TangoDark: Scheme("Tango Dark", Schemes.Tango,                      Schemes.Tango.black, Schemes.Tango.white),
+    TangoLight: Scheme("Tango Light", Schemes.Tango,                    Colors.White, Schemes.Tango.bright_black, Schemes.Tango.black),
+    Ubuntu: Scheme("Ubuntu", Schemes.Ubuntu,                            ColorFromHex("#300A24"), Colors.White),
+    Ubuntu2: Scheme("Ubuntu2", Schemes.Ubuntu2,                         ColorFromHex("#300A24"), ColorFromHex("#eeeeec"), ColorFromHex("#bbbbbb"), ColorFromHex("#b5d5ff")),
+    Vintage: Scheme("Vintage", Schemes.Vintage,                         Schemes.Vintage.black, Schemes.Vintage.white),
 };
 
 local ProfileBase(name, scheme, source, guid, hidden=false) = {

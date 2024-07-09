@@ -1,21 +1,72 @@
 local wallpapers = import '../wallpaper/wallpapers.jsonnet';
+local color_defs = import '../terminals/color_definitions.libsonnet';
 
-local ItermColor(r, g, b) =
+local Color = color_defs.Color;
+local Colors = color_defs.Colors;
+local ExtendedTerminalColors = color_defs.ExtendedTerminalColors;
+
+local default_color_scheme = color_defs.Schemes.Iterm;
+
+local default_extended_colors = ExtendedTerminalColors(
+    Colors.White, // foreground
+    Colors.Black, // background
+    null, // bold
+    null, // link
+    Color(0.71, 0.84, 1), // selection_background
+    Colors.Black, // selection_foreground
+    Colors.White, // cursor_background
+    Colors.Black, // cursor_foreground
+    null, // underline
+    null); // tab
+
+local ItermColor(color) =
 {
-    "Red Component": std.toString(r),
-    "Green Component": std.toString(g),
-    "Blue Component": std.toString(b),
+    "Red Component": std.toString(color.red),
+    "Green Component": std.toString(color.green),
+    "Blue Component": std.toString(color.blue),
 };
 // Note numbers, not strings :shrug:
-local ItermColorAlpha(r, g, b, a) = {
+local ItermColorAlpha(color) = {
     "Color Space": "sRGB",
-    "Red Component": r,
-    "Green Component": g,
-    "Blue Component": b,
-    "Alpha Component": a,
+    "Red Component": color.red,
+    "Green Component": color.green,
+    "Blue Component": color.blue,
+    "Alpha Component": color.alpha,
 };
-local ItermColorBlack = ItermColor(0, 0, 0);
-local ItermColorWhite = ItermColor(1, 1, 1);
+local ItermColorPreset(name, color_scheme, extended_colors) = {
+    [if name != null then "name"]:: name,
+
+    "Ansi 0 Color": ItermColor(color_scheme.color0),
+    "Ansi 1 Color": ItermColor(color_scheme.color1),
+    "Ansi 2 Color": ItermColor(color_scheme.color2),
+    "Ansi 3 Color": ItermColor(color_scheme.color3),
+    "Ansi 4 Color": ItermColor(color_scheme.color4),
+    "Ansi 5 Color": ItermColor(color_scheme.color5),
+    "Ansi 6 Color": ItermColor(color_scheme.color6),
+    "Ansi 7 Color": ItermColor(color_scheme.color7),
+    "Ansi 8 Color": ItermColor(color_scheme.color8),
+    "Ansi 9 Color": ItermColor(color_scheme.color9),
+    "Ansi 10 Color": ItermColor(color_scheme.color10),
+    "Ansi 11 Color": ItermColor(color_scheme.color11),
+    "Ansi 12 Color": ItermColor(color_scheme.color12),
+    "Ansi 13 Color": ItermColor(color_scheme.color13),
+    "Ansi 14 Color": ItermColor(color_scheme.color14),
+    "Ansi 15 Color": ItermColor(color_scheme.color15),
+
+    [if extended_colors.background != null then "Background Color"]: ItermColor(extended_colors.background),
+    [if extended_colors.foreground != null then "Foreground Color"]: ItermColor(extended_colors.foreground),
+    [if extended_colors.bold != null then "Bold Color"]: ItermColor(extended_colors.bold),
+    [if extended_colors.link != null then "Link Color"]: ItermColor(extended_colors.link),
+    [if extended_colors.selection_background != null then "Selection Color"]: ItermColor(extended_colors.selection_background),
+    [if extended_colors.selection_foreground != null then "Selected Text Color"]: ItermColor(extended_colors.selection_foreground),
+    [if extended_colors.cursor_background != null then "Cursor Color"]: ItermColor(extended_colors.cursor_background),
+    [if extended_colors.cursor_foreground != null then "Cursor Text Color"]: ItermColor(extended_colors.cursor_foreground),
+    [if extended_colors.underline != null then "Underline Color"]: ItermColor(extended_colors.underline),
+    [if extended_colors.tab != null then "Tab Color"]: ItermColor(extended_colors.tab)
+};
+
+local ItermColorBlack = ItermColor(Colors.Black);
+local ItermColorWhite = ItermColor(Colors.White);
 {
     guids:: [
         "4122d667-ad31-4565-8731-164b3a3f078f",
@@ -44,40 +95,14 @@ local ItermColorWhite = ItermColor(1, 1, 1);
         "FA66AC80-6AAA-4A3B-9CFE-B934F789D5EF",
         "658b147e-4e39-48a1-8ecc-92eeed6c0104"
     ],
-    ItermProfileTrigger(regex, action, parameter, partial=false)::
-    {
-        action : action,
-        parameter : parameter,
-        regex : regex,
-        [if partial then "partial"]: true,
-    },
-    ItermProfile(profile_name, guid, wallpaper)::
+    ItermProfileTemplate::
     {
         "ASCII Anti Aliased": true,
         "ASCII Ligatures": true,
         "Ambiguous Double Width": false,
-        "Ansi 0 Color": ItermColorBlack,
-        "Ansi 1 Color": ItermColor(0.8, 0, 0),
-        "Ansi 2 Color": ItermColor(0.31, 0.60, 0.02),
-        "Ansi 3 Color": ItermColor(0.77, 0.63, 0),
-        "Ansi 4 Color": ItermColor(0.20, 0.40, 0.64),
-        "Ansi 5 Color": ItermColor(0.46, 0.31, 0.48),
-        "Ansi 6 Color": ItermColor(0.02, 0.60, 0.60),
-        "Ansi 7 Color": ItermColor(0.83, 0.84, 0.81),
-        "Ansi 8 Color": ItermColor(0.33, 0.34, 0.33),
-        "Ansi 9 Color": ItermColor(0.94, 0.16, 0.16),
-        "Ansi 10 Color": ItermColor(0.54, 0.89, 0.20),
-        "Ansi 11 Color": ItermColor(0.99, 0.91, 0.31),
-        "Ansi 12 Color": ItermColor(0.45, 0.62, 0.81),
-        "Ansi 13 Color": ItermColor(0.68, 0.50, 0.66),
-        "Ansi 14 Color": ItermColor(0.20, 0.89, 0.89),
-        "Ansi 15 Color": ItermColor(0.93, 0.93, 0.92),
         "BM Growl": true,
-        "Background Color": ItermColorBlack,
-        "Background Image Location": std.extVar("cwd") + "/wallpaper/" + wallpaper.path,
         "Background Image Mode": 2,
-        "Badge Color": ItermColorAlpha(1, 0.15, 0, 0.5),
-        "Blend": wallpaper.blend,
+        "Badge Color": ItermColorAlpha(Color(1, 0.15, 0, 0.5)),
         "Blink Allowed": false,
         "Blinking Cursor": false,
         "Blur": true,
@@ -87,9 +112,7 @@ local ItermColorWhite = ItermColor(1, 1, 1);
         "Close Sessions On End": true,
         "Columns": 140,
         "Command": "/opt/homebrew/bin/zsh",
-        "Cursor Color": ItermColorWhite,
-        "Cursor Guide Color": ItermColorAlpha(0.70, 0.93, 1, 0.25),
-        "Cursor Text Color": ItermColorBlack,
+        "Cursor Guide Color": ItermColorAlpha(Color(0.70, 0.93, 1, 0.25)),
         "Custom Command": "Custom Shell",
         "Custom Directory": "No",
         "Default Bookmark": "No",
@@ -97,8 +120,6 @@ local ItermColorWhite = ItermColor(1, 1, 1);
         "Disable Window Resizing": true,
         "Enable Triggers in Interactive Apps": false,
         "Flashing Bell": false,
-        "Foreground Color": ItermColorWhite,
-        "Guid": guid,
         "Horizontal Spacing": 1,
         "Icon": 1,
         "Idle Code": 0,
@@ -106,9 +127,8 @@ local ItermColorWhite = ItermColor(1, 1, 1);
         "Initial Use Transparency": false,
         "Jobs to Ignore": [],
         "Left Option Key Changeable": false,
-        "Link Color": ItermColorAlpha(0, 0.36, 0.73, 1),
+        "Link Color": ItermColorAlpha(Color(0, 0.36, 0.73, 1)),
         "Mouse Reporting": true,
-        "Name": profile_name,
         "Non-ASCII Anti Aliased": true,
         "Normal Font": "CaskaydiaCoveNFM-Regular 14",
         "Only The Default BG Color Uses Transparency": false,
@@ -118,8 +138,6 @@ local ItermColorWhite = ItermColor(1, 1, 1);
         "Rows": 25,
         "Screen": -1,
         "Scrollback Lines": 0,
-        "Selected Text Color": ItermColorBlack,
-        "Selection Color": ItermColor(0.71, 0.84, 1),
         "Send Code When Idle": false,
         "Shortcut": "",
         "Silence Bell": false,
@@ -139,6 +157,24 @@ local ItermColorWhite = ItermColor(1, 1, 1);
         "Vertical Spacing": 1,
         "Visual Bell": true,
         "Window Type": 0
+    },
+    ITermColorPreset:: ItermColorPreset,
+    DefaultExtendedTerminalColors:: default_extended_colors,
+    ItermProfileTrigger(regex, action, parameter, partial=false)::
+    {
+        action : action,
+        parameter : parameter,
+        regex : regex,
+        [if partial then "partial"]: true,
+    },
+    ItermProfile(profile_name, guid, wallpaper)::
+        ItermColorPreset(null, default_color_scheme, default_extended_colors) +
+        $.ItermProfileTemplate +
+    {
+        "Background Image Location": std.extVar("cwd") + "/wallpaper/" + wallpaper.path,
+        "Blend": wallpaper.blend,
+        "Guid": guid,
+        "Name": profile_name,
     },
     SessionView(profile):: {
         "Is Active": 1,

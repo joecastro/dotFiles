@@ -56,12 +56,12 @@ class Host:
     def is_reachable(self) -> bool:
         if self.is_localhost():
             return True
-        return subprocess.run(['ssh', '-o', 'ConnectTimeout=10', '-t',  self.hostname, 'echo "ping check"'], capture_output=True).returncode == 0
+        return subprocess.run(['ssh', '-o', 'ConnectTimeout=10', '-t',  self.hostname, 'echo "ping check"'], capture_output=True, check=False).returncode == 0
 
     def does_directory_exist(self, path) -> bool:
         if self.is_localhost():
             return os.path.exists(path)
-        return subprocess.run(['ssh', self.hostname, f'test -d {path}'], capture_output=True).returncode == 0
+        return subprocess.run(['ssh', self.hostname, f'test -d {path}'], capture_output=True, check=False).returncode == 0
 
     def make_ops(self, ops: list) -> list:
         if self.is_localhost():
@@ -233,7 +233,7 @@ def parse_jsonnet_now(jsonnet_file, ext_vars) -> dict | list:
             check=True,
             text=True)
         return json.loads(result.stdout)
-    except subprocess.CalledProcessError as e:
+    except subprocess.CalledProcessError:
         print(f'Error running jsonnet command: "{" ".join(parse_jsonnet(jsonnet_file, ext_vars, None))}"')
         # try again, but just let the error be printed.
         subprocess.run(
