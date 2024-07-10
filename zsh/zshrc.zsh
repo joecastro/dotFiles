@@ -454,7 +454,6 @@ compdef ___venv_aware_cd __venv_aware_cd
 [[ -f "${DOTFILES_CONFIG_ROOT}/git-prompt.sh" ]] && source "${DOTFILES_CONFIG_ROOT}/git-prompt.sh"
 
 command -v hub &> /dev/null && eval "$(hub alias -s)"
-command -v chjava &> /dev/null && chjava 18
 
 # If using iTerm2, try for shell integration.
 # iTerm profile switching requires shell_integration to be installed anyways.
@@ -508,9 +507,11 @@ case "$(__effective_distribution)" in
     ;;
 "OSX")
     # echo "OSX zshrc load complete"
-    [[ -f "${DOTFILES_CONFIG_ROOT}/osx_funcs.zsh" ]] && source "${DOTFILES_CONFIG_ROOT}/osx_funcs.zsh"
-
-    # RPROMPT='$(battery_charge)'
+    if [[ -f "${DOTFILES_CONFIG_ROOT}/osx_funcs.zsh" ]]; then
+        source "${DOTFILES_CONFIG_ROOT}/osx_funcs.zsh"
+        # RPROMPT='$(battery_charge)'
+        chjava 22
+    fi
 
     if command -v brew > /dev/null; then
         [[ -f "$(brew --prefix)/opt/zsh-git-prompt/zshrc.sh" ]] && source "$(brew --prefix)/opt/zsh-git-prompt/zshrc.sh"
@@ -545,3 +546,7 @@ case "$(__effective_distribution)" in
     alias winGo='pushd $WIN_USERPROFILE; cd .'
     ;;
 esac
+
+if __is_shell_interactive && [[ "${SHLVL}" == "1" ]]; then
+    echo "$(zsh --version) $(uname -smn)"
+fi

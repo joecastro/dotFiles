@@ -8,12 +8,12 @@
     curl_maps: [
         ['https://raw.githubusercontent.com/git/git/master/contrib/completion/git-prompt.sh', 'out/git-prompt.sh', self.config_dir + '/git-prompt.sh'],
         ['https://iterm2.com/shell_integration/zsh', 'out/iterm2_shell_integration.zsh', self.config_dir + '/iterm2_shell_integration.zsh'],
+        ['https://iterm2.com/shell_integration/bash', 'out/iterm2_shell_integration.bash', self.config_dir + '/iterm2_shell_integration.bash'],
         ['https://raw.githubusercontent.com/eza-community/eza/main/completions/zsh/_eza', 'out/_eza', self.config_dir + '/zfuncs/_eza'],
     ],
     file_maps: [
         ['bash/profile.sh', '.profile'],
         ['bash/bashrc.sh', '.bashrc'],
-        ['bash/dircolorsrc', '.dircolorsrc'],
         ['shell/env_funcs.sh', self.config_dir + '/env_funcs.sh'],
         ['shell/iterm2_funcs.sh', self.config_dir + '/iterm2_funcs.sh'],
         ['shell/util_funcs.sh', self.config_dir + '/util_funcs.sh'],

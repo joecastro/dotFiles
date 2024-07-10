@@ -11,24 +11,6 @@ function kill_port_proc() {
     lsof -i tcp:"$port" | grep LISTEN | awk '{print $2}'
 }
 
-# update_java_home <version>
-function __update_java_home() {
-    local jver=${1:?"Version must be specified"}
-    if [[ -n $JAVA_HOME ]]; then
-        PATH=$(echo "$PATH" | tr ':' '\n' | grep -v "$JAVA_HOME" | tr '\n' ':')
-        PATH=${PATH%?} # Remove the trailing ':'
-    fi
-    JAVA_HOME=$(/usr/libexec/java_home -v "$jver")
-    export JAVA_HOME
-    PATH=$JAVA_HOME/bin:$PATH
-    export PATH
-}
-
-if command -v /usr/libexec/java_home &>/dev/null; then
-    __update_java_home 18
-    alias chjava='__update_java_home'
-fi
-
 function make_python_venv() {
     python3 -m venv ./.venv
     cd .

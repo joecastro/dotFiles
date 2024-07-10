@@ -2,7 +2,8 @@
 
 #pragma once
 
-declare -A ICON_MAP=([NOTHING]="")
+# Suppress warnings on bash 3
+declare -A ICON_MAP=([NOTHING]="") > /dev/null 2>&1
 
 function __refresh_icon_map() {
     USE_NERD_FONTS="$1"
