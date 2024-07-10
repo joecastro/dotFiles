@@ -4,13 +4,13 @@
 
 # Useful reference: https://scriptingosx.com/2019/07/moving-to-zsh-part-7-miscellanea/
 
-# autoload -Uz promptinit
-# promptinit
+# autoload -Uz promptinit; promptinit
 # prompt fire
 
-# Color cheat sheet: https://jonasjacek.github.io/colors/
-autoload -U colors && colors
+fpath=("${DOTFILES_CONFIG_ROOT}/zfuncs" $fpath)
 
+# Color cheat sheet: https://jonasjacek.github.io/colors/
+autoload -U colors; colors
 
 setopt NO_CASE_GLOB
 setopt AUTO_CD
@@ -29,6 +29,9 @@ setopt CORRECT
 # Vim mode
 bindkey -v
 
+# Remove mode switching delay.
+KEYTIMEOUT=5
+
 bindkey -v '^?' backward-delete-char
 
 bindkey ^R history-incremental-search-backward
@@ -40,36 +43,31 @@ bindkey \^U backward-kill-line
 bindkey \^W kill-line
 bindkey "\e[3~" delete-char
 
-fpath=("${DOTFILES_CONFIG_ROOT}/zfuncs" $fpath)
+autoload -Uz edit-command-line
+zle -N edit-command-line
+bindkey -M vicmd v edit-command-line
+
 # Use modern completion system
-autoload -Uz compinit && compinit
+autoload -Uz compinit; compinit
 
 # $PATH is tied to $path - Can use one as an array and the other as a scalar.
 typeset -U path # force unique values.
 
+zstyle ':completion:*' verbose true
+zstyle ':completion:*' auto-description 'specify: %d'
+# zstyle ':completion:*' list-colors ''
 zstyle ':completion:*:default' list-colors ${(s.:.)LS_COLORS}
-# zstyle ':completion:*' auto-description 'specify: %d'
 # zstyle ':completion:*' completer _expand _complete _correct _approximate
 # zstyle ':completion:*' format 'Completing %d'
 # zstyle ':completion:*' group-name ''
 # zstyle ':completion:*' menu select=2
-# eval "$(dircolors -b)"
-# zstyle ':completion:*:default' list-colors ${(s.:.)LS_COLORS}
-# zstyle ':completion:*' list-colors ''
 # zstyle ':completion:*' list-prompt %SAt %p: Hit TAB for more, or the character to insert%s
 # zstyle ':completion:*' matcher-list '' 'm:{a-z}={A-Z}' 'm:{a-zA-Z}={A-Za-z}' 'r:|[._-]=* r:|=* l:|=*'
 # zstyle ':completion:*' menu select=long
 # zstyle ':completion:*' select-prompt %SScrolling active: current selection at %p%s
 # zstyle ':completion:*' use-compctl false
-# zstyle ':completion:*' verbose true
-
 # zstyle ':completion:*:*:kill:*:processes' list-colors '=(#b) #([0-9]#)*=0=01;31'
 # zstyle ':completion:*:kill:*' command 'ps -u $USER -o pid,%cpu,tty,cputime,cmd'
-
-# Vim stuff
-
-# Remove mode switching delay.
-KEYTIMEOUT=5
 
 # Set cursor style (DECSCUSR), VT520.
 # 0 ⇒ blinking block.
