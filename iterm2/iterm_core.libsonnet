@@ -2,6 +2,7 @@ local wallpapers = import '../wallpaper/wallpapers.jsonnet';
 local color_defs = import '../terminals/color_definitions.libsonnet';
 
 local Color = color_defs.Color;
+local ColorWithAlpha = color_defs.ColorWithAlpha;
 local Colors = color_defs.Colors;
 local ExtendedTerminalColors = color_defs.ExtendedTerminalColors;
 
@@ -102,7 +103,6 @@ local ItermColorWhite = ItermColor(Colors.White);
         "Ambiguous Double Width": false,
         "BM Growl": true,
         "Background Image Mode": 2,
-        "Badge Color": ItermColorAlpha(Color(1, 0.15, 0, 0.5)),
         "Blink Allowed": false,
         "Blinking Cursor": false,
         "Blur": true,
@@ -112,7 +112,6 @@ local ItermColorWhite = ItermColor(Colors.White);
         "Close Sessions On End": true,
         "Columns": 140,
         "Command": "/opt/homebrew/bin/zsh",
-        "Cursor Guide Color": ItermColorAlpha(Color(0.70, 0.93, 1, 0.25)),
         "Custom Command": "Custom Shell",
         "Custom Directory": "No",
         "Default Bookmark": "No",
@@ -127,7 +126,7 @@ local ItermColorWhite = ItermColor(Colors.White);
         "Initial Use Transparency": false,
         "Jobs to Ignore": [],
         "Left Option Key Changeable": false,
-        "Link Color": ItermColorAlpha(Color(0, 0.36, 0.73, 1)),
+        "Link Color": ItermColorAlpha(Colors.CeruleanBlue),
         "Mouse Reporting": true,
         "Non-ASCII Anti Aliased": true,
         "Normal Font": "CaskaydiaCoveNFM-Regular 14",
@@ -167,12 +166,14 @@ local ItermColorWhite = ItermColor(Colors.White);
         regex : regex,
         [if partial then "partial"]: true,
     },
-    ItermProfile(profile_name, guid, wallpaper)::
+    ItermProfile(profile_name, color, guid, wallpaper)::
         ItermColorPreset(null, default_color_scheme, default_extended_colors) +
         $.ItermProfileTemplate +
     {
         "Background Image Location": std.extVar("cwd") + "/wallpaper/" + wallpaper.path,
+        "Badge Color": ItermColorAlpha(ColorWithAlpha(color, 0.5)),
         "Blend": wallpaper.blend,
+        "Cursor Guide Color": ItermColorAlpha(ColorWithAlpha(color, 0.25)),
         "Guid": guid,
         "Name": profile_name,
     },
@@ -217,11 +218,11 @@ local ItermColorWhite = ItermColor(Colors.White);
         "Y Origin": 648.0
     },
     Profiles:: {
-        ZshTheHardWay: $.ItermProfile("Zsh the Hard Way", $.private_guids[0], wallpapers.abstract_colorful),
-        BashTheOldWay: $.ItermProfile("Bash the Old Way", $.private_guids[1], wallpapers.abstract_pastel) {
+        ZshTheHardWay: $.ItermProfile("Zsh the Hard Way", Colors.White, $.private_guids[0], wallpapers.abstract_colorful),
+        BashTheOldWay: $.ItermProfile("Bash the Old Way", Colors.White, $.private_guids[1], wallpapers.abstract_pastel) {
             "Command": "/opt/homebrew/bin/bash",
         },
-        HotkeyWindow: $.ItermProfile("Guake Window", $.private_guids[2], wallpapers.quake) {
+        HotkeyWindow: $.ItermProfile("Guake Window", Colors.White, $.private_guids[2], wallpapers.quake) {
             "Has Hotkey": true,
             "Horizontal Spacing": 1.0,
             "HotKey Activated By Modifier": false,

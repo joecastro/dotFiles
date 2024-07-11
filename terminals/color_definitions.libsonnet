@@ -29,6 +29,9 @@ local ColorFromHex(hex) =
     local b = std.parseHex(std.substr(hex, 5, 2)) / 255;
     Color(r, g, b);
 
+local ColorWithAlpha(color, alpha) =
+    Color(color.red, color.green, color.blue, alpha);
+
 local Black = Color(0, 0, 0);
 local Blue = Color(0, 0, 1);
 local Green = Color(0, 1, 0);
@@ -150,18 +153,21 @@ local ExtendedTerminalColors(
     AnsiColorScheme: AnsiColorScheme,
     ExtendedTerminalColors: ExtendedTerminalColors,
     ColorFromHex: ColorFromHex,
+    ColorWithAlpha: ColorWithAlpha,
     # https://hexcolor.co
     Colors: {
-        ForestGreen: ColorFromHex("#228B22"),
-        GuardsmanRed: ColorFromHex("#D31100"),
-        NoblePlum: ColorFromHex("#871F78"),
-        BlueMartini: ColorFromHex("#52B4D3"),
-        Ginger: ColorFromHex("#B06500"),
         Black: ColorFromHex("#000000"),
-        White: ColorFromHex("#FFFFFF"),
         BlueBell: ColorFromHex("#95a0c5"),
-        YellowSea: ColorFromHex("#ffaf00"),
+        BlueMartini: ColorFromHex("#52B4D3"),
+        ForestGreen: ColorFromHex("#228B22"),
+        Ginger: ColorFromHex("#B06500"),
+        GuardsmanRed: ColorFromHex("#D31100"),
+        CeruleanBlue: Color(0, 0.36, 0.73, 1),
+        NoblePlum: ColorFromHex("#871F78"),
         SelectiveYellow: ColorFromHex("#ffb506"),
+        Viola: ColorFromHex("#cc87a9"),
+        White: ColorFromHex("#FFFFFF"),
+        YellowSea: ColorFromHex("#ffaf00"),
     },
     Schemes: {
         Iterm: AnsiColorScheme(

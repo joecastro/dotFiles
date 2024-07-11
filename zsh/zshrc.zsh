@@ -254,15 +254,21 @@ function __print_repo_worktree() {
         return 0
     fi
 
-    local MANIFEST_BRANCH=""
+    local manifest_branch
+    local current_branch
 
     if (( ${+ANDROID_REPO_ROOT} )) && [[ "${PWD}" == "${ANDROID_REPO_ROOT}" || "${PWD}" == "${ANDROID_REPO_ROOT}"/* ]]; then
-        MANIFEST_BRANCH=$ANDROID_REPO_BRANCH
+        manifest_branch=$ANDROID_REPO_BRANCH
     else
-        MANIFEST_BRANCH=$(repo info --outer-manifest -l -q "platform/no-project" 2>/dev/null | grep -i "Manifest branch" | sed 's/^Manifest branch: //')
+        manifest_branch=$(repo info --outer-manifest -l -q "platform/no-project" 2>/dev/null | grep -i "Manifest branch" | sed 's/^Manifest branch: //')
     fi
 
-    echo "%{$fg[green]%}${ICON_MAP[ANDROID_BODY]}${MANIFEST_BRANCH}%{$reset_color%} "
+    current_branch=$(repo_current_project_branch 2>/dev/null)
+    if [[ "$?" != "0" ]]; then
+        echo "%{$fg[yellow]%}${ICON_MAP[ANDROID_BODY]}${manifest_branch}:${current_branch}%{$reset_color%} "
+    else
+        echo "%{$fg[green]%}${ICON_MAP[ANDROID_BODY]}${manifest_branch}%{$reset_color%} "
+    fi
 }
 
 function __print_git_info() {
@@ -391,7 +397,7 @@ function __generate_standard_prompt() {
     elif __is_embedded_terminal; then
         PromptHostName=%m
     elif __is_ssh_session; then
-        PromptHostName=%M
+        PromptHostName=%m
     elif [[ -n ${LOCALHOST_PREFERRED_DISPLAY} ]]; then
         PromptHostName=${LOCALHOST_PREFERRED_DISPLAY}
     else
@@ -467,7 +473,6 @@ fi
 if ! __is_tool_window; then
     if __is_embedded_terminal; then
         __refresh_icon_map 1 # No nerdfonts in embedded terminals.
-        echo "Limiting zsh initialization because inside $(__embedded_terminal_info) terminal."
         if __is_vscode_terminal; then
             if command -v code &> /dev/null; then
                 source "$(code --locate-shell-integration-path zsh)"
@@ -547,6 +552,16 @@ case "$(__effective_distribution)" in
     ;;
 esac
 
-if __is_shell_interactive && [[ "${SHLVL}" == "1" ]]; then
-    echo "$(zsh --version) $(uname -smn)"
+if __is_shell_interactive; then
+    if [[ "${SHLVL}" == "1" ]] || __is_embedded_terminal; then
+        echo -n "$(zsh --version) $(uname -smn)"
+        if __is_embedded_terminal; then
+            echo -n " embedded:$(__embedded_terminal_info)"
+        fi
+        if __is_tool_window; then
+            echo -n " tool"
+        fi
+
+        echo ""
+    fi
 fi

@@ -21,6 +21,12 @@ function repo_upstream_branch() {
     echo "goog/${upstream_branch}"
 }
 
+function repo_current_project_branch() {
+    local current_project
+    current_project=$(repo branch .) || return $?
+    echo "${current_project%%|*}" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'
+}
+
 function repo_format() {
     git diff HEAD^ --name-only | xargs -t "${ANDROID_BUILD_TOP}"/external/ktfmt/ktfmt.py
     git diff HEAD^ --name-only | xargs -t google-java-format -i --aosp

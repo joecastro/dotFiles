@@ -3,13 +3,13 @@
 
 #pragma once
 
+# shellcheck source=/dev/null
+source ~/.profile
+
 # If not running interactively, don't do anything
 __is_shell_interactive || return
 
 [ "${BASH_VERSINFO[0]}" -lt 4 ] && echo "WARN: This is a really old version of Bash. $BASH_VERSION"
-
-# shellcheck source=/dev/null
-source ~/.profile
 
 # Various PS1 aliases
 
