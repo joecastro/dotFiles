@@ -6,10 +6,15 @@
 declare -A ICON_MAP=([NOTHING]="") > /dev/null 2>&1
 
 function __refresh_icon_map() {
-    USE_NERD_FONTS="$1"
+    if __is_shell_old_bash; then
+        ICON_MAP=([UNSUPPORTED]="[?]")
+        return 0
+    fi
+
+    local USE_NERD_FONTS="$1"
     # emojipedia.org
     #Nerdfonts - https://www.nerdfonts.com/cheat-sheet
-    if [[ ${USE_NERD_FONTS} = 0 ]]; then
+    if [[ "${USE_NERD_FONTS}" == "0" ]]; then
         ICON_MAP=(
         [WINDOWS]=
         [LINUX_PENGUIN]=
@@ -86,9 +91,6 @@ function __refresh_icon_map() {
     fi
 }
 
-__refresh_icon_map "${EXPECT_NERD_FONTS:-0}"
-export ICON_MAP
-
 function __is_ssh_session() {
     [ -n "${SSH_CLIENT}" ] || [ -n "${SSH_TTY}" ] || [ -n "${SSH_CONNECTION}" ]
 }
@@ -103,6 +105,10 @@ function __is_in_git_dir() {
 
 function __is_in_repo() {
     repo --show-toplevel > /dev/null 2>&1
+}
+
+function __is_in_repo_root() {
+    __is_in_repo && [[ "$(repo --show-toplevel)" == "${PWD}" ]]
 }
 
 function __is_shell_interactive() {
@@ -170,3 +176,206 @@ function __is_iterm2_terminal() {
 function __is_tool_window() {
     [[ -n "${TOOL_WINDOW}" ]];
 }
+
+function __is_shell_bash() {
+    [[ -n "$BASH_VERSION" ]]
+}
+
+function __is_shell_old_bash() {
+    __is_shell_bash && [[ "${BASH_VERSINFO[0]}" -lt 4 ]]
+}
+
+function __is_shell_zsh() {
+    [[ -n "$ZSH_VERSION" ]]
+}
+
+# Shared cuteness
+
+if ! __is_shell_old_bash; then
+
+    function __cute_pwd_lookup() {
+        local ACTIVE_DIR=$1
+
+        # These should only match if they're exact.
+        case "${ACTIVE_DIR}" in
+        "${HOME}")
+            echo -n "${ICON_MAP[COD_HOME]}${SUFFIX}"
+            return 0
+            ;;
+        "${WIN_USERPROFILE}")
+            echo -n "${ICON_MAP[WINDOWS]}${SUFFIX}"
+            return 0
+            ;;
+        "/")
+            echo -n "${ICON_MAP[FAE_TREE]}"
+            return 0
+            ;;
+        esac
+
+        if [[ -n "${ANDROID_REPO_BRANCH}" ]]; then
+            if [[ "${ACTIVE_DIR##*/}" == "${ANDROID_REPO_BRANCH}" ]]; then
+                echo -n "${ICON_MAP[ANDROID_HEAD]}"
+                return 0
+            fi
+        fi
+
+        case "${ACTIVE_DIR##*/}" in
+        "github")
+            echo -n "${ICON_MAP[GITHUB]}"
+            return 0
+            ;;
+        "src" | "source")
+            echo -n "${ICON_MAP[COD_SAVE]}"
+            return 0
+            ;;
+        "cloud")
+            echo -n "${ICON_MAP[CLOUD]}"
+            return 0
+            ;;
+        "$USER")
+            echo -n "${ICON_MAP[ACCOUNT]}"
+            return 0
+            ;;
+        esac
+
+        return 1
+    }
+
+    function __cute_pwd_short() {
+        if ! __cute_pwd_lookup "${PWD}"; then
+            echo -n "${PWD##*/}"
+        fi
+    }
+
+    function __cute_pwd() {
+        if __is_in_git_repo; then
+            if ! __is_in_git_dir; then
+                # If we're in a git repo then show the current directory relative to the root of that repo.
+                # These commands wind up spitting out an extra slash, so backspace to remove it on the console.
+                # Because this messes with the shell's perception of where the cursor is, make the anchor icon
+                # appear like an escape sequence instead of a printed character.
+                echo -e "%{${ICON_MAP[COD_PINNED]} %}$(git rev-parse --show-toplevel | xargs basename)/$(git rev-parse --show-prefix)\b"
+            else
+                echo -n "${PWD}"
+            fi
+            return 0
+        fi
+
+        # Print the parent directory only if it has a special expansion.
+        if [[ "${PWD}" != "/" ]] && __cute_pwd_lookup "$(dirname "${PWD}")"; then
+            echo -n "/"
+        fi
+        __cute_pwd_short
+
+        return 0
+    }
+else
+    function __cute_pwd() {
+        if [[ "${PWD}" == "/" ]]; then
+            echo -n "${PWD}"
+            return 0
+        fi
+        parent_dir="$(dirname "${PWD}")"
+        echo -n "${parent_dir##*/}/${PWD##*/}"
+    }
+fi
+
+function __cute_time_prompt() {
+    case "$(date +%Z)" in
+    UTC)
+        echo -n "$(date +'%_H:%Mz')"
+        ;;
+    *)
+        echo -n "$(date +'%_H:%M %Z')"
+        ;;
+    esac
+}
+
+function __cute_shell_header() {
+    if __is_shell_bash; then
+        function do_display() {
+            if __is_shell_interactive && [[ "${SHLVL}" == "1" ]]; then
+                return 0
+            fi
+            return 1
+        }
+    elif __is_shell_zsh; then
+        function do_display() {
+            if __is_shell_interactive && ([[ "${SHLVL}" == "1" ]] || __z_is_embedded_terminal); then
+                return 0;
+            fi
+            return 1
+        }
+    fi
+
+    if ! do_display && [[ "$1" != "--force" ]]; then
+        return 0
+    fi
+
+    if __is_shell_bash; then
+        echo -n "${SHELL} ${BASH_VERSION} $(uname -smn)"
+        if __is_shell_old_bash; then
+            echo -n " !! Bash ${BASH_VERSINFO[0]} is old o_O !!"
+        fi
+        echo ""
+        return 0
+    fi
+    if __is_shell_zsh; then
+        echo -n "$(zsh --version) $(uname -smn) distro:$(__z_effective_distribution)"
+        if __z_is_embedded_terminal; then
+            echo -n " embedded:$(__embedded_terminal_info)"
+        fi
+        if __is_tool_window; then
+            echo -n " tool"
+        fi
+
+        echo ""
+        return 0
+    fi
+
+    return 1
+}
+
+# Shared setup helpers for bash and zsh.
+
+function __do_eza_aliases() {
+    # if eza is installed prefer that to ls
+    # options aren't the same, but I also need it less often...
+    if ! command -v eza &> /dev/null; then
+        echo "## Using native ls because missing eza"
+        # by default, show slashes, follow symbolic links, colorize
+        alias ls='ls -FHG'
+    else
+        export EZA_STRICT=0
+        export EZA_ICONS_AUTO=0
+        alias ls='eza -l --group-directories-first'
+        # https://github.com/orgs/eza-community/discussions/239#discussioncomment-9834010
+        alias kd='eza --group-directories-first'
+        alias realls='\ls -FHG'
+    fi
+}
+
+function __do_iterm2_shell_integration() {
+    # If using iTerm2, try for shell integration.
+    # iTerm profile switching requires shell_integration to be installed anyways.
+    if ! __is_iterm2_terminal; then
+        return 0;
+    fi
+
+    if __is_shell_zsh; then
+        # shellcheck source=/dev/null
+        [[ -f "${DOTFILES_CONFIG_ROOT}/iterm2_shell_integration.zsh" ]] && source "${DOTFILES_CONFIG_ROOT}/iterm2_shell_integration.zsh"
+    elif __is_shell_bash; then
+        # shellcheck source=/dev/null
+        [[ -f "${DOTFILES_CONFIG_ROOT}/iterm2_shell_integration.bash" ]] && source "${DOTFILES_CONFIG_ROOT}/iterm2_shell_integration.bash"
+    else
+        echo "Unknown shell for iTerm2 integration"
+        return 1
+    fi
+
+    # shellcheck source=/dev/null
+    [[ -f "${DOTFILES_CONFIG_ROOT}/iterm2_funcs.sh" ]] && source "${DOTFILES_CONFIG_ROOT}/iterm2_funcs.sh"
+}
+
+__refresh_icon_map "${EXPECT_NERD_FONTS:-0}"
+export ICON_MAP

@@ -120,99 +120,6 @@ preexec() {
     _set_cursor_beam
 }
 
-function __cute_pwd_helper() {
-    local ACTIVE_DIR=$1
-    local SUFFIX=$2
-    local ICO_COLOR=$reset_color
-
-    # These should only match if they're exact.
-    case "${ACTIVE_DIR}" in
-    "${HOME}")
-        echo -n %{${ICO_COLOR}%}${ICON_MAP[COD_HOME]}%{$reset_color%}${SUFFIX}
-        return 0
-        ;;
-    "${WIN_USERPROFILE}")
-        echo -n %{${ICO_COLOR}%}${ICON_MAP[WINDOWS]}%{$reset_color%}${SUFFIX}
-        return 0
-        ;;
-    "/")
-        echo -n %{${ICO_COLOR}%}${ICON_MAP[FAE_TREE]}%{$reset_color%}${SUFFIX}
-        return 0
-        ;;
-    esac
-
-    if (( ${+ANDROID_REPO_BRANCH} )); then
-        if [[ "${ACTIVE_DIR##*/}" == "${ANDROID_REPO_BRANCH}" ]]; then
-            echo -n %{${ICO_COLOR}%}${ICON_MAP[ANDROID_HEAD]}%{$reset_color%}${SUFFIX}
-            return 0
-        fi
-    fi
-
-    case "${ACTIVE_DIR##*/}" in
-    "github")
-        echo -n %{${ICO_COLOR}%}${ICON_MAP[GITHUB]}%{$reset_color%}${SUFFIX}
-        return 0
-        ;;
-    "src" | "source")
-        echo -n %{${ICO_COLOR}%}${ICON_MAP[COD_SAVE]}%{$reset_color%}${SUFFIX}
-        return 0
-        ;;
-    "cloud")
-        echo -n %{${ICO_COLOR}%}${ICON_MAP[CLOUD]}%{$reset_color%}${SUFFIX}
-        return 0
-        ;;
-    "$USER")
-        echo -n %{${ICO_COLOR}%}${ICON_MAP[ACCOUNT]}%{$reset_color%}${SUFFIX}
-        return 0
-        ;;
-    *)
-        ;;
-    esac
-
-    # If there is a suffix here then don't print the directory.
-    if [[ ${SUFFIX} == "" ]]; then
-        echo -n ${ACTIVE_DIR##*/}
-    fi
-
-    return 0
-}
-
-function __cute_pwd() {
-    if __is_in_git_repo; then
-        if ! __is_in_git_dir; then
-            # If we're in a git repo then show the current directory relative to the root of that repo.
-            # These commands wind up spitting out an extra slash, so backspace to remove it on the console.
-            # Because this messes with the shell's perception of where the cursor is, make the anchor icon
-            # appear like an escape sequence instead of a printed character.
-            echo -e "%{${ICON_MAP[COD_PINNED]} %}$(git rev-parse --show-toplevel | xargs basename)/$(git rev-parse --show-prefix)\b"
-        else
-            echo -n $PWD
-        fi
-        return 0
-    fi
-
-    if [[ $PWD != "/" ]]; then
-        __cute_pwd_helper "$(dirname $PWD)" "/"
-    fi
-    __cute_pwd_helper $PWD ""
-    return 0
-}
-
-function __cute_pwd_short() {
-    __cute_pwd_helper $PWD ""
-}
-
-function __cute_time_prompt() {
-    case "$(date +%Z)" in
-    UTC)
-        echo -n "%Tz"
-        ;;
-    *)
-        echo -n "%T %D{%Z}"
-        ;;
-    esac
-}
-
 function __print_git_worktree() {
     local PINK_FLAMINGO_FG="%F{#ff5fff}"
     if __is_in_repo && (( ${+SKIP_WORKTREE_IN_ANDROID_REPO} )); then
@@ -394,7 +301,7 @@ function __generate_standard_prompt() {
 
     if __is_in_tmux; then
         PromptHostName=""
-    elif __is_embedded_terminal; then
+    elif __z_is_embedded_terminal; then
         PromptHostName=%m
     elif __is_ssh_session; then
         PromptHostName=%m
@@ -461,17 +368,12 @@ compdef ___venv_aware_cd __venv_aware_cd
 
 command -v hub &> /dev/null && eval "$(hub alias -s)"
 
-# If using iTerm2, try for shell integration.
-# iTerm profile switching requires shell_integration to be installed anyways.
-if __is_iterm2_terminal; then
-    [[ -f "${DOTFILES_CONFIG_ROOT}/iterm2_shell_integration.zsh" ]] && source "${DOTFILES_CONFIG_ROOT}/iterm2_shell_integration.zsh"
-    [[ -f "${DOTFILES_CONFIG_ROOT}/iterm2_funcs.sh" ]] && source "${DOTFILES_CONFIG_ROOT}/iterm2_funcs.sh"
-fi
+__do_iterm2_shell_integration
 
 [[ -f "~/.zshext/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" ]] && source "~/.zshext/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
 
 if ! __is_tool_window; then
-    if __is_embedded_terminal; then
+    if __z_is_embedded_terminal; then
         __refresh_icon_map 1 # No nerdfonts in embedded terminals.
         if __is_vscode_terminal; then
             if command -v code &> /dev/null; then
@@ -486,23 +388,10 @@ if ! __is_tool_window; then
     fi
 fi
 
-# if eza is installed prefer that to ls
-# options aren't the same, but I also need it less often...
-if ! command -v eza &> /dev/null; then
-    echo "## Using native ls because missing eza"
-    # by default, show slashes, follow symbolic links, colorize
-    alias ls='ls -FHG'
-else
-    export EZA_STRICT=0
-    export EZA_ICONS_AUTO=0
-    alias ls='eza -l --group-directories-first'
-    # https://github.com/orgs/eza-community/discussions/239#discussioncomment-9834010
-    alias kd='eza --group-directories-first'
-    alias realls='\ls -FHG'
-fi
+__do_eza_aliases
 
-# echo "Welcome to $(__effective_distribution)!"
-case "$(__effective_distribution)" in
+# echo "Welcome to $(__z_effective_distribution)!"
+case "$(__z_effective_distribution)" in
 "GLinux")
     # echo "GLinux zshrc load complete"
     if declare -f __on_glinux_zshrc_load_complete > /dev/null; then
@@ -552,16 +441,4 @@ case "$(__effective_distribution)" in
     ;;
 esac
 
-if __is_shell_interactive; then
-    if [[ "${SHLVL}" == "1" ]] || __is_embedded_terminal; then
-        echo -n "$(zsh --version) $(uname -smn)"
-        if __is_embedded_terminal; then
-            echo -n " embedded:$(__embedded_terminal_info)"
-        fi
-        if __is_tool_window; then
-            echo -n " tool"
-        fi
-
-        echo ""
-    fi
-fi
+__cute_shell_header

@@ -9,8 +9,6 @@ source ~/.profile
 # If not running interactively, don't do anything
 __is_shell_interactive || return
 
-[ "${BASH_VERSINFO[0]}" -lt 4 ] && echo "WARN: This is a really old version of Bash. $BASH_VERSION"
-
 # Various PS1 aliases
 
 Time12h="\T"
@@ -72,62 +70,6 @@ shopt -s globstar >/dev/null 2>&1
 # Disable extdebug because it causes issues with iTerm shell integration
 shopt -u extdebug
 
-function __cute_pwd() {
-    if __is_in_git_repo; then
-        if ! __is_in_git_dir; then
-            # If we're in a git repo then show the current directory relative to the root of that repo.
-            # These commands wind up spitting out an extra slash, so backspace to remove it on the console.
-            echo -e "⚓$(git rev-parse --show-toplevel | xargs basename)/$(git rev-parse --show-prefix)\b"
-        else
-            echo "🚧"
-        fi
-        return 0
-    fi
-
-    # These should only match if they're exact.
-    case "$PWD" in
-    "$HOME")
-        echo 🏠
-        return 0
-        ;;
-    /)
-        echo 🌲
-        return 0
-        ;;
-    esac
-
-    case "${PWD##*/}" in
-    github)
-        echo "${ICON_MAP[GITHUB]}"
-        return 0
-        ;;
-    src | source | master | main)
-        echo 💾
-        return 0
-        ;;
-    work)
-        echo 🏢
-        return 0
-        ;;
-    *)
-        ;;
-    esac
-
-    echo -n "${PWD##*/}"
-    return 0
-}
-
-function __cute_time_prompt() {
-    case "$(date +%Z)" in
-    UTC)
-        echo -n "$(date +'%_H:%Mz')"
-        ;;
-    *)
-        echo -n "$(date +'%_H:%M %Z')"
-        ;;
-    esac
-}
-
 # Use a different color for displaying the host name when we're logged into SSH
 if __is_ssh_session; then
     HostColor=$Yellow
@@ -147,14 +89,7 @@ fi
 PS1=\\[$White\\]$(__cute_time_prompt)\\[$Color_Off\\]' '\\[$BrightGreen\\]'\u'\\[$HostColor\\]'@\h'\\[$Color_Off\\]' $(__cute_pwd) % '
 export PS1
 
-# If using iTerm2, try for shell integration.
-# iTerm profile switching requires shell_integration to be installed anyways.
-if __is_iterm2_terminal; then
-    # shellcheck source=/dev/null
-    [[ -f "${DOTFILES_CONFIG_ROOT}/iterm2_shell_integration.bash" ]] && source "${DOTFILES_CONFIG_ROOT}/iterm2_shell_integration.bash"
-    # shellcheck source=/dev/null
-    [[ -f "${DOTFILES_CONFIG_ROOT}/iterm2_funcs.sh" ]] && source "${DOTFILES_CONFIG_ROOT}/iterm2_funcs.sh"
-fi
+__do_iterm2_shell_integration
 
 # shellcheck source=/dev/null
 source "${DOTFILES_CONFIG_ROOT}/git-prompt.sh" # defines __git_ps1
@@ -162,6 +97,8 @@ source "${DOTFILES_CONFIG_ROOT}/git-prompt.sh" # defines __git_ps1
 if declare -f chjava &>/dev/null; then
     chjava 22
 fi
+
+__do_eza_aliases
 
 if __is_on_osx; then
     if [ -d "/opt/homebrew/bin" ]; then
@@ -181,6 +118,4 @@ if __is_on_osx; then
     export PATH=${PATH}:$ANDROID_HOME/tools:$ANDROID_HOME/platform-tools:$ANDROID_NDK
 fi
 
-if __is_shell_interactive && [[ "${SHLVL}" == "1" ]]; then
-    echo "${SHELL} ${BASH_VERSION} $(uname -smn)"
-fi
+__cute_shell_header

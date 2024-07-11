@@ -16,7 +16,7 @@ typeset -a VSCODE_TERMINAL_ID=("__is_vscode_terminal" "ICON_MAP[MD_MICROSOFT_VIS
 typeset -A EMBEDDED_TERMINAL_ID_FUNCS=( \
     [VSCODE]=VSCODE_TERMINAL_ID )
 
-function __is_embedded_terminal() {
+function __z_is_embedded_terminal() {
     __embedded_terminal_info --noshow
 }
 
@@ -39,7 +39,7 @@ typeset -A DISTRIBUTION_ID_FUNCS=( \
     [OSX]="__is_on_osx" \
     [Windows]="__is_on_windows" )
 
-function __effective_distribution() {
+function __z_effective_distribution() {
     for distro func in ${(kv)DISTRIBUTION_ID_FUNCS}; do
         if $func; then
             echo $distro
