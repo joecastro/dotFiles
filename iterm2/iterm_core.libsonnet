@@ -218,7 +218,7 @@ local ItermColorWhite = ItermColor(Colors.White);
         "Y Origin": 648.0
     },
     Profiles:: {
-        ZshTheHardWay: $.ItermProfile("Zsh the Hard Way", Colors.White, $.private_guids[0], wallpapers.abstract_colorful),
+        ZshTheHardWay: $.ItermProfile("Zsh the Hard Way", Colors.White, $.private_guids[0], wallpapers.hokusai_wave),
         BashTheOldWay: $.ItermProfile("Bash the Old Way", Colors.White, $.private_guids[1], wallpapers.abstract_pastel) {
             "Command": "/opt/homebrew/bin/bash",
         },

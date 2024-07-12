@@ -254,7 +254,11 @@ if ! __is_shell_old_bash; then
                 # These commands wind up spitting out an extra slash, so backspace to remove it on the console.
                 # Because this messes with the shell's perception of where the cursor is, make the anchor icon
                 # appear like an escape sequence instead of a printed character.
-                echo -e "%{${ICON_MAP[COD_PINNED]} %}$(git rev-parse --show-toplevel | xargs basename)/$(git rev-parse --show-prefix)\b"
+                if __is_shell_zsh; then
+                    echo -e "%{${ICON_MAP[COD_PINNED]} %}$(git rev-parse --show-toplevel | xargs basename)/$(git rev-parse --show-prefix)\b"
+                else
+                    echo -e "${ICON_MAP[COD_PINNED]} $(git rev-parse --show-toplevel | xargs basename)/$(git rev-parse --show-prefix)\b"
+                fi
             else
                 echo -n "${PWD}"
             fi
@@ -317,7 +321,7 @@ function __cute_shell_header() {
         if __is_shell_old_bash; then
             echo -n " !! Bash ${BASH_VERSINFO[0]} is old o_O !!"
         fi
-        echo ""
+        echo " ${ICON_MAP[MD_SNAPCHAT]}"
         return 0
     fi
     if __is_shell_zsh; then
@@ -329,7 +333,7 @@ function __cute_shell_header() {
             echo -n " tool"
         fi
 
-        echo ""
+        echo " ${ICON_MAP[MD_SNAPCHAT]}"
         return 0
     fi
 

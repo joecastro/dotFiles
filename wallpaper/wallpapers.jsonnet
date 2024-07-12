@@ -20,4 +20,7 @@ local BackgroundImageNode(path, blend_percent=0.4) =
     google_colors: BackgroundImageNode("google_colors.jpg", 0.35),
     quake: BackgroundImageNode("quake_1996.png"),
     under_construction: BackgroundImageNode("under_construction.jpg"),
+    hokusai_cranes: BackgroundImageNode("hokusai_cranes.png"),
+    hokusai_mt_fuji: BackgroundImageNode("hokusai_mt_fuji.png"),
+    hokusai_wave: BackgroundImageNode("hokusai_wave.jpg"),
 }
