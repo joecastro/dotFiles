@@ -381,5 +381,22 @@ function __do_iterm2_shell_integration() {
     [[ -f "${DOTFILES_CONFIG_ROOT}/iterm2_funcs.sh" ]] && source "${DOTFILES_CONFIG_ROOT}/iterm2_funcs.sh"
 }
 
+function __do_vscode_shell_integration() {
+    if ! __is_vscode_terminal; then
+        return 0
+    fi
+
+    if __is_shell_zsh; then
+        if command -v code &> /dev/null; then
+            # shellcheck disable=SC1090
+            source "$(code --locate-shell-integration-path zsh)"
+        fi
+
+        # Also, in some contexts .zprofile isn't sourced when started inside the Python debug console.
+        # shellcheck disable=SC1090
+        source ~/.zprofile
+    fi
+}
+
 __refresh_icon_map "${EXPECT_NERD_FONTS:-0}"
 export ICON_MAP

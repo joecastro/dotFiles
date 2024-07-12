@@ -43,3 +43,11 @@ function iterm_set_color() {
 
     echo -ne "\033]1337;SetColors=${color_key}=${color_value}\007"
 }
+
+function iterm_get_attention() {
+    if __is_in_screen ; then
+        printf "\033Ptmux;\033\033]" && printf "1337;RequestAttention=fireworks"  && printf "\a\033\\"
+    else
+        printf "\033]" && printf "1337;RequestAttention=fireworks" && printf "\a"
+    fi
+}

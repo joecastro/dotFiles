@@ -7,17 +7,40 @@
 # autoload -Uz promptinit; promptinit
 # prompt fire
 
-fpath=("${DOTFILES_CONFIG_ROOT}/zfuncs" $fpath)
-
-# Color cheat sheet: https://jonasjacek.github.io/colors/
-autoload -U colors; colors
-
-setopt NO_CASE_GLOB
-setopt AUTO_CD
-
 HISTFILE=${ZDOTDIR:-$HOME}/.zsh_history
 SAVEHIST=5000
 HISTSIZE=2000
+
+# Remove mode switching delay.
+KEYTIMEOUT=5
+
+# disable the default virtualenv prompt change
+VIRTUAL_ENV_DISABLE_PROMPT=1
+# Repo is implemented in terms of worktrees, so this gets noisy.
+SKIP_WORKTREE_IN_ANDROID_REPO=0
+
+END_OF_PROMPT_ICON=${ICON_MAP[MD_GREATER_THAN]}
+ELEVATED_END_OF_PROMPT_ICON="$"
+
+CMD_LAST_START=0
+
+
+fpath=("${DOTFILES_CONFIG_ROOT}/zfuncs" $fpath)
+
+# defines __git_ps1
+[[ -f "${DOTFILES_CONFIG_ROOT}/git-prompt.sh" ]] && source "${DOTFILES_CONFIG_ROOT}/git-prompt.sh"
+[[ -f "~/.zshext/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" ]] \
+    && source "~/.zshext/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
+
+autoload -Uz async && async
+
+async_init
+
+# Color cheat sheet: https://jonasjacek.github.io/colors/
+autoload -U colors && colors
+
+setopt NO_CASE_GLOB
+setopt AUTO_CD
 
 setopt PROMPT_SUBST
 setopt SHARE_HISTORY
@@ -28,9 +51,6 @@ setopt CORRECT
 
 # Vim mode
 bindkey -v
-
-# Remove mode switching delay.
-KEYTIMEOUT=5
 
 bindkey -v '^?' backward-delete-char
 
@@ -111,8 +131,6 @@ zle-line-init() {
 
 zle -N zle-line-init
 
-CMD_LAST_START=0
-
 # This gets run before any new command.
 preexec() {
     CMD_LAST_START=$(date +%s)
@@ -123,17 +141,17 @@ preexec() {
 function __print_git_worktree() {
     local PINK_FLAMINGO_FG="%F{#ff5fff}"
     if __is_in_repo && (( ${+SKIP_WORKTREE_IN_ANDROID_REPO} )); then
-        echo ""
+        echo -n ""
         return 0
     fi
 
     if ! __is_in_git_repo; then
-        echo ""
+        echo -n ""
         return 0
     fi
 
     if __is_in_git_dir; then
-        echo "${fg[yellow]%}${ICON_MAP[COD_TOOLS]} "
+        echo -n "${fg[yellow]%}${ICON_MAP[COD_TOOLS]} "
         return 0
     fi
 
@@ -147,11 +165,11 @@ function __print_git_worktree() {
 
     local SUBMODULE_WORKTREE=$(git rev-parse --show-superproject-working-tree)
     if [[ "${SUBMODULE_WORKTREE}" == "" ]]; then
-        echo "%{$fg[green]%}${ICON_MAP[OCT_FILE_SUBMODULE]}%{$PINK_FLAMINGO_FG%}${ROOT_WORKTREE##*/}:%{$fg[green]%}${ACTIVE_WORKTREE##*/} "
+        echo -n "%{$fg[green]%}${ICON_MAP[OCT_FILE_SUBMODULE]}%{$PINK_FLAMINGO_FG%}${ROOT_WORKTREE##*/}:%{$fg[green]%}${ACTIVE_WORKTREE##*/} "
         return 0
     fi
 
-    echo "%{$PINK_FLAMINGO_FG%}${ICON_MAP[COD_FILE_SUBMODULE]}${SUBMODULE_WORKTREE##*/} "
+    echo -n "%{$PINK_FLAMINGO_FG%}${ICON_MAP[COD_FILE_SUBMODULE]}${SUBMODULE_WORKTREE##*/} "
     return 0
 }
 
@@ -172,15 +190,15 @@ function __print_repo_worktree() {
 
     current_branch=$(repo_current_project_branch 2>/dev/null)
     if [[ "$?" != "0" ]]; then
-        echo "%{$fg[yellow]%}${ICON_MAP[ANDROID_BODY]}${manifest_branch}:${current_branch}%{$reset_color%} "
+        echo -n "%{$fg[yellow]%}${ICON_MAP[ANDROID_BODY]}${manifest_branch}:${current_branch}%{$reset_color%} "
     else
-        echo "%{$fg[green]%}${ICON_MAP[ANDROID_BODY]}${manifest_branch}%{$reset_color%} "
+        echo -n "%{$fg[green]%}${ICON_MAP[ANDROID_BODY]}${manifest_branch}%{$reset_color%} "
     fi
 }
 
 function __print_git_info() {
     if ! __is_in_git_repo || __is_in_git_dir; then
-        echo ""
+        echo -n ""
         return 0
     fi
 
@@ -196,15 +214,15 @@ function __print_git_info() {
 
     if [[ "${IS_DETACHED_HEAD}" == "0" ]]; then
         if [[ "${IS_NOTHING_TO_COMMIT}" == "0" ]]; then
-            echo -e "%{$fg[red]%}"$(__git_ps1 ${COMMIT_TEMPLATE_STRING})"%{$reset_color%} "
+            echo -ne "%{$fg[red]%}"$(__git_ps1 ${COMMIT_TEMPLATE_STRING})"%{$reset_color%} "
         else
-            echo -e "%{$fg[red]%}"$(__git_ps1 ${COMMIT_MOD_TEMPLATE_STRING})"%{$reset_color%} "
+            echo -ne "%{$fg[red]%}"$(__git_ps1 ${COMMIT_MOD_TEMPLATE_STRING})"%{$reset_color%} "
         fi
     else
         if [[ "${IS_NOTHING_TO_COMMIT}" == "0" ]]; then
-            echo -e "%{$fg[green]%}"$(__git_ps1 ${BRANCH_TEMPLATE_STRING})"%{$reset_color%} "
+            echo -ne "%{$fg[green]%}"$(__git_ps1 ${BRANCH_TEMPLATE_STRING})"%{$reset_color%} "
         else
-            echo -e "%{$fg[yellow]%}"$(__git_ps1 ${BRANCH_MOD_TEMPLATE_STRING})"%{$reset_color%} "
+            echo -ne "%{$fg[yellow]%}"$(__git_ps1 ${BRANCH_MOD_TEMPLATE_STRING})"%{$reset_color%} "
         fi
     fi
 }
@@ -216,177 +234,91 @@ function __print_virtualenv_info() {
     fi
 }
 
-# Tricks adapted from anothermark@google
-# Global variable to track command interruption
-CMD_INTERRUPTED=1
-CMD_LONG_RUNNING_THRESHOLD_SECONDS=15
-
-# SIGINT (Ctrl-C) Handler
-TRAPINT() {
-    CMD_INTERRUPTED=0
-    return $(( 128 + $1 ))
+function __generate_preamble_prompt_part() {
+    echo -n '%{$fg[white]%}$(__cute_time_prompt) $(__print_virtualenv_info)'
 }
 
-# Don't use this... Args will often get interpreted as regular expressions.
-# Fix this at some point...
-function __is_cmd_interactive() {
-    ARG="$1 "
-    local CMDS_THAT_NEVER_RETURN=(vim less ssh screen tmux tmx2)
-    for cmd in "${CMDS_THAT_NEVER_RETURN[@]}"; do
-        if [[ "${cmd} " =~ ^"${ARG}" ]]; then
-            return 0
-        fi
-    done
-    return 1
-}
-
-function __print_did_last_command_take_a_while() {
-    if [[ "${CMD_INTERRUPTED}" == "0" ]] || [[ "${CMD_LAST_START}" == "0" ]]; then
-        # Clear this.
-        CMD_INTERRUPTED=1
-        CMD_LAST_START=0
-        echo -n ""
-        return 0
-    fi
-
-    # if __is_cmd_interactive "$(fc -ln -1)"; then
-    #     echo -n "SALUTE"
-    #     return 0
-    # fi
-
-    local NOW=$(date +%s)
-    local CMD_DURATION=$(( NOW - CMD_LAST_START ))
-    CMD_LAST_START=0
-
-    if [[ $CMD_DURATION -lt ${CMD_LONG_RUNNING_THRESHOLD_SECONDS} ]]; then
-        echo -n ""
-        return 0
-    fi
-
-    echo -n "%{$fg[yellow]%}${ICON_MAP[YAWN]}%{${reset_colors}%} "
-    if (( ${+BE_LOUD_ABOUT_SLOW_COMMANDS} )); then
-        if __is_iterm2_terminal; then
-            if __is_in_screen ; then
-                printf "\033Ptmux;\033\033]" && printf "1337;RequestAttention=fireworks"  && printf "\a\033\\"
-            else
-                printf "\033]" && printf "1337;RequestAttention=fireworks" && printf "\a"
-            fi
-        fi
-    fi
-    return 0;
-}
-
-# disable the default virtualenv prompt change
-VIRTUAL_ENV_DISABLE_PROMPT=1
-# Repo is implemented in terms of worktrees, so this gets noisy.
-SKIP_WORKTREE_IN_ANDROID_REPO=0
-
-END_OF_PROMPT_ICON=${ICON_MAP[MD_GREATER_THAN]}
-ELEVATED_END_OF_PROMPT_ICON="$"
-
-function __generate_standard_prompt() {
+function __generate_static_prompt_part() {
     local SELECTIVE_YELLOW_FG="%F{#ffb506}"
 
-    local PromptHostColor=""
-    local PromptHostName=""
+    local PromptHostColor="$fg[yellow]"
+    local PromptHostName="%m"
 
     if (( ${+HOST_COLOR} )); then
         PromptHostColor="%F{${HOST_COLOR}}"
-    # Use a different color for displaying the host name when we're logged into SSH
-    elif __is_ssh_session; then
-        PromptHostColor=$SELECTIVE_YELLOW_FG
-    else
-        PromptHostColor=$fg[yellow]
     fi
 
     if __is_in_tmux; then
         PromptHostName=""
-    elif __z_is_embedded_terminal; then
-        PromptHostName=%m
-    elif __is_ssh_session; then
-        PromptHostName=%m
-    elif [[ -n ${LOCALHOST_PREFERRED_DISPLAY} ]]; then
+    elif ! __is_ssh_session && [[ -n ${LOCALHOST_PREFERRED_DISPLAY} ]]; then
         PromptHostName=${LOCALHOST_PREFERRED_DISPLAY}
-    else
-        PromptHostName=%m
     fi
 
     # All optional segments have spaces embedded in the output suffix if non-empty.
+    echo -n '%{$fg[green]%}$USER%{$fg[yellow]%}@%B%{'${PromptHostColor}'%}'${PromptHostName}'%{$reset_color%} '
+}
+
+function __generate_dynamic_prompt_part() {
+    # All optional segments have spaces embedded in the output suffix if non-empty.
     local prompt_builder=''
-    prompt_builder+='%{$fg[white]%}$(__cute_time_prompt) '
-    prompt_builder+='$(__print_virtualenv_info)'
-    prompt_builder+='$(__print_did_last_command_take_a_while)'
-    prompt_builder+='%{$fg[green]%}$USER%{$fg[yellow]%}@%B%{'${PromptHostColor}'%}'${PromptHostName}'%{$reset_color%} '
     prompt_builder+='$(__print_repo_worktree)'
     prompt_builder+='$(__print_git_worktree)$(__print_git_info)'
     if declare -f __print_citc_workspace > /dev/null; then
         prompt_builder+='$(__print_citc_workspace)'
     fi
     prompt_builder+='$(__cute_pwd)'
-    prompt_builder+=' %(!.$ELEVATED_END_OF_PROMPT_ICON.$END_OF_PROMPT_ICON) '
 
-    # If I ever want to profile the generation of the prompt: "print -P $PROMPT"
     echo -n ${prompt_builder}
 }
 
-PROMPT=$(__generate_standard_prompt)
+declare -A PROMPT_PARTS=(
+    [PREAMBLE]="$(__generate_preamble_prompt_part)"
+    [STATIC]="$(__generate_static_prompt_part)"
+    [DYNAMIC]="$(__generate_dynamic_prompt_part)"
+    [SUFFIX]=' %(!.$ELEVATED_END_OF_PROMPT_ICON.$END_OF_PROMPT_ICON) '
+)
+
+PROMPT="${PROMPT_PARTS[PREAMBLE]}${PROMPT_PARTS[STATIC]}${PROMPT_PARTS[DYNAMIC]}${PROMPT_PARTS[SUFFIX]}"
 RPROMPT=''
 # RPOMPT+='%* '
 
-function __venv_aware_cd() {
-    builtin cd "$@"
+if ! __is_tool_window && ! __z_is_embedded_terminal; then
+    function __venv_aware_cd() {
+        builtin cd "$@"
 
-    # If I am no longer in the same directory hierarchy as the venv that was last activated, deactivate.
-    if [[ -n "${VIRTUAL_ENV}" ]]; then
-        local P_DIR="$(dirname "$VIRTUAL_ENV")"
-        if [[ "$PWD"/ != "${P_DIR}"/* ]] && command -v deactivate &> /dev/null; ; then
-            echo "${ICON_MAP[PYTHON]} Deactivating venv for ${P_DIR}"
-            deactivate
+        # If I am no longer in the same directory hierarchy as the venv that was last activated, deactivate.
+        if [[ -n "${VIRTUAL_ENV}" ]]; then
+            local P_DIR="$(dirname "$VIRTUAL_ENV")"
+            if [[ "$PWD"/ != "${P_DIR}"/* ]] && command -v deactivate &> /dev/null; ; then
+                echo "${ICON_MAP[PYTHON]} Deactivating venv for ${P_DIR}"
+                deactivate
+            fi
         fi
-    fi
 
-    # If I enter a directory with a .venv and I am already activated with another one, let me know but don't activate.
-    if [[ -d ./.venv ]]; then
-        if [[ -z "$VIRTUAL_ENV" ]]; then
-            source ./.venv/bin/activate
-            echo "${ICON_MAP[PYTHON]} Activating venv with $(python --version) for $PWD/.venv"
-        # else: CONSIDER: test "$PWD" -ef "$VIRUAL_ENV" && "🐍 Avoiding implicit activation of .venv environment because $VIRTUAL_ENV is already active"
+        # If I enter a directory with a .venv and I am already activated with another one, let me know but don't activate.
+        if [[ -d ./.venv ]]; then
+            if [[ -z "$VIRTUAL_ENV" ]]; then
+                source ./.venv/bin/activate
+                echo "${ICON_MAP[PYTHON]} Activating venv with $(python --version) for $PWD/.venv"
+            # else: CONSIDER: test "$PWD" -ef "$VIRUAL_ENV" && "🐍 Avoiding implicit activation of .venv environment because $VIRTUAL_ENV is already active"
+            fi
         fi
-    fi
-}
+    }
 
-# Basically this lets me override cd and still get file completion...
-function ___venv_aware_cd() {
-  ((CURRENT == 2)) &&
-  _files -/
-}
+    # Basically this lets me override cd and still get file completion...
+    function ___venv_aware_cd() {
+    ((CURRENT == 2)) &&
+    _files -/
+    }
 
-compdef ___venv_aware_cd __venv_aware_cd
+    compdef ___venv_aware_cd __venv_aware_cd
 
-# defines __git_ps1
-[[ -f "${DOTFILES_CONFIG_ROOT}/git-prompt.sh" ]] && source "${DOTFILES_CONFIG_ROOT}/git-prompt.sh"
-
-command -v hub &> /dev/null && eval "$(hub alias -s)"
+    alias cd='__venv_aware_cd'
+fi
 
 __do_iterm2_shell_integration
 
-[[ -f "~/.zshext/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" ]] && source "~/.zshext/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
-
-if ! __is_tool_window; then
-    if __z_is_embedded_terminal; then
-        __refresh_icon_map 1 # No nerdfonts in embedded terminals.
-        if __is_vscode_terminal; then
-            if command -v code &> /dev/null; then
-                source "$(code --locate-shell-integration-path zsh)"
-            fi
-
-            # Also, in some contexts .zprofile isn't sourced when started inside the Python debug console.
-            source ~/.zprofile
-        fi
-    else
-        alias cd='__venv_aware_cd'
-    fi
-fi
+__do_vscode_shell_integration
 
 __do_eza_aliases
 

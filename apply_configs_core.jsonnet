@@ -10,6 +10,7 @@
         ['https://iterm2.com/shell_integration/zsh', 'out/iterm2_shell_integration.zsh', self.config_dir + '/iterm2_shell_integration.zsh'],
         ['https://iterm2.com/shell_integration/bash', 'out/iterm2_shell_integration.bash', self.config_dir + '/iterm2_shell_integration.bash'],
         ['https://raw.githubusercontent.com/eza-community/eza/main/completions/zsh/_eza', 'out/_eza', self.config_dir + '/zfuncs/_eza'],
+        ['https://raw.githubusercontent.com/mafredri/zsh-async/v1.8.6/async.zsh', 'out/async.zsh', self.config_dir + '/zfuncs/async'],
     ],
     file_maps: [
         ['bash/profile.sh', '.profile'],
