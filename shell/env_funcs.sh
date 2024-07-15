@@ -100,7 +100,7 @@ function __is_in_git_repo() {
 }
 
 function __is_in_git_dir() {
-    git rev-parse --is-inside-git-dir | grep "true" > /dev/null 2>&1;
+    __is_in_git_repo && git rev-parse --is-inside-git-dir | grep "true" > /dev/null 2>&1;
 }
 
 function __is_in_repo() {

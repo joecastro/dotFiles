@@ -191,15 +191,16 @@ def install_git_plugins(host: Host, plugin_type: str, repo_list: list[str], inst
     ops.append(['rm', '-rf', plugin_root])
     git_prefix = ['git', 'clone', '-q'] if not verbose else ['git', 'clone']
     for (repo, target_path) in [(r, os.path.join(plugin_root, pattern.search(r).group(1))) for r in repo_list]:
-        ops.append(f'Cloning into {target_path}...')
+        if verbose:
+            ops.append(f'Cloning {repo} into {target_path}...')
         ops.append(git_prefix + [repo, target_path])
 
     return host.make_ops(ops)
 
 
-def copy_files(source_host, source_root, source_files, dest_host, dest_root, dest_files, annotate=False, verbose=False) -> list:
+def copy_files(source_host, source_root, source_files, dest_host, dest_root, dest_files, verbose=False) -> list:
     if source_host.is_localhost() and dest_host.is_localhost():
-        return copy_files_local(source_root, source_files, dest_root, dest_files, annotate)
+        return copy_files_local(source_root, source_files, dest_root, dest_files, verbose)
 
     if not dest_host.is_localhost() and dest_root == HOME:
         dest_root = CWD
@@ -216,7 +217,7 @@ def copy_files(source_host, source_root, source_files, dest_host, dest_root, des
     copy_ops = [scp_prefix + [f'{source_prefix}/{src}', f'{dest_prefix}/{dest}']
                  for (src, dest) in zip(source_files, dest_files)]
 
-    if annotate:
+    if verbose:
         annotated_copy_ops = [" ".join(o) for o in copy_ops]
         copy_ops = [item for sublist in zip(annotated_copy_ops, copy_ops) for item in sublist]
 
@@ -326,7 +327,7 @@ def copy_files_local(source_root, source_files, dest_root, dest_files, annotate:
 
 
 def push_remote(host, shallow, verbose=False) -> list:
-    ops = [f'>> Synching dotFiles for {host.hostname}']
+    ops = [f'Synching dotFiles for {host.hostname}']
     if not host.is_reachable():
         ops.append(f'Host {host.hostname} is not reachable')
         return ops
@@ -335,8 +336,8 @@ def push_remote(host, shallow, verbose=False) -> list:
 
     ops.extend(stage_local(host, verbose=verbose))
 
-    ops.append(f'Copying {len(host.file_maps)} files to {host.hostname} home directory')
-    ops.extend(copy_files(config.get_localhost(), host.get_staging_dir(), host.file_maps.keys(), host, HOME, host.file_maps.values(), annotate=True, verbose=verbose))
+    ops.append(f'>> Copying {len(host.file_maps)} files to {host.hostname} home directory')
+    ops.extend(copy_files(config.get_localhost(), host.get_staging_dir(), host.file_maps.keys(), host, HOME, host.file_maps.values(), verbose=verbose))
 
     if not shallow:
         ops.extend(install_git_plugins(host, 'Vim startup plugin(s)', config.vim_pack_plugin_start_repos, os.path.join('.vim', 'pack', 'plugins', 'start'), verbose=verbose))
@@ -371,12 +372,12 @@ def stage_local(host, verbose=False) -> list[str]:
     ops = []
 
     files_to_stage = list(host.file_maps.keys())
-    ops.append('Precaching curl files')
+    ops.append('>> Precaching curl files')
     ops.extend(preprocess_curl_files(host, CWD, verbose=verbose))
-    ops.append('Preprocessing jsonnet files')
+    ops.append('>> Preprocessing jsonnet files')
     ops.extend(preprocess_jsonnet_files(host, CWD, verbose=verbose))
     ops.extend(copy_files_local(CWD, files_to_stage, host.get_staging_dir(), files_to_stage))
-    ops.append('Preprocessing macros in local staged files')
+    ops.append('>> Preprocessing macros in local staged files')
     ops.append(partial(process_staged_files, host=host, files=[f'{host.get_staging_dir()}/{file}' for file in files_to_stage]))
 
     return ops
@@ -525,7 +526,7 @@ def main(args) -> int:
         # This has the additional benefit of frontloading any ssh related prompts
         remote_hosts = [h for h in all_hosts if not h.is_localhost()]
         if not quiet:
-            print(f'Checking reachability of {len(remote_hosts)} hosts...')
+            print(f'Checking reachability of {len(remote_hosts)} {"hosts" if len(remote_hosts) > 1 else "host"}...')
         hosts = [h for h in all_hosts if h.is_reachable()]
         if len(hosts) == 0:
             raise ValueError(f'No reachable hosts found in "{host_args}"')

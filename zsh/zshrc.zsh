@@ -131,11 +131,23 @@ zle-line-init() {
 
 zle -N zle-line-init
 
-# This gets run before any new command.
-preexec() {
+chpwd_functions=($chpwd_functions __update_prompt __auto_apply_venv_on_chpwd)
+
+# Use beam shape cursor for each new prompt.
+preexec_functions=($preexec_functions _set_cursor_beam __update_cmd_last_start)
+
+function __update_prompt() {
+    if __is_in_git_repo; then
+        ACTIVE_TIME_COLOR="${GIT_TIME_COLOR}"
+    elif __is_in_repo; then
+        ACTIVE_TIME_COLOR="${ANDROID_TIME_COLOR}"
+    else
+        ACTIVE_TIME_COLOR="${NORMAL_TIME_COLOR}"
+    fi
+}
+
+__update_cmd_last_start() {
     CMD_LAST_START=$(date +%s)
-    # Use beam shape cursor for each new prompt.
-    _set_cursor_beam
 }
 
 function __print_git_worktree() {
@@ -234,8 +246,13 @@ function __print_virtualenv_info() {
     fi
 }
 
+NORMAL_TIME_COLOR="%{$fg[white]%}"
+GIT_TIME_COLOR="%{$fg[green]%}"
+ANDROID_TIME_COLOR="%{$fg[yellow]%}"
+
+ACTIVE_TIME_COLOR="${NORMAL_TIME_COLOR}"
 function __generate_preamble_prompt_part() {
-    echo -n '%{$fg[white]%}$(__cute_time_prompt) $(__print_virtualenv_info)'
+    echo -n '${ACTIVE_TIME_COLOR}$(__cute_time_prompt) $(__print_virtualenv_info)'
 }
 
 function __generate_static_prompt_part() {
@@ -283,9 +300,7 @@ RPROMPT=''
 # RPOMPT+='%* '
 
 if ! __is_tool_window && ! __z_is_embedded_terminal; then
-    function __venv_aware_cd() {
-        builtin cd "$@"
-
+    function __auto_apply_venv_on_chpwd() {
         # If I am no longer in the same directory hierarchy as the venv that was last activated, deactivate.
         if [[ -n "${VIRTUAL_ENV}" ]]; then
             local P_DIR="$(dirname "$VIRTUAL_ENV")"
@@ -304,16 +319,6 @@ if ! __is_tool_window && ! __z_is_embedded_terminal; then
             fi
         fi
     }
-
-    # Basically this lets me override cd and still get file completion...
-    function ___venv_aware_cd() {
-    ((CURRENT == 2)) &&
-    _files -/
-    }
-
-    compdef ___venv_aware_cd __venv_aware_cd
-
-    alias cd='__venv_aware_cd'
 fi
 
 __do_iterm2_shell_integration
