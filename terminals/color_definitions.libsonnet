@@ -169,6 +169,17 @@ local ExtendedTerminalColors(
         White: ColorFromHex("#FFFFFF"),
         YellowSea: ColorFromHex("#ffaf00"),
     },
+    PeacockColors: {
+        "Angular Red": ColorFromHex("#dd0531"),
+        "Azure Blue": ColorFromHex("#007fff"),
+        "JavaScript Yellow": ColorFromHex("#f9e64f"),
+        "Mandalorian Blue": ColorFromHex("#1857a4"),
+        "Node Green": ColorFromHex("#215732"),
+        "React Blue": ColorFromHex("#61dafb"),
+        "Something Different": ColorFromHex("#832561"),
+        "Svelte Orange": ColorFromHex("#ff3d00"),
+        "Vue Green": ColorFromHex("#42b883"),
+    },
     Schemes: {
         Iterm: AnsiColorScheme(
             Color(0, 0, 0),

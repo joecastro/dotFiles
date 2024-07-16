@@ -141,18 +141,17 @@ def update_workspace_extensions() -> None:
 
 
 def push_vscode_user_settings() -> None:
-    repo_user_settings_location = os.path.join('vscode', 'user_settings.json')
+    repo_user_settings_location = os.path.join('vscode', 'user_settings.jsonnet')
     mac_settings_location = f'{HOME}/Library/Application Support/Code/User/settings.json'
 
-    # Open this as a json file first, just to make sure it parses properly.
-    with open(repo_user_settings_location, encoding='utf-8') as f:
-        json.load(f)
+    user_settings = parse_jsonnet_now(repo_user_settings_location, get_ext_vars(config.get_localhost()))
 
-    shutil.copyfile(repo_user_settings_location, mac_settings_location)
+    with open(mac_settings_location, 'w', encoding='utf-8') as f:
+        json.dump(user_settings, f, indent=4, sort_keys=True)
 
 
 def pull_vscode_user_settings() -> None:
-    dotfiles_settings_location = 'vscode/user_settings.json'
+    dotfiles_settings_location = 'vscode/user_settings.jsonnet'
     mac_settings_location = f'{HOME}/Library/Application Support/Code/User/settings.json'
 
     with open(mac_settings_location, encoding='utf-8') as f:
@@ -326,6 +325,40 @@ def copy_files_local(source_root, source_files, dest_root, dest_files, annotate:
     return ops
 
 
+def install_vscode_extensions(host, verbose=False) -> list:
+    if host.is_localhost():
+        return []
+
+    extensions_list = []
+    with open(os.path.join('vscode', 'dotFiles_extensions.json'), encoding='utf-8') as f:
+        extensions_json = json.load(f)
+        extensions_list = extensions_json.get('recommendations', [])
+
+    completed_proc = subprocess.run(['ssh', host.hostname, 'code --list-extensions'], check=False, capture_output=True)
+    if completed_proc.returncode != 0:
+        return [f'Failed listing vscode extensions on {host.hostname}']
+
+    installed_extensions_list = completed_proc.stdout.decode('utf-8').splitlines()
+
+    extensions_to_install = [ext for ext in extensions_list if ext not in installed_extensions_list]
+    extensions_to_remove = [ext for ext in installed_extensions_list if ext not in extensions_list]
+    if not extensions_to_install and not extensions_to_remove:
+        if verbose:
+            return ['>> No vscode extensions to install']
+        return []
+
+    if extensions_to_install:
+        ops = [
+            f'>> Installing {len(extensions_to_install)} vscode extensions',
+            ['ssh', host.hostname, '; '.join([f'code --install-extension {ext}' for ext in extensions_to_install])]]
+
+    if extensions_to_remove:
+        ops = [
+            f'>> Removing {len(extensions_to_remove)} vscode extensions',
+            ['ssh', host.hostname, '; '.join([f'code --uninstall-extension {ext}' for ext in extensions_to_remove])]]
+    return ops
+
+
 def push_remote(host, shallow, verbose=False) -> list:
     ops = [f'Synching dotFiles for {host.hostname}']
     if not host.is_reachable():
@@ -344,6 +377,8 @@ def push_remote(host, shallow, verbose=False) -> list:
         ops.extend(install_git_plugins(host, 'Vim optional plugin(s)', config.vim_pack_plugin_opt_repos, os.path.join('.vim', 'pack', 'plugins', 'opt'), verbose=verbose))
         ops.extend(install_git_plugins(host, 'Zsh plugin(s)', config.zsh_plugin_repos, '.zshext', verbose=verbose))
 
+    ops.append(f'>> Pushing vscode extensions to {host.hostname}')
+    ops.extend(install_vscode_extensions(host, verbose=verbose))
     ops.append(f'Finished pushing files to {host.hostname}')
     return ops
 
@@ -455,6 +490,25 @@ def compare_iterm2_prefs() -> None:
     print(f'diff {snapshot_path} {gen_path}')
 
 
+def compare_user_settings() -> None:
+    repo_user_settings_location = os.path.join('vscode', 'user_settings.jsonnet')
+    original_path = f'{HOME}/Library/Application Support/Code/User/settings.json'
+    gen_path = os.path.join('out', 'user_settings.json')
+    snapshot_path = os.path.join('out', 'user_settings.snapshot.json')
+
+    gen_user_settings = parse_jsonnet_now(repo_user_settings_location, get_ext_vars(config.get_localhost()))
+
+    with open(gen_path, 'w', encoding='utf-8') as f:
+        json.dump(gen_user_settings, f, indent=4, sort_keys=True)
+
+    with open(original_path, encoding='utf-8') as in_path:
+        current_settings = json.load(in_path)
+        with open(snapshot_path, 'w', encoding='utf-8') as out_path:
+            json.dump(current_settings, out_path, indent=4, sort_keys=True)
+
+    print(f'diff "{snapshot_path}" "{gen_path}"')
+
+
 def push_sublimetext_windows_plugins() -> list:
     ''' Setup any Sublime Text plugins for Windows. '''
     return [
@@ -537,6 +591,8 @@ def main(args) -> int:
     match option:
         case '--compare-iterm2-prefs':
             ops.append(compare_iterm2_prefs)
+        case '--compare-user-settings':
+            ops.append(compare_user_settings)
         case '--pull-vscode-settings':
             ops.append(pull_vscode_user_settings)
         case '--push-vscode-settings':
