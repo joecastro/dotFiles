@@ -28,8 +28,13 @@ endif
 "   Ps = 4  -> steady underline.
 "   Ps = 5  -> blinking beam (xterm).
 "   Ps = 6  -> steady beam (xterm).
-let &t_SI = "\e[6 q"
-let &t_EI = "\e[2 q"
+if $LC_TERMINAL ==# 'iTerm2'
+    let &t_SI = "\<Esc>]50;CursorShape=1\x7"
+    let &t_EI = "\<Esc>]50;CursorShape=0\x7"
+else
+    let &t_SI = "\e[6 q"
+    let &t_EI = "\e[2 q"
+endif
 
 set softtabstop=4
 set shiftwidth=4

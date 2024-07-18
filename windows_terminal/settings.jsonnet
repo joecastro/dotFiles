@@ -1,4 +1,4 @@
-local color_defs = import '../terminals/color_definitions.libsonnet';
+local color_defs = import '../shell/color_definitions.libsonnet';
 
 local Schemes = color_defs.Schemes;
 local Colors = color_defs.Colors;

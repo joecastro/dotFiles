@@ -249,7 +249,7 @@ def parse_jsonnet(jsonnet_file, ext_vars, output_file) -> list:
 
     if output_file is not None:
         #-'-SS   --##u
-        if output_file.endswith('.ini'):
+        if output_file.endswith('.ini') or output_file.endswith('.sh'):
             proc_args.append('-S')
         proc_args.extend(['-o', output_file])
 

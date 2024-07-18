@@ -18,6 +18,7 @@ function __refresh_icon_map() {
         ICON_MAP=(
         [WINDOWS]=
         [LINUX_PENGUIN]=
+        [GIT]=
         [GITHUB]=
         [GOOGLE]=
         [VIM]=
@@ -55,7 +56,8 @@ function __refresh_icon_map() {
         ICON_MAP=(
         [WINDOWS]=🪟
         [LINUX_PENGUIN]=🐧
-        [GITHUB]="🐈‍🐙" # octo-cat
+        [GIT]=🐙
+        [GITHUB]=🐈
         [GOOGLE]="{G}"
         [VIM]="{vim}"
         [ANDROID_HEAD]=🤖
@@ -193,60 +195,6 @@ function __is_shell_zsh() {
 
 if ! __is_shell_old_bash; then
 
-    function __cute_pwd_lookup() {
-        local ACTIVE_DIR=$1
-
-        # These should only match if they're exact.
-        case "${ACTIVE_DIR}" in
-        "${HOME}")
-            echo -n "${ICON_MAP[COD_HOME]}${SUFFIX}"
-            return 0
-            ;;
-        "${WIN_USERPROFILE}")
-            echo -n "${ICON_MAP[WINDOWS]}${SUFFIX}"
-            return 0
-            ;;
-        "/")
-            echo -n "${ICON_MAP[FAE_TREE]}"
-            return 0
-            ;;
-        esac
-
-        if [[ -n "${ANDROID_REPO_BRANCH}" ]]; then
-            if [[ "${ACTIVE_DIR##*/}" == "${ANDROID_REPO_BRANCH}" ]]; then
-                echo -n "${ICON_MAP[ANDROID_HEAD]}"
-                return 0
-            fi
-        fi
-
-        case "${ACTIVE_DIR##*/}" in
-        "github")
-            echo -n "${ICON_MAP[GITHUB]}"
-            return 0
-            ;;
-        "src" | "source")
-            echo -n "${ICON_MAP[COD_SAVE]}"
-            return 0
-            ;;
-        "cloud")
-            echo -n "${ICON_MAP[CLOUD]}"
-            return 0
-            ;;
-        "$USER")
-            echo -n "${ICON_MAP[ACCOUNT]}"
-            return 0
-            ;;
-        esac
-
-        return 1
-    }
-
-    function __cute_pwd_short() {
-        if ! __cute_pwd_lookup "${PWD}"; then
-            echo -n "${PWD##*/}"
-        fi
-    }
-
     function __cute_pwd() {
         if __is_in_git_repo; then
             if ! __is_in_git_dir; then
@@ -265,11 +213,61 @@ if ! __is_shell_old_bash; then
             return 0
         fi
 
+        function __cute_pwd_lookup() {
+            local ACTIVE_DIR=$1
+
+            # These should only match if they're exact.
+            case "${ACTIVE_DIR}" in
+            "${HOME}")
+                echo -n "${ICON_MAP[COD_HOME]}${SUFFIX}"
+                return 0
+                ;;
+            "${WIN_USERPROFILE}")
+                echo -n "${ICON_MAP[WINDOWS]}${SUFFIX}"
+                return 0
+                ;;
+            "/")
+                echo -n "${ICON_MAP[FAE_TREE]}"
+                return 0
+                ;;
+            esac
+
+            if [[ -n "${ANDROID_REPO_BRANCH}" ]]; then
+                if [[ "${ACTIVE_DIR##*/}" == "${ANDROID_REPO_BRANCH}" ]]; then
+                    echo -n "${ICON_MAP[ANDROID_HEAD]}"
+                    return 0
+                fi
+            fi
+
+            case "${ACTIVE_DIR##*/}" in
+            "github")
+                echo -n "${ICON_MAP[GITHUB]}"
+                return 0
+                ;;
+            "src" | "source")
+                echo -n "${ICON_MAP[COD_SAVE]}"
+                return 0
+                ;;
+            "cloud")
+                echo -n "${ICON_MAP[CLOUD]}"
+                return 0
+                ;;
+            "$USER")
+                echo -n "${ICON_MAP[ACCOUNT]}"
+                return 0
+                ;;
+            esac
+
+            return 1
+        }
+
         # Print the parent directory only if it has a special expansion.
         if [[ "${PWD}" != "/" ]] && __cute_pwd_lookup "$(dirname "${PWD}")"; then
             echo -n "/"
         fi
-        __cute_pwd_short
+        if ! __cute_pwd_lookup "${PWD}"; then
+            echo -n "${PWD##*/}"
+        fi
 
         return 0
     }
@@ -295,50 +293,39 @@ function __cute_time_prompt() {
     esac
 }
 
+typeset -a CUTE_HEADER_PARTS=()
+
 function __cute_shell_header() {
-    if __is_shell_bash; then
-        function do_display() {
-            if __is_shell_interactive && [[ "${SHLVL}" == "1" ]]; then
+    if ! [[ "$1" == "--force" ]]; then
+        if ! __is_shell_interactive; then
+            return 0
+        fi
+        if [[ "${SHLVL}" != "1" ]]; then
+            if ! __is_shell_zsh || ! __z_is_embedded_terminal; then
                 return 0
             fi
-            return 1
-        }
-    elif __is_shell_zsh; then
-        function do_display() {
-            if __is_shell_interactive && ([[ "${SHLVL}" == "1" ]] || __z_is_embedded_terminal); then
-                return 0;
-            fi
-            return 1
-        }
-    fi
-
-    if ! do_display && [[ "$1" != "--force" ]]; then
-        return 0
-    fi
-
-    if __is_shell_bash; then
-        echo -n "${SHELL} ${BASH_VERSION} $(uname -smn)"
-        if __is_shell_old_bash; then
-            echo -n " !! Bash ${BASH_VERSINFO[0]} is old o_O !!"
         fi
-        echo " ${ICON_MAP[MD_SNAPCHAT]}"
-        return 0
-    fi
-    if __is_shell_zsh; then
-        echo -n "$(zsh --version) $(uname -smn) distro:$(__z_effective_distribution)"
-        if __z_is_embedded_terminal; then
-            echo -n " embedded:$(__embedded_terminal_info)"
-        fi
-        if __is_tool_window; then
-            echo -n " tool"
-        fi
-
-        echo " ${ICON_MAP[MD_SNAPCHAT]}"
-        return 0
     fi
 
-    return 1
+    echo "${CUTE_HEADER_PARTS[@]}" "${ICON_MAP[MD_SNAPCHAT]}"
 }
+
+if __is_shell_bash; then
+    CUTE_HEADER_PARTS+=("${SHELL}" "${BASH_VERSION}")
+fi
+if __is_shell_zsh; then
+    CUTE_HEADER_PARTS+=("$(zsh --version)")
+fi
+
+CUTE_HEADER_PARTS+=("$(uname -smn)")
+
+if __is_shell_old_bash; then
+    CUTE_HEADER_PARTS+=("!! Bash ${BASH_VERSINFO[0]} is old o_O !!")
+fi
+
+if __is_tool_window; then
+    CUTE_HEADER_PARTS+=("tool")
+fi
 
 # Shared setup helpers for bash and zsh.
 

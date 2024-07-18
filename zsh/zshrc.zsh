@@ -22,9 +22,6 @@ SKIP_WORKTREE_IN_ANDROID_REPO=0
 END_OF_PROMPT_ICON=${ICON_MAP[MD_GREATER_THAN]}
 ELEVATED_END_OF_PROMPT_ICON="$"
 
-CMD_LAST_START=0
-
-
 fpath=("${DOTFILES_CONFIG_ROOT}/zfuncs" $fpath)
 
 # defines __git_ps1
@@ -134,83 +131,56 @@ zle -N zle-line-init
 chpwd_functions=($chpwd_functions __update_prompt __auto_apply_venv_on_chpwd)
 
 # Use beam shape cursor for each new prompt.
-preexec_functions=($preexec_functions _set_cursor_beam __update_cmd_last_start)
+preexec_functions=($preexec_functions _set_cursor_beam)
 
-function __update_prompt() {
-    if __is_in_git_repo; then
-        ACTIVE_TIME_COLOR="${GIT_TIME_COLOR}"
-    elif __is_in_repo; then
-        ACTIVE_TIME_COLOR="${ANDROID_TIME_COLOR}"
-    else
-        ACTIVE_TIME_COLOR="${NORMAL_TIME_COLOR}"
-    fi
+precmd_functions=($precmd_functions __update_prompt)
+
+ACTIVE_DYNAMIC_PROMPT_STYLE="Unknown"
+
+function __generate_prompt() {
+    local style="${1:-None}"
+    local ACTIVE_TIME_COLOR="%{$fg[white]%}"
+    case "${style}" in
+    "Git")
+        ACTIVE_TIME_COLOR="%{$fg[green]%}"
+        ;;
+    "Repo")
+        ACTIVE_TIME_COLOR="%{$fg[yellow]%}"
+        ;;
+    esac
+
+    local preamble='${ACTIVE_TIME_COLOR}$(__cute_time_prompt) $(__virtualenv_info "%{${reset_colors}%} ")'
+    local static="$(__generate_static_prompt_part)"
+    local dynamic="$(__generate_dynamic_prompt_part $style)"
+    local suffix=' %(!.$ELEVATED_END_OF_PROMPT_ICON.$END_OF_PROMPT_ICON) '
+
+    echo -n "${preamble}${static}${dynamic}${suffix}"
 }
 
-__update_cmd_last_start() {
-    CMD_LAST_START=$(date +%s)
+function __update_prompt() {
+    local new_dynamic_style
+    if __is_in_repo; then
+        new_dynamic_style="Repo"
+    elif __is_in_git_repo; then
+        new_dynamic_style="Git"
+    else
+        new_dynamic_style="None"
+    fi
+
+    if [[ "${ACTIVE_DYNAMIC_PROMPT_STYLE}" != "${new_dynamic_style}" ]]; then
+        PROMPT="$(__generate_prompt ${new_dynamic_style})"
+        ACTIVE_DYNAMIC_PROMPT_STYLE="${new_dynamic_style}"
+    fi
 }
 
 function __print_git_worktree() {
-    local PINK_FLAMINGO_FG="%F{#ff5fff}"
-    if __is_in_repo && (( ${+SKIP_WORKTREE_IN_ANDROID_REPO} )); then
-        echo -n ""
-        return 0
-    fi
-
     if ! __is_in_git_repo; then
         echo -n ""
-        return 0
+        return 1
     fi
 
     if __is_in_git_dir; then
         echo -n "${fg[yellow]%}${ICON_MAP[COD_TOOLS]} "
-        return 0
-    fi
-
-    local ROOT_WORKTREE=$(git worktree list | head -n1 | awk '{print $1;}')
-    local ACTIVE_WORKTREE=$(git worktree list | grep "$(git rev-parse --show-toplevel)" | head -n1 | awk '{print $1;}')
-
-    if [[ "${ROOT_WORKTREE}" == "${ACTIVE_WORKTREE}" ]]; then
-        echo ""
-        return 0
-    fi
-
-    local SUBMODULE_WORKTREE=$(git rev-parse --show-superproject-working-tree)
-    if [[ "${SUBMODULE_WORKTREE}" == "" ]]; then
-        echo -n "%{$fg[green]%}${ICON_MAP[OCT_FILE_SUBMODULE]}%{$PINK_FLAMINGO_FG%}${ROOT_WORKTREE##*/}:%{$fg[green]%}${ACTIVE_WORKTREE##*/} "
-        return 0
-    fi
-
-    echo -n "%{$PINK_FLAMINGO_FG%}${ICON_MAP[COD_FILE_SUBMODULE]}${SUBMODULE_WORKTREE##*/} "
-    return 0
-}
-
-function __print_repo_worktree() {
-    if ! __is_in_repo; then
-        echo ""
-        return 0
-    fi
-
-    local manifest_branch
-    local current_branch
-
-    if (( ${+ANDROID_REPO_ROOT} )) && [[ "${PWD}" == "${ANDROID_REPO_ROOT}" || "${PWD}" == "${ANDROID_REPO_ROOT}"/* ]]; then
-        manifest_branch=$ANDROID_REPO_BRANCH
-    else
-        manifest_branch=$(repo info --outer-manifest -l -q "platform/no-project" 2>/dev/null | grep -i "Manifest branch" | sed 's/^Manifest branch: //')
-    fi
-
-    current_branch=$(repo_current_project_branch 2>/dev/null)
-    if [[ "$?" != "0" ]]; then
-        echo -n "%{$fg[yellow]%}${ICON_MAP[ANDROID_BODY]}${manifest_branch}:${current_branch}%{$reset_color%} "
-    else
-        echo -n "%{$fg[green]%}${ICON_MAP[ANDROID_BODY]}${manifest_branch}%{$reset_color%} "
-    fi
-}
-
-function __print_git_info() {
-    if ! __is_in_git_repo || __is_in_git_dir; then
-        echo -n ""
         return 0
     fi
 
@@ -219,10 +189,23 @@ function __print_git_info() {
     local BRANCH_TEMPLATE_STRING=$([[ ${EXPECT_NERD_FONTS} = 0 ]] && echo "${ICON_MAP[GIT_BRANCH]}%s" || echo "(%s)")
     local BRANCH_MOD_TEMPLATE_STRING=$([[ ${EXPECT_NERD_FONTS} = 0 ]] && echo "${ICON_MAP[GIT_BRANCH]}%s*" || echo "{%s *}")
 
+    local PINK_FLAMINGO_FG="%F{#ff5fff}"
+
+    local ROOT_WORKTREE=$(git worktree list | head -n1 | awk '{print $1;}')
+    local ACTIVE_WORKTREE=$(git worktree list | grep "$(git rev-parse --show-toplevel)" | head -n1 | awk '{print $1;}')
     git status | grep "HEAD detached" > /dev/null 2>&1
     local IS_DETACHED_HEAD=$?
     git status | grep "nothing to commit" > /dev/null 2>&1
     local IS_NOTHING_TO_COMMIT=$?
+
+    if [[ "${ROOT_WORKTREE}" != "${ACTIVE_WORKTREE}" ]]; then
+        local SUBMODULE_WORKTREE=$(git rev-parse --show-superproject-working-tree)
+        if [[ "${SUBMODULE_WORKTREE}" == "" ]]; then
+            echo -n "%{$fg[green]%}${ICON_MAP[OCT_FILE_SUBMODULE]}%{$PINK_FLAMINGO_FG%}${ROOT_WORKTREE##*/}:%{$fg[green]%}${ACTIVE_WORKTREE##*/} "
+        else
+            echo -n "%{$PINK_FLAMINGO_FG%}${ICON_MAP[COD_FILE_SUBMODULE]}${SUBMODULE_WORKTREE##*/} "
+        fi
+    fi
 
     if [[ "${IS_DETACHED_HEAD}" == "0" ]]; then
         if [[ "${IS_NOTHING_TO_COMMIT}" == "0" ]]; then
@@ -239,20 +222,28 @@ function __print_git_info() {
     fi
 }
 
-function __print_virtualenv_info() {
-    __virtualenv_info
-    if [[ "$?" == "0" ]]; then
-        echo -n "%{${reset_colors}%} "
+function __print_repo_worktree() {
+    if ! __is_in_repo; then
+        echo -n ""
+        return 0
     fi
-}
 
-NORMAL_TIME_COLOR="%{$fg[white]%}"
-GIT_TIME_COLOR="%{$fg[green]%}"
-ANDROID_TIME_COLOR="%{$fg[yellow]%}"
+    local line="${ICON_MAP[ANDROID_BODY]}"
+    local manifest_branch
+    local current_branch
+    local fg_color="%{$fg[red]%}"
 
-ACTIVE_TIME_COLOR="${NORMAL_TIME_COLOR}"
-function __generate_preamble_prompt_part() {
-    echo -n '${ACTIVE_TIME_COLOR}$(__cute_time_prompt) $(__print_virtualenv_info)'
+    if ! manifest_branch=$(repo_print_manifest_branch); then
+        line+="Unknown"
+    else
+        fg_color="%{$fg[green]%}"
+        line="${ICON_MAP[ANDROID_BODY]}${manifest_branch}"
+        if current_branch=$(repo_print_current_project); then
+            line+=":${current_branch}"
+        fi
+    fi
+
+    echo -n "${fg_color}${line}%{$reset_color%} "
 }
 
 function __generate_static_prompt_part() {
@@ -276,26 +267,24 @@ function __generate_static_prompt_part() {
 }
 
 function __generate_dynamic_prompt_part() {
-    # All optional segments have spaces embedded in the output suffix if non-empty.
+    local style=$1
     local prompt_builder=''
-    prompt_builder+='$(__print_repo_worktree)'
-    prompt_builder+='$(__print_git_worktree)$(__print_git_info)'
-    if declare -f __print_citc_workspace > /dev/null; then
-        prompt_builder+='$(__print_citc_workspace)'
+
+    if [[ "${style}" == "Git" ]]; then
+        prompt_builder+='$(__print_git_worktree)'
+    elif [[ "${style}" == "Repo" ]]; then
+        prompt_builder+='$(__print_repo_worktree)'
     fi
+
+    # if declare -f __print_citc_workspace > /dev/null; then
+    #     prompt_builder+='$(__print_citc_workspace)'
+    # fi
     prompt_builder+='$(__cute_pwd)'
 
     echo -n ${prompt_builder}
 }
 
-declare -A PROMPT_PARTS=(
-    [PREAMBLE]="$(__generate_preamble_prompt_part)"
-    [STATIC]="$(__generate_static_prompt_part)"
-    [DYNAMIC]="$(__generate_dynamic_prompt_part)"
-    [SUFFIX]=' %(!.$ELEVATED_END_OF_PROMPT_ICON.$END_OF_PROMPT_ICON) '
-)
-
-PROMPT="${PROMPT_PARTS[PREAMBLE]}${PROMPT_PARTS[STATIC]}${PROMPT_PARTS[DYNAMIC]}${PROMPT_PARTS[SUFFIX]}"
+PROMPT="$(__generate_prompt None)"
 RPROMPT=''
 # RPOMPT+='%* '
 
@@ -369,8 +358,7 @@ case "$(__z_effective_distribution)" in
 
     typeset -a WSL_WINDOWS_VIRTUALENV_ID=("__is_on_wsl && __is_in_windows_drive" "ICON_MAP[WINDOWS]" "blue")
     typeset -a WSL_LINUX_VIRTUALENV_ID=("__is_on_wsl && ! __is_in_windows_drive" "ICON_MAP[LINUX_PENGUIN]" "blue")
-    VIRTUALENV_ID_FUNCS[WSL_WINDOWS]=WSL_WINDOWS_VIRTUALENV_ID
-    VIRTUALENV_ID_FUNCS[WSL_LINUX]=WSL_LINUX_VIRTUALENV_ID
+    VIRTUALENV_ID_FUNCS+=(WSL_WINDOWS_VIRTUALENV_ID WSL_LINUX_VIRTUALENV_ID)
 
     # export WIN_USERPROFILE=$(wslpath $(powershell.exe '$env:UserProfile'))
 

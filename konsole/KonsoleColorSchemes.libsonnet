@@ -1,5 +1,5 @@
 
-local color_defs = import '../terminals/color_definitions.libsonnet';
+local color_defs = import '../shell/color_definitions.libsonnet';
 
 local Color = color_defs.Color;
 local KonsoleColor(color) = {

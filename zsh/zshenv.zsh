@@ -57,17 +57,16 @@ function __z_effective_distribution() {
 }
 
 # "key" -> (test_function ICON ICON_COLOR)
+# typeset -a GIT_VIRTUALENV_ID=("__is_in_git_repo" "ICON_MAP[GIT]" "yellow")
 typeset -a TMUX_VIRTUALENV_ID=("__is_in_tmux" "ICON_MAP[TMUX]" "white"])
 typeset -a VIM_VIRTUALENV_ID=("(( \${+VIMRUNTIME} ))" "ICON_MAP[VIM]" "green")
 typeset -a PYTHON_VIRTUALENV_ID=("(( \${+VIRTUAL_ENV} ))" "ICON_MAP[PYTHON]" "blue")
-typeset -A VIRTUALENV_ID_FUNCS=( \
-    [TMUX]=TMUX_VIRTUALENV_ID \
-    [VIM]=VIM_VIRTUALENV_ID \
-    [PYTHON]=PYTHON_VIRTUALENV_ID )
+typeset -a VIRTUALENV_ID_FUNCS=(TMUX_VIRTUALENV_ID VIM_VIRTUALENV_ID PYTHON_VIRTUALENV_ID)
 
 function __virtualenv_info() {
+    local suffix="${1:-}"
     local has_virtualenv=1
-    for key value in ${(kv)VIRTUALENV_ID_FUNCS}; do
+    for value in "${VIRTUALENV_ID_FUNCS[@]}"; do
         local ID_FUNC=${(P)value:0:1}
         local ICON=${(P)value:1:1}
         local ICON_COLOR=${(P)value:2:1}
@@ -76,8 +75,16 @@ function __virtualenv_info() {
             has_virtualenv=0
         fi
     done
+    if [[ "${has_virtualenv}" == "0" ]]; then
+        echo -n "${suffix}"
+    fi
     return ${has_virtualenv}
 }
+
+CUTE_HEADER_PARTS+=("distro:$(__z_effective_distribution)")
+if __z_is_embedded_terminal; then
+    CUTE_HEADER_PARTS+=("embedded:$(__embedded_terminal_info)")
+fi
 
 [[ -f "${DOTFILES_CONFIG_ROOT}/google_funcs.zsh" ]] && source "${DOTFILES_CONFIG_ROOT}/google_funcs.zsh"
 source "${DOTFILES_CONFIG_ROOT}/android_funcs.sh" # Android shell utility functions

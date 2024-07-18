@@ -31,6 +31,8 @@ declare -a ITERM_COLOR_KEYS=( \
     "br_white" \
 )
 
+source "${DOTFILES_CONFIG_ROOT}/iterm2_color_funcs.sh"
+
 # https://iterm2.com/documentation-escape-codes.html
 function iterm_set_color() {
     local color_key=$1

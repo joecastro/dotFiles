@@ -15,6 +15,35 @@ function repo_find() {
 alias repoGo='pushd "$(repo_find)"; cd .'
 alias repo_root='repoGo'
 
+function repo_print_manifest_branch() {
+    if ! __is_in_repo; then
+        return 1
+    fi
+
+    local manifest_branch
+    if (( ${+ANDROID_REPO_ROOT} )) && [[ "${PWD}" == "${ANDROID_REPO_ROOT}" || "${PWD}" == "${ANDROID_REPO_ROOT}"/* ]]; then
+        manifest_branch=$ANDROID_REPO_BRANCH
+    else
+        manifest_branch=$(repo info --outer-manifest -l -q "platform/no-project" 2>/dev/null | grep -i "Manifest branch" | sed 's/^Manifest branch: //')
+    fi
+
+    echo -n "${manifest_branch}"
+}
+
+function repo_print_current_project() {
+    if ! __is_in_repo; then
+        return 1
+    fi
+
+    local current_project
+    if ! current_project="$(repo list . 2>/dev/null)"; then
+        return 1
+    fi
+
+    echo "${current_project%%:*}"
+    return 0
+}
+
 function repo_upstream_branch() {
     local upstream_branch
     upstream_branch=$(repo info -o --outer-manifest -l | grep -i "Manifest branch" | sed 's/^Manifest branch: //')
