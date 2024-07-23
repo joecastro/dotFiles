@@ -225,13 +225,15 @@ def copy_files(source_host, source_root, source_files, dest_host, dest_root, des
     return ops
 
 
-def parse_jsonnet_now(jsonnet_file, ext_vars) -> dict | list:
+def parse_jsonnet_now(jsonnet_file, ext_vars, output_string=False) -> dict | list | str:
     try:
         result = subprocess.run(
-            parse_jsonnet(jsonnet_file, ext_vars, None),
+            parse_jsonnet(jsonnet_file, ext_vars, None, output_string=output_string),
             capture_output=True,
             check=True,
             text=True)
+        if output_string:
+            return result.stdout
         return json.loads(result.stdout)
     except subprocess.CalledProcessError:
         print(f'Error running jsonnet command: "{" ".join(parse_jsonnet(jsonnet_file, ext_vars, None))}"')
@@ -244,13 +246,16 @@ def parse_jsonnet_now(jsonnet_file, ext_vars) -> dict | list:
         raise
 
 
-def parse_jsonnet(jsonnet_file, ext_vars, output_file) -> list:
+def parse_jsonnet(jsonnet_file, ext_vars, output_file, output_string=False) -> list:
     proc_args = ['jsonnet']
 
     if output_file is not None:
-        #-'-SS   --##u
-        if output_file.endswith('.ini') or output_file.endswith('.sh'):
-            proc_args.append('-S')
+        output_string |= output_file.endswith('.sh') or output_file.endswith('.ini')
+
+    if output_string:
+        proc_args.append('-S')
+
+    if output_file is not None:
         proc_args.extend(['-o', output_file])
 
     for (key, val) in ext_vars.items():
@@ -263,6 +268,8 @@ def parse_jsonnet(jsonnet_file, ext_vars, output_file) -> list:
 def get_ext_vars(host:Host=None) -> list:
     standard_ext_vars = {
         'is_localhost': 'true',
+        'hostname': platform.uname().node,
+        'kernel': platform.uname().system.lower(),
         'cwd': os.getcwd(),
         'home': HOME,
     }
@@ -270,6 +277,7 @@ def get_ext_vars(host:Host=None) -> list:
     if host is not None:
         ret_vars |= {
             'is_localhost': str(host.is_localhost()).lower(),
+            'hostname': host.hostname,
             'kernel': host.kernel,
             'branch': host.branch,
             'color': host.color,
@@ -516,6 +524,11 @@ def push_sublimetext_windows_plugins() -> list:
     ]
 
 
+def push_gnome_settings() -> list:
+    dconf_settings = parse_jsonnet_now('gnome/dconf_settings.jsonnet', get_ext_vars(config.get_localhost()), output_string=True)
+    subprocess.run(['dconf', 'load'], check=True, stdin=dconf_settings.encode('utf-8'))
+    return ['dconf settings applied']
+
 def parse_hosts_from_args(host_args) -> list:
     match len(host_args):
         case 0:
@@ -607,6 +620,8 @@ def main(args) -> int:
             ops.append(snapshot_iterm2_prefs_json)
         case '--push-iterm2-prefs':
             ops.append(push_iterm2_prefs)
+        case '--push-gnome-settings':
+            ops.extend(push_gnome_settings())
         case '--bootstrap-windows':
             ops.extend(bootstrap_windows())
         case '--install-sublime-plugins':

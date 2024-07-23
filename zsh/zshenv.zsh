@@ -81,11 +81,11 @@ function __virtualenv_info() {
     return ${has_virtualenv}
 }
 
+[[ -f "${DOTFILES_CONFIG_ROOT}/google_funcs.zsh" ]] && source "${DOTFILES_CONFIG_ROOT}/google_funcs.zsh"
+source "${DOTFILES_CONFIG_ROOT}/android_funcs.sh" # Android shell utility functions
+source "${DOTFILES_CONFIG_ROOT}/util_funcs.sh"
+
 CUTE_HEADER_PARTS+=("distro:$(__z_effective_distribution)")
 if __z_is_embedded_terminal; then
     CUTE_HEADER_PARTS+=("embedded:$(__embedded_terminal_info)")
 fi
-
-[[ -f "${DOTFILES_CONFIG_ROOT}/google_funcs.zsh" ]] && source "${DOTFILES_CONFIG_ROOT}/google_funcs.zsh"
-source "${DOTFILES_CONFIG_ROOT}/android_funcs.sh" # Android shell utility functions
-source "${DOTFILES_CONFIG_ROOT}/util_funcs.sh"
