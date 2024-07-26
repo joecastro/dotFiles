@@ -53,6 +53,9 @@ local javaSettings = {
     ],
     "redhat.telemetry.enabled": false,
 };
+local vimSettings = {
+    'vim.useCtrlKeys': false,
+};
 
 {
     "[java][kotlin]": {
@@ -101,3 +104,4 @@ local javaSettings = {
     + editorSettings
     + terminalSettings
     + javaSettings
+    + vimSettings

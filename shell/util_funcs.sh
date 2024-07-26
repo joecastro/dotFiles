@@ -64,6 +64,10 @@ function list_colors() {
     done
     printf "\n"
 
+    if [[ "$1" == "--short" ]]; then
+        return
+    fi
+
     for x in {0..0}; do # {0..8}
         for i in {30..37}; do
             for a in {40..47}; do

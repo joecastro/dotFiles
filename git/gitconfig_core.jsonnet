@@ -36,10 +36,10 @@
         },
 
         'color "diff"': {
-            meta: "yellow bold",
-            frag: "magenta bold",
-            old: "red bold",
-            new: "green bold"
+            meta: "blue",
+            frag: "magenta",
+            old: "red",
+            new: "green"
         },
 
         'color "status"': {

@@ -50,11 +50,11 @@ local getForeground(extended_scheme) = {
                 Blur: false,
                 ColorRandomization: false,
                 Description: name,
-                FillStyle: "Stretch",
+                FillStyle: "Crop",
                 Opacity: 1,
                 Wallpaper: std.extVar('cwd') + '/' + wallpaper.local_path,
                 WallpaperFlipType: "NoFlip",
-                WallpaperOpacity: wallpaper.blend,
+                WallpaperOpacity: 0.4,
             },
         }
     }

@@ -29,9 +29,11 @@ class Host:
     branch: str = 'none'
     color: str = 'default'
     file_maps: list[tuple[str, str]] | dict[str, str] = field(default_factory=list)
+    directory_maps: list[tuple[str, str]] | dict[str, str] = field(default_factory=list)
     jsonnet_maps: list[tuple[str, str, str]] | dict[str, str] = field(default_factory=list)
     curl_maps: list[tuple[str, str, str]] | dict[str, str] = field(default_factory=list)
     macros: dict[str, list[str]] = field(default_factory=dict)
+    commands: list[str] | list[list[str]] = field(default_factory=list)
 
     def __post_init__(self):
         if self.hostname == 'localhost':
@@ -40,8 +42,10 @@ class Host:
         self.file_maps = dict(self.file_maps)
         self.file_maps |= {item2:item3 for (_, item2, item3) in self.jsonnet_maps}
         self.jsonnet_maps = {item1:item2 for (item1, item2, _) in self.jsonnet_maps}
+        self.directory_maps = dict(self.directory_maps)
         self.file_maps |= {item2:item3 for (_, item2, item3) in self.curl_maps}
         self.curl_maps = {item1:item2 for (item1, item2, _) in self.curl_maps}
+        self.commands = [[self.get_resolved_command(c_part) for c_part in c.split()] for c in self.commands]
 
     def is_localhost(self) -> bool:
         return self.hostname == platform.uname().node
@@ -52,6 +56,17 @@ class Host:
     def get_inflated_macro(self, key, file_path) -> list[str]:
         return [v.replace('@@FILE_NAME', Path(file_path).stem.upper())
                  .replace('@@NOW', datetime.now().strftime("%Y-%m-%d %H:%M")) for v in self.macros[key]]
+
+    def get_resolved_command(self, command) -> str:
+        environment_vars = {
+            'STAGING_DIR': self.get_staging_dir(),
+            'HOME': HOME,
+            'PWD': os.getcwd()
+        }
+        for (key, value) in environment_vars.items():
+            command = command.replace(f'${key}', value)
+
+        return command
 
     def is_reachable(self) -> bool:
         if self.is_localhost():
@@ -97,7 +112,7 @@ def print_ops(ops: list, quiet=False) -> None:
         elif isinstance(entry, list):
             print(f'DEBUG: {" ".join(entry)}')
         elif callable(entry):
-            print(f'DEBUG: invoking function {entry}')
+            print(f'DEBUG: invoking function {str(entry)[:80]}...')
         else:
             raise TypeError('Bad operation type')
 
@@ -225,6 +240,45 @@ def copy_files(source_host, source_root, source_files, dest_host, dest_root, des
     return ops
 
 
+def copy_directories_local(source_root, source_dirs, dest_root, dest_dirs, verbose=False) -> list:
+    ops = []
+
+    ops.extend([['mkdir', '-p', os.path.join(dest_root, dest)] for dest in dest_dirs])
+    for src, dest in zip(source_dirs, dest_dirs):
+        src_path = os.path.join(source_root, src)
+        dest_path = os.path.join(dest_root, dest)
+        if verbose:
+            ops.append(f'local: cp -r {src_path}/* {dest_path}')
+        ops.append(partial(shutil.copytree, src=src_path, dst=dest_path, dirs_exist_ok=True))
+
+    return ops
+
+def copy_directories(source_host, source_root, source_dirs, dest_host, dest_root, dest_dirs, verbose=False) -> list:
+    if source_host.is_localhost() and dest_host.is_localhost():
+        return copy_directories_local(source_root, source_dirs, dest_root, dest_dirs, verbose)
+
+    if not dest_host.is_localhost() and dest_root == HOME:
+        dest_root = CWD
+    if not source_host.is_localhost() and source_root == HOME:
+        source_root = CWD
+
+    source_prefix = source_root if source_host.is_localhost() else f'{source_host.hostname}:{source_root}'
+    dest_prefix = dest_root if dest_host.is_localhost() else f'{dest_host.hostname}:{dest_root}'
+
+    ops = dest_host.make_ops([['mkdir', '-p', os.path.join(dest_root, sub)] for sub in dest_dirs])
+    scp_prefix = ['scp', '-r', '-q'] if not verbose else ['scp', '-r']
+    copy_ops = [scp_prefix + [f'{source_prefix}/{src}', f'{dest_prefix}/{dest}']
+                 for (src, dest) in zip(source_dirs, dest_dirs)]
+
+    if verbose:
+        annotated_copy_ops = [" ".join(o) for o in copy_ops]
+        copy_ops = [item for sublist in zip(annotated_copy_ops, copy_ops) for item in sublist]
+
+    ops.extend(copy_ops)
+
+    return ops
+
+
 def parse_jsonnet_now(jsonnet_file, ext_vars, output_string=False) -> dict | list | str:
     try:
         result = subprocess.run(
@@ -293,7 +347,7 @@ def preprocess_curl_files(host, staging_dir, verbose=False) -> list:
     full_paths = [(src, os.path.join(staging_dir, dest)) for (src, dest) in host.curl_maps.items()]
     staging_dests = set([os.path.dirname(d) for (_, d) in full_paths])
 
-    ops = [partial(os.makedirs, name=d, exist_ok=True) for d in staging_dests]
+    ops = [['mkdir', '-p', d] for d in staging_dests]
     curl_prefix = ['curl', '-s', '-S'] if not verbose else ['curl']
     ops.extend(curl_prefix + ['-L', s, '-o', d] for (s, d) in full_paths)
 
@@ -322,9 +376,9 @@ def copy_files_local(source_root, source_files, dest_root, dest_files, annotate:
 
     full_path_sources = [os.path.join(source_root, src) for src in source_files]
     full_path_dests = [os.path.join(dest_root, dest) for dest in dest_files]
-    ops = [partial(os.makedirs, name=d, exist_ok=True) for d in {os.path.dirname(d) for d in full_path_dests}]
+    ops = [['mkdir', '-p', d] for d in {os.path.dirname(d) for d in full_path_dests}]
 
-    copy_ops = [partial(shutil.copyfile, src=src, dst=dest) for (src, dest) in zip(full_path_sources, full_path_dests)]
+    copy_ops = [['cp', src, dest] for (src, dest) in zip(full_path_sources, full_path_dests)]
     if annotate:
         annotated_copy_ops = [f'local: cp {src} {dest}' for (src, dest) in zip(full_path_sources, full_path_dests)]
         copy_ops = [item for sublist in zip(annotated_copy_ops, copy_ops) for item in sublist]
@@ -373,12 +427,19 @@ def push_remote(host, shallow, verbose=False) -> list:
         ops.append(f'Host {host.hostname} is not reachable')
         return ops
 
-    ops.append(partial(shutil.rmtree, path=host.get_staging_dir(), ignore_errors=True))
+    ops.append(['rm', '-rf', host.get_staging_dir()])
+
+    if host.commands:
+        ops.append(f'>> Running {len(host.commands)} commands on {host.hostname}')
+        if verbose:
+            ops.extend([' '.join(c) for c in host.commands])
+        ops.extend(host.commands)
 
     ops.extend(stage_local(host, verbose=verbose))
 
-    ops.append(f'>> Copying {len(host.file_maps)} files to {host.hostname} home directory')
+    ops.append(f'>> Copying {len(host.file_maps)} files and {len(host.directory_maps)} folders to {host.hostname} home directory')
     ops.extend(copy_files(config.get_localhost(), host.get_staging_dir(), host.file_maps.keys(), host, HOME, host.file_maps.values(), verbose=verbose))
+    ops.extend(copy_directories(config.get_localhost(), host.get_staging_dir(), host.directory_maps.keys(), host, HOME, host.directory_maps.values(), verbose=verbose))
 
     if not shallow:
         ops.extend(install_git_plugins(host, 'Vim startup plugin(s)', config.vim_pack_plugin_start_repos, os.path.join('.vim', 'pack', 'plugins', 'start'), verbose=verbose))
@@ -528,6 +589,7 @@ def push_gnome_settings() -> list:
     dconf_settings = parse_jsonnet_now('gnome/dconf_settings.jsonnet', get_ext_vars(config.get_localhost()), output_string=True)
     subprocess.run(['dconf', 'load'], check=True, stdin=dconf_settings.encode('utf-8'))
     return ['dconf settings applied']
+
 
 def parse_hosts_from_args(host_args) -> list:
     match len(host_args):

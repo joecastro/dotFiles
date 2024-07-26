@@ -29,6 +29,9 @@ local ColorFromHex(hex) =
     local b = std.parseHex(std.substr(hex, 5, 2)) / 255;
     Color(r, g, b);
 
+local Color255(r, g, b, a=255) =
+    Color(r / 255, g / 255, b / 255, a / 255);
+
 local ColorWithAlpha(color, alpha) =
     Color(color.red, color.green, color.blue, alpha);
 
@@ -236,6 +239,23 @@ local ExtendedTerminalColors(
             ColorFromHex("#E74856"),
             ColorFromHex("#F2F2F2"),
             ColorFromHex("#F9F1A5")),
+        Monokai: AnsiColorScheme(
+            Color255(29, 34, 41),
+            Color255(221, 66, 66),
+            Color255(133, 194, 88),
+            Color255(200, 149, 68),
+            Color255(72, 187, 209),
+            Color255(148, 105, 225),
+            Color255(72, 187, 209),
+            Color255(204, 204, 204),
+            Color255(136, 136, 136),
+            Color255(102, 217, 239),
+            Color255(163, 224, 118),
+            Color255(230, 179, 98),
+            Color255(102, 217, 239),
+            Color255(178, 135, 255),
+            Color255(102, 217, 239),
+            Color255(248, 248, 240)),
         OneHalfDark: AnsiColorScheme(
             ColorFromHex("#282C34"),
             ColorFromHex("#61AFEF"),

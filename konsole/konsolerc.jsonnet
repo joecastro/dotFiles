@@ -9,7 +9,7 @@ std.manifestIni({
     },
     sections: {
         "Desktop Entry": {
-            DefaultProfile: "GCloudProfile.profile",
+            DefaultProfile: "GLinux.profile",
         },
         General: {
             ConfigVersion: 1,
