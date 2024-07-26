@@ -40,8 +40,7 @@ function repo_print_current_project() {
         return 1
     fi
 
-    echo "${current_project%%:*}"
-    return 0
+    __print_abbreviated_path "${current_project%% :*}"
 }
 
 function repo_upstream_branch() {

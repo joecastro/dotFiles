@@ -193,6 +193,19 @@ function __is_shell_zsh() {
 
 # Shared cuteness
 
+function __print_abbreviated_path() {
+    local input_string="$1"
+    local result=""
+    local part
+    while [[ "$input_string" == *"/"* ]]; do
+        part="${input_string%%/*}"
+        result+="${part:0:1}/"
+        input_string="${input_string#*/}"
+    done
+    result+="${input_string:0:1}"
+    echo -n "${result}"
+}
+
 if ! __is_shell_old_bash; then
 
     function __cute_pwd() {

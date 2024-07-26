@@ -138,18 +138,20 @@ precmd_functions=($precmd_functions __update_prompt)
 ACTIVE_DYNAMIC_PROMPT_STYLE="Unknown"
 
 function __generate_prompt() {
+    local preamble=''
     local style="${1:-None}"
-    local ACTIVE_TIME_COLOR="%{$fg[white]%}"
     case "${style}" in
     "Git")
-        ACTIVE_TIME_COLOR="%{$fg[green]%}"
+        preamble+="%{$fg[green]%}"
         ;;
     "Repo")
-        ACTIVE_TIME_COLOR="%{$fg[yellow]%}"
+        preamble="%{$fg[yellow]%}"
         ;;
+    *)
+        preamble+="%{$fg[white]%}"
     esac
 
-    local preamble='${ACTIVE_TIME_COLOR}$(__cute_time_prompt) $(__virtualenv_info "%{${reset_colors}%} ")'
+    preamble+='$(__cute_time_prompt) $(__virtualenv_info " ")'
     local static="$(__generate_static_prompt_part)"
     local dynamic="$(__generate_dynamic_prompt_part $style)"
     local suffix=' %(!.$ELEVATED_END_OF_PROMPT_ICON.$END_OF_PROMPT_ICON) '
@@ -173,7 +175,15 @@ function __update_prompt() {
     fi
 }
 
-function __print_git_worktree() {
+function __git_is_detached_head() {
+    git status | grep "HEAD detached" > /dev/null 2>&1
+}
+
+function __git_is_nothing_to_commit() {
+    git status | grep "nothing to commit" > /dev/null 2>&1
+}
+
+function __print_git_branch() {
     if ! __is_in_git_repo; then
         echo -n ""
         return 1
@@ -189,14 +199,65 @@ function __print_git_worktree() {
     local BRANCH_TEMPLATE_STRING=$([[ ${EXPECT_NERD_FONTS} = 0 ]] && echo "${ICON_MAP[GIT_BRANCH]}%s" || echo "(%s)")
     local BRANCH_MOD_TEMPLATE_STRING=$([[ ${EXPECT_NERD_FONTS} = 0 ]] && echo "${ICON_MAP[GIT_BRANCH]}%s*" || echo "{%s *}")
 
+    if __git_is_detached_head; then
+        if __git_is_nothing_to_commit; then
+            echo -ne "%{$fg[red]%}"$(__git_ps1 ${COMMIT_TEMPLATE_STRING})"%{$reset_color%} "
+        else
+            echo -ne "%{$fg[red]%}"$(__git_ps1 ${COMMIT_MOD_TEMPLATE_STRING})"%{$reset_color%} "
+        fi
+    else
+        if __git_is_nothing_to_commit; then
+            echo -ne "%{$fg[green]%}"$(__git_ps1 ${BRANCH_TEMPLATE_STRING})"%{$reset_color%} "
+        else
+            echo -ne "%{$fg[yellow]%}"$(__git_ps1 ${BRANCH_MOD_TEMPLATE_STRING})"%{$reset_color%} "
+        fi
+    fi
+}
+
+function __print_git_branch_short() {
+    if ! __is_in_git_repo; then
+        echo -n ""
+        return 1
+    fi
+
+    if __is_in_git_dir; then
+        echo -n "${fg[yellow]%}${ICON_MAP[COD_TOOLS]} "
+        return 0
+    fi
+
+    local head_commit
+    head_commit=$(git rev-parse --short HEAD)
+    local matching_branch
+    matching_branch=$(git show-ref --head | grep "$head_commit" | grep -o 'refs/remotes/[^ ]*' | head -n 1)
+
+    local has_matching_branch=1
+    if [ -n "$matching_branch" ]; then
+        # echo -n "${matching_branch#refs/remotes/}"
+        has_matching_branch=0
+    fi
+
+    local icon="$ICON_MAP[GIT_COMMIT]"
+    if [[ "${has_matching_branch}" == 0 ]]; then
+        icon="$ICON_MAP[GIT_BRANCH]"
+    fi
+    local icon_color="%{$fg[green]%}"
+    if ! __git_is_nothing_to_commit; then
+        icon_color="%{$fg[yellow]%}"
+    fi
+
+    echo -n "%{${icon_color}%}${icon}%{${reset_color}%} "
+}
+
+function __print_git_worktree() {
+    if ! __is_in_git_repo || __is_in_git_dir; then
+        echo -n ""
+        return 1
+    fi
+
     local PINK_FLAMINGO_FG="%F{#ff5fff}"
 
     local ROOT_WORKTREE=$(git worktree list | head -n1 | awk '{print $1;}')
     local ACTIVE_WORKTREE=$(git worktree list | grep "$(git rev-parse --show-toplevel)" | head -n1 | awk '{print $1;}')
-    git status | grep "HEAD detached" > /dev/null 2>&1
-    local IS_DETACHED_HEAD=$?
-    git status | grep "nothing to commit" > /dev/null 2>&1
-    local IS_NOTHING_TO_COMMIT=$?
 
     if [[ "${ROOT_WORKTREE}" != "${ACTIVE_WORKTREE}" ]]; then
         local SUBMODULE_WORKTREE=$(git rev-parse --show-superproject-working-tree)
@@ -204,20 +265,6 @@ function __print_git_worktree() {
             echo -n "%{$fg[green]%}${ICON_MAP[OCT_FILE_SUBMODULE]}%{$PINK_FLAMINGO_FG%}${ROOT_WORKTREE##*/}:%{$fg[green]%}${ACTIVE_WORKTREE##*/} "
         else
             echo -n "%{$PINK_FLAMINGO_FG%}${ICON_MAP[COD_FILE_SUBMODULE]}${SUBMODULE_WORKTREE##*/} "
-        fi
-    fi
-
-    if [[ "${IS_DETACHED_HEAD}" == "0" ]]; then
-        if [[ "${IS_NOTHING_TO_COMMIT}" == "0" ]]; then
-            echo -ne "%{$fg[red]%}"$(__git_ps1 ${COMMIT_TEMPLATE_STRING})"%{$reset_color%} "
-        else
-            echo -ne "%{$fg[red]%}"$(__git_ps1 ${COMMIT_MOD_TEMPLATE_STRING})"%{$reset_color%} "
-        fi
-    else
-        if [[ "${IS_NOTHING_TO_COMMIT}" == "0" ]]; then
-            echo -ne "%{$fg[green]%}"$(__git_ps1 ${BRANCH_TEMPLATE_STRING})"%{$reset_color%} "
-        else
-            echo -ne "%{$fg[yellow]%}"$(__git_ps1 ${BRANCH_MOD_TEMPLATE_STRING})"%{$reset_color%} "
         fi
     fi
 }
@@ -243,12 +290,10 @@ function __print_repo_worktree() {
         fi
     fi
 
-    echo -n "${fg_color}${line}%{$reset_color%} "
+    echo -n "%{${fg_color}%}${line}%{$reset_color%} "
 }
 
 function __generate_static_prompt_part() {
-    local SELECTIVE_YELLOW_FG="%F{#ffb506}"
-
     local PromptHostColor="$fg[yellow]"
     local PromptHostName="%m"
 
@@ -266,14 +311,32 @@ function __generate_static_prompt_part() {
     echo -n '%{$fg[green]%}$USER%{$fg[yellow]%}@%B%{'${PromptHostColor}'%}'${PromptHostName}'%{$reset_color%} '
 }
 
+__print_git_info() {
+    if __is_in_git_repo; then
+        __print_git_worktree
+        __print_git_branch
+    fi
+}
+
+__print_repo_info() {
+    __print_repo_worktree
+    if __is_in_git_repo; then
+        if ! __git_is_detached_head; then
+            __print_git_branch
+        else
+            __print_git_branch_short
+        fi
+    fi
+}
+
 function __generate_dynamic_prompt_part() {
     local style=$1
     local prompt_builder=''
 
     if [[ "${style}" == "Git" ]]; then
-        prompt_builder+='$(__print_git_worktree)'
+        prompt_builder+='$(__print_git_info)'
     elif [[ "${style}" == "Repo" ]]; then
-        prompt_builder+='$(__print_repo_worktree)'
+        prompt_builder+='$(__print_repo_info)'
     fi
 
     # if declare -f __print_citc_workspace > /dev/null; then
