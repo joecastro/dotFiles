@@ -1,17 +1,17 @@
 {
     config_dir:: '.config/dotShell',
     jsonnet_maps: [
-        ['git/gitconfig.jsonnet', 'gen/gitconfig.ini', '.gitconfig'],
+        ['git/gitconfig.jsonnet', 'temp/gitconfig.ini', '.gitconfig'],
         # env_vars needs to be in the home directory for bootstrapping zsh
-        ['shell/env_vars.jsonnet', 'gen/env_vars.sh', '.env_vars.sh'],
-        ['shell/iterm2_color_funcs.jsonnet', 'gen/iterm2_color_funcs.sh', self.config_dir + '/iterm2_color_funcs.sh'],
+        ['shell/env_vars.jsonnet', 'temp/env_vars.sh', '.env_vars.sh'],
+        ['shell/iterm2_color_funcs.jsonnet', 'temp/iterm2_color_funcs.sh', self.config_dir + '/iterm2_color_funcs.sh'],
     ],
     curl_maps: [
-        ['https://raw.githubusercontent.com/git/git/master/contrib/completion/git-prompt.sh', 'out/curl/git-prompt.sh', self.config_dir + '/git-prompt.sh'],
-        ['https://iterm2.com/shell_integration/zsh', 'out/curl/iterm2_shell_integration.zsh', self.config_dir + '/iterm2_shell_integration.zsh'],
-        ['https://iterm2.com/shell_integration/bash', 'out/curl/iterm2_shell_integration.bash', self.config_dir + '/iterm2_shell_integration.bash'],
-        ['https://raw.githubusercontent.com/eza-community/eza/main/completions/zsh/_eza', 'out/curl/_eza', self.config_dir + '/zfuncs/_eza'],
-        ['https://raw.githubusercontent.com/mafredri/zsh-async/v1.8.6/async.zsh', 'out/curl/async.zsh', self.config_dir + '/zfuncs/async'],
+        ['https://raw.githubusercontent.com/git/git/master/contrib/completion/git-prompt.sh', 'temp/git-prompt.sh', self.config_dir + '/git-prompt.sh'],
+        ['https://iterm2.com/shell_integration/zsh', 'temp/iterm2_shell_integration.zsh', self.config_dir + '/iterm2_shell_integration.zsh'],
+        ['https://iterm2.com/shell_integration/bash', 'temp/iterm2_shell_integration.bash', self.config_dir + '/iterm2_shell_integration.bash'],
+        ['https://raw.githubusercontent.com/eza-community/eza/main/completions/zsh/_eza', 'temp/_eza', self.config_dir + '/zfuncs/_eza'],
+        ['https://raw.githubusercontent.com/mafredri/zsh-async/v1.8.6/async.zsh', 'temp/async.zsh', self.config_dir + '/zfuncs/async'],
     ],
     file_maps: [
         ['bash/profile.sh', '.profile'],

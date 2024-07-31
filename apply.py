@@ -26,8 +26,10 @@ class Host:
     kernel: str = 'linux'
     abstract_wallpaper: dict = None
     android_wallpaper: dict = None
+    konsole_wallpaper_path: str = None
     branch: str = 'none'
     color: str = 'default'
+    config_dir: str = None
     file_maps: list[tuple[str, str]] | dict[str, str] = field(default_factory=list)
     directory_maps: list[tuple[str, str]] | dict[str, str] = field(default_factory=list)
     jsonnet_maps: list[tuple[str, str, str]] | dict[str, str] = field(default_factory=list)
@@ -40,18 +42,23 @@ class Host:
             self.hostname = platform.uname().node
             self.kernel = platform.uname().system.lower()
         self.file_maps = dict(self.file_maps)
-        self.file_maps |= {item2:item3 for (_, item2, item3) in self.jsonnet_maps}
-        self.jsonnet_maps = {item1:item2 for (item1, item2, _) in self.jsonnet_maps}
+        self.file_maps |= {os.path.join(self.get_local_staging_dir(), item2):item3 for (_, item2, item3) in self.jsonnet_maps}
+        self.jsonnet_maps = {item1:os.path.join(self.get_local_staging_dir(), item2) for (item1, item2, _) in self.jsonnet_maps}
         self.directory_maps = dict(self.directory_maps)
-        self.file_maps |= {item2:item3 for (_, item2, item3) in self.curl_maps}
-        self.curl_maps = {item1:item2 for (item1, item2, _) in self.curl_maps}
+        self.file_maps |= {os.path.join(self.get_local_staging_dir(), item2):item3 for (_, item2, item3) in self.curl_maps}
+        self.curl_maps = {item1:os.path.join(self.get_local_staging_dir(), item2) for (item1, item2, _) in self.curl_maps}
         self.commands = [[self.get_resolved_command(c_part) for c_part in c.split()] for c in self.commands]
 
     def is_localhost(self) -> bool:
         return self.hostname == platform.uname().node
 
-    def get_staging_dir(self, suffix='dot') -> str:
+    def get_local_staging_dir(self, suffix='dot') -> str:
         return os.path.join(CWD, 'out', f'{self.hostname}-{suffix}')
+
+    def get_remote_staging_dir(self) -> str:
+        if self.is_localhost():
+            return self.get_local_staging_dir()
+        return os.path.join('.', self.config_dir, 'staging')
 
     def get_inflated_macro(self, key, file_path) -> list[str]:
         return [v.replace('@@FILE_NAME', Path(file_path).stem.upper())
@@ -59,7 +66,7 @@ class Host:
 
     def get_resolved_command(self, command) -> str:
         environment_vars = {
-            'STAGING_DIR': self.get_staging_dir(),
+            'STAGING_DIR': self.get_local_staging_dir(),
             'HOME': HOME,
             'PWD': os.getcwd()
         }
@@ -197,45 +204,13 @@ def generate_derived_workspace() -> None:
     print(json.dumps(workspace, indent=4, sort_keys=True))
 
 
-def install_git_plugins(host: Host, plugin_type: str, repo_list: list[str], install_root: str, verbose=False) -> list:
+def install_git_plugins_local(plugin_type: str, repo_list: list[str], install_root: str) -> list:
     pattern = re.compile("([^/]+)\\.git$")
-    plugin_root = os.path.join(HOME if host.is_localhost() else ".", install_root)
 
-    ops = [f'>> Cloning {len(repo_list)} {plugin_type} for {host.hostname}']
-    ops.append(['rm', '-rf', plugin_root])
-    git_prefix = ['git', 'clone', '-q'] if not verbose else ['git', 'clone']
-    for (repo, target_path) in [(r, os.path.join(plugin_root, pattern.search(r).group(1))) for r in repo_list]:
-        if verbose:
-            ops.append(f'Cloning {repo} into {target_path}...')
-        ops.append(git_prefix + [repo, target_path])
-
-    return host.make_ops(ops)
-
-
-def copy_files(source_host, source_root, source_files, dest_host, dest_root, dest_files, verbose=False) -> list:
-    if source_host.is_localhost() and dest_host.is_localhost():
-        return copy_files_local(source_root, source_files, dest_root, dest_files, verbose)
-
-    if not dest_host.is_localhost() and dest_root == HOME:
-        dest_root = CWD
-    if not source_host.is_localhost() and source_root == HOME:
-        source_root = CWD
-
-    source_prefix = source_root if source_host.is_localhost() else f'{source_host.hostname}:{source_root}'
-    dest_prefix = dest_root if dest_host.is_localhost() else f'{dest_host.hostname}:{dest_root}'
-
-    dest_subfolders = {os.path.dirname(d) for d in dest_files if os.path.dirname(d)}
-
-    ops = dest_host.make_ops([['mkdir', '-p', f'{dest_root}/{sub}'] for sub in dest_subfolders])
-    scp_prefix = ['scp', '-q'] if not verbose else ['scp']
-    copy_ops = [scp_prefix + [f'{source_prefix}/{src}', f'{dest_prefix}/{dest}']
-                 for (src, dest) in zip(source_files, dest_files)]
-
-    if verbose:
-        annotated_copy_ops = [" ".join(o) for o in copy_ops]
-        copy_ops = [item for sublist in zip(annotated_copy_ops, copy_ops) for item in sublist]
-
-    ops.extend(copy_ops)
+    ops = [f'>> Cloning {len(repo_list)} {plugin_type}']
+    ops.append(['rm', '-rf', install_root])
+    for (repo, target_path) in [(r, os.path.join(install_root, pattern.search(r).group(1))) for r in repo_list]:
+        ops.append(['git', 'clone', '-q', repo, target_path])
 
     return ops
 
@@ -249,32 +224,7 @@ def copy_directories_local(source_root, source_dirs, dest_root, dest_dirs, verbo
         dest_path = os.path.join(dest_root, dest)
         if verbose:
             ops.append(f'local: cp -r {src_path}/* {dest_path}')
-        ops.append(partial(shutil.copytree, src=src_path, dst=dest_path, dirs_exist_ok=True))
-
-    return ops
-
-def copy_directories(source_host, source_root, source_dirs, dest_host, dest_root, dest_dirs, verbose=False) -> list:
-    if source_host.is_localhost() and dest_host.is_localhost():
-        return copy_directories_local(source_root, source_dirs, dest_root, dest_dirs, verbose)
-
-    if not dest_host.is_localhost() and dest_root == HOME:
-        dest_root = CWD
-    if not source_host.is_localhost() and source_root == HOME:
-        source_root = CWD
-
-    source_prefix = source_root if source_host.is_localhost() else f'{source_host.hostname}:{source_root}'
-    dest_prefix = dest_root if dest_host.is_localhost() else f'{dest_host.hostname}:{dest_root}'
-
-    ops = dest_host.make_ops([['mkdir', '-p', os.path.join(dest_root, sub)] for sub in dest_dirs])
-    scp_prefix = ['scp', '-r', '-q'] if not verbose else ['scp', '-r']
-    copy_ops = [scp_prefix + [f'{source_prefix}/{src}', f'{dest_prefix}/{dest}']
-                 for (src, dest) in zip(source_dirs, dest_dirs)]
-
-    if verbose:
-        annotated_copy_ops = [" ".join(o) for o in copy_ops]
-        copy_ops = [item for sublist in zip(annotated_copy_ops, copy_ops) for item in sublist]
-
-    ops.extend(copy_ops)
+        ops.append(['cp', '-r', src_path + '/*', dest_path])
 
     return ops
 
@@ -360,7 +310,7 @@ def preprocess_jsonnet_files(host, staging_dir, verbose=False) -> list:
     full_paths = [(os.path.join(Path.cwd(), src), os.path.join(staging_dir, dest)) for (src, dest) in host.jsonnet_maps.items()]
     staging_dests = set([os.path.dirname(d) for (_, d) in full_paths])
 
-    ops = [partial(os.makedirs, name=d, exist_ok=True) for d in staging_dests]
+    ops = [['mkdir', '-p', d] for d in staging_dests]
     jsonnet_commands = [parse_jsonnet(s, get_ext_vars(host), d) for (s, d) in full_paths]
 
     if verbose:
@@ -421,34 +371,62 @@ def install_vscode_extensions(host, verbose=False) -> list:
     return ops
 
 
-def push_remote(host, shallow, verbose=False) -> list:
+def make_finish_script(host, command_ops, verbose=False) -> list:
+    finish_script = os.path.join(host.get_local_staging_dir(), 'finish.sh')
+
+    def do_write():
+        with open(finish_script, 'w', encoding='utf-8') as f:
+            f.write('#!/bin/bash\n')
+            f.write('\n')
+            f.write('set -e\n')
+            f.write('\n')
+            if verbose:
+                f.write('set -x\n')
+                f.write('\n')
+            for op in command_ops:
+                if isinstance(op, str):
+                    f.write('echo "' + op + '"\n')
+                else:
+                    f.write(' '.join(op) + '\n')
+
+    ops = [partial(do_write)]
+
+    if verbose:
+        ops.append(f'Generated finish script at {finish_script}')
+    ops.append(['chmod', 'u+x', finish_script])
+
+    return ops
+
+
+def push_remote_staging(host, verbose=False) -> list:
     ops = [f'Synching dotFiles for {host.hostname}']
-    if not host.is_reachable():
-        ops.append(f'Host {host.hostname} is not reachable')
-        return ops
 
-    ops.append(['rm', '-rf', host.get_staging_dir()])
+    # Clean the remote dotFiles
+    root_files_to_remove = [f for f in host.file_maps.values() if '/' not in f]
+    root_files_to_remove.extend([d for d in host.directory_maps.values()])
+    root_files_to_remove.append(host.config_dir)
+    if not host.is_localhost():
+        root_files_to_remove.append(host.get_remote_staging_dir())
 
-    if host.commands:
-        ops.append(f'>> Running {len(host.commands)} commands on {host.hostname}')
+    # Trying to overall minimize the number of SSH handshakes...
+    ops.append(f'>> Cleaning existing configuration files for {host.hostname}: {", ".join(root_files_to_remove)}')
+    #1
+    ops.extend(host.make_ops([['rm', '-rf'] + root_files_to_remove]))
+
+    if not host.is_localhost():
+        ops.append(f'>> Copying {len(host.file_maps) + 1} files and {len(host.directory_maps)} folders to {host.hostname} home directory')
+        #2
+        ops.extend(host.make_ops([['mkdir', '-p', host.get_remote_staging_dir()]]))
         if verbose:
-            ops.extend([' '.join(c) for c in host.commands])
-        ops.extend(host.commands)
+            ops.append(f'>> Copying staging directory to {host.hostname} ({host.get_remote_staging_dir()})')
+        #3
+        scp_prefix = ['scp', '-r', '-q'] if not verbose else ['scp', '-r']
+        ops.append(scp_prefix + [f'{host.get_local_staging_dir()}/.', f'{host.hostname}:{host.get_remote_staging_dir()}'])
 
-    ops.extend(stage_local(host, verbose=verbose))
+    ops.append(f'>> Running finish script on {host.hostname}: {host.get_remote_staging_dir()}/finish.sh')
+    #4
+    ops.extend(host.make_ops([['/bin/bash', host.get_remote_staging_dir() + '/finish.sh']]))
 
-    ops.append(f'>> Copying {len(host.file_maps)} files and {len(host.directory_maps)} folders to {host.hostname} home directory')
-    ops.extend(copy_files(config.get_localhost(), host.get_staging_dir(), host.file_maps.keys(), host, HOME, host.file_maps.values(), verbose=verbose))
-    ops.extend(copy_directories(config.get_localhost(), host.get_staging_dir(), host.directory_maps.keys(), host, HOME, host.directory_maps.values(), verbose=verbose))
-
-    if not shallow:
-        ops.extend(install_git_plugins(host, 'Vim startup plugin(s)', config.vim_pack_plugin_start_repos, os.path.join('.vim', 'pack', 'plugins', 'start'), verbose=verbose))
-        ops.extend(install_git_plugins(host, 'Vim optional plugin(s)', config.vim_pack_plugin_opt_repos, os.path.join('.vim', 'pack', 'plugins', 'opt'), verbose=verbose))
-        ops.extend(install_git_plugins(host, 'Zsh plugin(s)', config.zsh_plugin_repos, '.zshext', verbose=verbose))
-
-    ops.append(f'>> Pushing vscode extensions to {host.hostname}')
-    ops.extend(install_vscode_extensions(host, verbose=verbose))
-    ops.append(f'Finished pushing files to {host.hostname}')
     return ops
 
 
@@ -472,28 +450,53 @@ def process_staged_files(host, files) -> None:
                 f.writelines(line + '\n' for line in modified_content)
 
 
-def stage_local(host, verbose=False) -> list[str]:
+def stage_local(host, shallow, verbose=False) -> list[str]:
     ops = []
+
+    ops.append(['rm', '-rf', host.get_local_staging_dir()])
+
+    if host.commands:
+        ops.append(f'>> Running {len(host.commands)} commands on {host.hostname}')
+        if verbose:
+            ops.extend([' '.join(c) for c in host.commands])
+        ops.extend(host.commands)
 
     files_to_stage = list(host.file_maps.keys())
     ops.append('>> Precaching curl files')
     ops.extend(preprocess_curl_files(host, CWD, verbose=verbose))
     ops.append('>> Preprocessing jsonnet files')
     ops.extend(preprocess_jsonnet_files(host, CWD, verbose=verbose))
-    ops.extend(copy_files_local(CWD, files_to_stage, host.get_staging_dir(), files_to_stage))
+    ops.extend(copy_files_local(CWD, files_to_stage, host.get_local_staging_dir(), files_to_stage))
     ops.append('>> Preprocessing macros in local staged files')
-    ops.append(partial(process_staged_files, host=host, files=[f'{host.get_staging_dir()}/{file}' for file in files_to_stage]))
+    ops.append(partial(process_staged_files, host=host, files=[f'{host.get_local_staging_dir()}/{file}' for file in files_to_stage]))
+
+    finish_ops = []
+    finish_ops.extend(copy_files_local(host.get_remote_staging_dir(), host.file_maps.keys(), '~', host.file_maps.values()))
+    finish_ops.extend(copy_directories_local(host.get_remote_staging_dir(), host.directory_maps.keys(), '~', host.directory_maps.values()))
+
+    if not shallow:
+        finish_ops.extend(install_git_plugins_local('Vim startup plugin(s)', config.vim_pack_plugin_start_repos, os.path.join('~', '.vim', 'pack', 'plugins', 'start')))
+        finish_ops.extend(install_git_plugins_local('Vim optional plugin(s)', config.vim_pack_plugin_opt_repos, os.path.join('~', '.vim', 'pack', 'plugins', 'opt')))
+        finish_ops.extend(install_git_plugins_local('Zsh plugin(s)', config.zsh_plugin_repos, os.path.join('~', '.zshext')))
+
+    # Skip this for now because of the extra SSH calls it triggers.
+    # finish_ops.append(f'>> Pushing vscode extensions to {host.hostname}')
+    # finish_ops.extend(install_vscode_extensions(host, verbose=verbose))
+    # finish_ops.append(f'Finished pushing files to {host.hostname}')
+
+    ops.extend(make_finish_script(host, finish_ops, verbose=verbose))
 
     return ops
 
 
 def pull_remote(host) -> list:
-    staging_dir = host.get_staging_dir('ingest')
+    staging_dir = host.get_local_staging_dir('ingest')
 
     ops = [f'>> Snapshotting dotFiles from {host.hostname} into {staging_dir}']
     ops.extend(partial(shutil.rmtree, path=staging_dir, ignore_errors=True))
     # This doesn't decompose the files back into jsonnet. But the directories are diffable with the local staged copies
-    ops.extend(copy_files(host, HOME, host.file_maps.values(), config.get_localhost(), staging_dir, host.file_maps.keys()))
+    # ops.extend(copy_files(host, HOME, host.file_maps.values(), config.get_localhost(), staging_dir, host.file_maps.keys()))
+    # TODO: Make this work again, later
 
     return ops
 
@@ -649,18 +652,9 @@ def main(args) -> int:
         host_args = ['--all']
 
     if option in ['--push', '--pull', '--stage']:
-        all_hosts = parse_hosts_from_args(host_args)
-        if len(all_hosts) == 0:
-            raise ValueError(f'No hosts found in "{host_args}"')
-        # This has the additional benefit of frontloading any ssh related prompts
-        remote_hosts = [h for h in all_hosts if not h.is_localhost()]
-        if not quiet:
-            print(f'Checking reachability of {len(remote_hosts)} {"hosts" if len(remote_hosts) > 1 else "host"}...')
-        hosts = [h for h in all_hosts if h.is_reachable()]
+        hosts = parse_hosts_from_args(host_args)
         if len(hosts) == 0:
-            raise ValueError(f'No reachable hosts found in "{host_args}"')
-        if all_hosts != hosts:
-            print(f'Warning: skipping unreachable hosts: {", ".join(h.hostname for h in all_hosts if h not in hosts)}')
+            raise ValueError(f'No hosts found in "{host_args}"')
 
     ops = []
     match option:
@@ -689,9 +683,10 @@ def main(args) -> int:
         case '--install-sublime-plugins':
             ops.extend(push_sublimetext_windows_plugins())
         case '--push':
-            ops.extend(chain.from_iterable([push_remote(host, shallow, verbose=verbose) for host in hosts]))
+            ops.extend(chain.from_iterable([stage_local(host, shallow, verbose=verbose) for host in hosts]))
+            ops.extend(chain.from_iterable([push_remote_staging(host, verbose=verbose) for host in hosts]))
         case '--stage':
-            ops.extend(chain.from_iterable([stage_local(host, verbose=verbose) for host in hosts]))
+            ops.extend(chain.from_iterable([stage_local(host, shallow, verbose=verbose) for host in hosts]))
         case '--pull':
             if len(hosts) != 1:
                 raise ValueError('Cannot pull from multiple hosts')

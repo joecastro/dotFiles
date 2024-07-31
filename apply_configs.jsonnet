@@ -10,6 +10,7 @@ local apply_configs_core = import './apply_configs_core.jsonnet';
         {
             hostname: 'localhost',
             jsonnet_maps: apply_configs_core.jsonnet_maps,
+            config_dir: apply_configs_core.config_dir,
             file_maps: apply_configs_core.file_maps,
             directory_maps: apply_configs_core.directory_maps,
             curl_maps: apply_configs_core.curl_maps,
