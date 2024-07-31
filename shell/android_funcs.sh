@@ -12,7 +12,7 @@ function repo_find() {
     fi
 }
 
-alias repoGo='pushd "$(repo_find)"; cd .'
+alias repoGo='pushd "$(repo_find)"'
 alias repo_root='repoGo'
 
 function repo_print_manifest_branch() {

@@ -15,7 +15,7 @@ local apply_configs_core = import '../apply_configs_core.jsonnet';
     },
     aliases:: {},
     localhost_aliases:: {
-        dotGo: 'pushd $DOTFILES_SRC_HOME; cd .'
+        dotGo: 'pushd $DOTFILES_SRC_HOME'
     },
     directives:: {},
     localhost_directives:: {},

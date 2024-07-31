@@ -128,7 +128,7 @@ zle-line-init() {
 
 zle -N zle-line-init
 
-chpwd_functions=($chpwd_functions __update_prompt __auto_apply_venv_on_chpwd)
+chpwd_functions=($chpwd_functions __update_prompt __auto_apply_venv_on_chpwd __update_title)
 
 # Use beam shape cursor for each new prompt.
 preexec_functions=($preexec_functions _set_cursor_beam)
@@ -137,29 +137,51 @@ precmd_functions=($precmd_functions __update_prompt)
 
 ACTIVE_DYNAMIC_PROMPT_STYLE="Unknown"
 
-function __generate_prompt() {
-    local preamble=''
-    local style="${1:-None}"
-    case "${style}" in
-    "Git")
-        preamble+="%{$fg[green]%}"
-        ;;
-    "Repo")
-        preamble="%{$fg[yellow]%}"
-        ;;
-    *)
-        preamble+="%{$fg[white]%}"
-    esac
-
-    preamble+='$(__cute_time_prompt) $(__virtualenv_info " ")'
-    local static="$(__generate_static_prompt_part)"
-    local dynamic="$(__generate_dynamic_prompt_part $style)"
-    local suffix=' %(!.$ELEVATED_END_OF_PROMPT_ICON.$END_OF_PROMPT_ICON) '
-
-    echo -n "${preamble}${static}${dynamic}${suffix}"
-}
-
 function __update_prompt() {
+    function __generate_static_prompt_part() {
+        local PromptHostColor="$fg[yellow]"
+        local PromptHostName="%m"
+
+        if (( ${+HOST_COLOR} )); then
+            PromptHostColor="%F{${HOST_COLOR}}"
+        fi
+
+        if __is_in_tmux; then
+            PromptHostName=""
+        elif ! __is_ssh_session && [[ -n ${LOCALHOST_PREFERRED_DISPLAY} ]]; then
+            PromptHostName=${LOCALHOST_PREFERRED_DISPLAY}
+        fi
+
+        # All optional segments have spaces embedded in the output suffix if non-empty.
+        echo -n '%{$fg[green]%}$USER%{$fg[yellow]%}@%B%{'${PromptHostColor}'%}'${PromptHostName}'%{$reset_color%} '
+    }
+
+    function __generate_prompt() {
+        local preamble=''
+        local dynamic_part=''
+        local style="$1"
+        case "${style}" in
+        "Git")
+            preamble+="%{$fg[green]%}"
+            dynamic_part+='$(__print_git_info)'
+            ;;
+        "Repo")
+            preamble="%{$fg[yellow]%}"
+            dynamic_part+='$(__print_repo_info)'
+            ;;
+        *)
+            preamble+="%{$reset_color%}"
+        esac
+
+        preamble+='$(__cute_time_prompt) $(__virtualenv_info " ")'
+        dynamic_part+='$(__cute_pwd)'
+
+        local static=$(__generate_static_prompt_part)
+        local suffix=' %(!.$ELEVATED_END_OF_PROMPT_ICON.$END_OF_PROMPT_ICON) '
+
+        echo -n "${preamble}${static}${dynamic_part}${suffix}"
+    }
+
     local new_dynamic_style
     if __is_in_repo; then
         new_dynamic_style="Repo"
@@ -173,6 +195,28 @@ function __update_prompt() {
         PROMPT="$(__generate_prompt ${new_dynamic_style})"
         ACTIVE_DYNAMIC_PROMPT_STYLE="${new_dynamic_style}"
     fi
+}
+
+function __update_title() {
+    local title=''
+    title+=$(__virtualenv_info " ")
+    case "${ACTIVE_DYNAMIC_PROMPT_STYLE}" in
+    "Git")
+        title+=$(__print_git_branch_short)
+        ;;
+    "Repo")
+        title+=$(__print_repo_worktree)
+        ;;
+    esac
+
+    title+=$(__cute_pwd_short)
+    title=$(echo "${title}" | sed 's/%{[^}]*%}//g')
+
+    if [[ "$1" == "--print" ]]; then
+        echo "Title: ${title}"
+    fi
+
+    echo -ne "\e]0;${title}\a"
 }
 
 function __git_is_detached_head() {
@@ -240,9 +284,9 @@ function __print_git_branch_short() {
     if [[ "${has_matching_branch}" == 0 ]]; then
         icon="$ICON_MAP[GIT_BRANCH]"
     fi
-    local icon_color="%{$fg[green]%}"
+    local icon_color="$fg[green]"
     if ! __git_is_nothing_to_commit; then
-        icon_color="%{$fg[yellow]%}"
+        icon_color="$fg[yellow]"
     fi
 
     echo -n "%{${icon_color}%}${icon}%{${reset_color}%} "
@@ -278,12 +322,12 @@ function __print_repo_worktree() {
     local line="${ICON_MAP[ANDROID_BODY]}"
     local manifest_branch
     local current_branch
-    local fg_color="%{$fg[red]%}"
+    local fg_color="$fg[red]"
 
     if ! manifest_branch=$(repo_print_manifest_branch); then
         line+="Unknown"
     else
-        fg_color="%{$fg[green]%}"
+        fg_color="$fg[green]"
         line="${ICON_MAP[ANDROID_BODY]}${manifest_branch}"
         if current_branch=$(repo_print_current_project); then
             line+=":${current_branch}"
@@ -291,24 +335,6 @@ function __print_repo_worktree() {
     fi
 
     echo -n "%{${fg_color}%}${line}%{$reset_color%} "
-}
-
-function __generate_static_prompt_part() {
-    local PromptHostColor="$fg[yellow]"
-    local PromptHostName="%m"
-
-    if (( ${+HOST_COLOR} )); then
-        PromptHostColor="%F{${HOST_COLOR}}"
-    fi
-
-    if __is_in_tmux; then
-        PromptHostName=""
-    elif ! __is_ssh_session && [[ -n ${LOCALHOST_PREFERRED_DISPLAY} ]]; then
-        PromptHostName=${LOCALHOST_PREFERRED_DISPLAY}
-    fi
-
-    # All optional segments have spaces embedded in the output suffix if non-empty.
-    echo -n '%{$fg[green]%}$USER%{$fg[yellow]%}@%B%{'${PromptHostColor}'%}'${PromptHostName}'%{$reset_color%} '
 }
 
 __print_git_info() {
@@ -329,25 +355,8 @@ __print_repo_info() {
     fi
 }
 
-function __generate_dynamic_prompt_part() {
-    local style=$1
-    local prompt_builder=''
-
-    if [[ "${style}" == "Git" ]]; then
-        prompt_builder+='$(__print_git_info)'
-    elif [[ "${style}" == "Repo" ]]; then
-        prompt_builder+='$(__print_repo_info)'
-    fi
-
-    # if declare -f __print_citc_workspace > /dev/null; then
-    #     prompt_builder+='$(__print_citc_workspace)'
-    # fi
-    prompt_builder+='$(__cute_pwd)'
-
-    echo -n ${prompt_builder}
-}
-
-PROMPT="$(__generate_prompt None)"
+PROMPT="XXX"
+__update_prompt
 RPROMPT=''
 # RPOMPT+='%* '
 
@@ -425,8 +434,10 @@ case "$(__z_effective_distribution)" in
 
     # export WIN_USERPROFILE=$(wslpath $(powershell.exe '$env:UserProfile'))
 
-    alias winGo='pushd $WIN_USERPROFILE; cd .'
+    alias winGo='pushd $WIN_USERPROFILE'
     ;;
 esac
 
 __cute_shell_header
+# Initialize the title to the distribution. chpwd will handle it from here on out.
+wintitle $(__z_effective_distribution)

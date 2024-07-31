@@ -209,7 +209,17 @@ function __print_abbreviated_path() {
 if ! __is_shell_old_bash; then
 
     function __cute_pwd() {
+        local is_short=1
+        if [[ "$1" == "--short" ]]; then
+            is_short=0
+        fi
+
         if __is_in_git_repo; then
+            if [[ is_short -eq 0 ]]; then
+                echo -n "${PWD##*/}"
+                return 0
+            fi
+
             if ! __is_in_git_dir; then
                 # If we're in a git repo then show the current directory relative to the root of that repo.
                 # These commands wind up spitting out an extra slash, so backspace to remove it on the console.
@@ -274,10 +284,13 @@ if ! __is_shell_old_bash; then
             return 1
         }
 
-        # Print the parent directory only if it has a special expansion.
-        if [[ "${PWD}" != "/" ]] && __cute_pwd_lookup "$(dirname "${PWD}")"; then
-            echo -n "/"
+        if [[ is_short -ne 0 ]]; then
+            # Print the parent directory only if it has a special expansion.
+            if [[ "${PWD}" != "/" ]] && __cute_pwd_lookup "$(dirname "${PWD}")"; then
+                echo -n "/"
+            fi
         fi
+
         if ! __cute_pwd_lookup "${PWD}"; then
             echo -n "${PWD##*/}"
         fi
@@ -286,14 +299,24 @@ if ! __is_shell_old_bash; then
     }
 else
     function __cute_pwd() {
+        if [[ "$1" == "--short" ]]; then
+            echo -n "${PWD##*/}"
+            return 0
+        fi
+
         if [[ "${PWD}" == "/" ]]; then
             echo -n "${PWD}"
             return 0
         fi
+
         parent_dir="$(dirname "${PWD}")"
         echo -n "${parent_dir##*/}/${PWD##*/}"
     }
 fi
+
+function __cute_pwd_short() {
+    __cute_pwd --short
+}
 
 function __cute_time_prompt() {
     case "$(date +%Z)" in

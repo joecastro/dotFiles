@@ -13,15 +13,16 @@ function kill_port_proc() {
 
 function make_python_venv() {
     python3 -m venv ./.venv
-    cd .
+    cd .; cd -
 }
 
 function wintitle() {
     if [ -z "$1" ]; then
         echo "Missing window title"
-    else
-        echo -ne "\e]0;$1\a"
+        return 1
     fi
+
+    echo -ne "\e]0;${1}\a"
 }
 
 # https://unix.stackexchange.com/questions/481285/linux-how-to-get-window-title-with-just-shell-script
