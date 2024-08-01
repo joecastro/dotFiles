@@ -9,7 +9,7 @@ local kolor_schemes = [
 ];
 
 local outputs = [
-    konsole_configs.KonsoleProfileIni('GLinux', 'Tango'),
+    konsole_configs.KonsoleProfileIni('GLinux', null, 'Tango'),
     konsole_configs.KonsoleColorSchemeIni("GCloud", color_defs.Schemes.GCloud, null, wallpapers.android_colorful.local_path),
 ] + kolor_schemes;
 

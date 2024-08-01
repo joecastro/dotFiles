@@ -1,4 +1,3 @@
-
 local color_defs = import '../shell/color_definitions.libsonnet';
 local wallpapers = import '../wallpaper/wallpapers.jsonnet';
 
@@ -60,7 +59,7 @@ local getForeground(extended_scheme) = {
             },
         }
     },
-    KonsoleProfileIni(profile_name, scheme_name): {
+    KonsoleProfileIni(profile_name, icon_path, scheme_name): {
         name:: profile_name,
         filename:: profile_name + '.profile',
         sections: {
@@ -75,8 +74,9 @@ local getForeground(extended_scheme) = {
             General: {
                 AlternatingBackground: 1,
                 DimWhenInactive: false,
-                Icon: std.extVar('home') + '/.local/share/konsole/google_logo.svg',
+                Icon: icon_path,
                 LocalTabTitleFormat: '%n: %w',
+                RemoteTabTitleFormat: '%w (%H)',
                 Name: profile_name,
                 Parent: 'FALLBACK/',
                 StartInCurrentSessionDir: false,

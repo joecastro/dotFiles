@@ -33,21 +33,25 @@ class Host:
     file_maps: list[tuple[str, str]] | dict[str, str] = field(default_factory=list)
     directory_maps: list[tuple[str, str]] | dict[str, str] = field(default_factory=list)
     jsonnet_maps: list[tuple[str, str, str]] | dict[str, str] = field(default_factory=list)
+    jsonnet_multi_maps: list[tuple[str, str, str]] | dict[str, str] = field(default_factory=list)
     curl_maps: list[tuple[str, str, str]] | dict[str, str] = field(default_factory=list)
     macros: dict[str, list[str]] = field(default_factory=dict)
-    commands: list[str] | list[list[str]] = field(default_factory=list)
+    prestaged_files: list[str] = field(default_factory=list)
 
     def __post_init__(self):
         if self.hostname == 'localhost':
             self.hostname = platform.uname().node
             self.kernel = platform.uname().system.lower()
         self.file_maps = dict(self.file_maps)
-        self.file_maps |= {os.path.join(self.get_local_staging_dir(), item2):item3 for (_, item2, item3) in self.jsonnet_maps}
-        self.jsonnet_maps = {item1:os.path.join(self.get_local_staging_dir(), item2) for (item1, item2, _) in self.jsonnet_maps}
+        self.file_maps |= {item2:item3 for (_, item2, item3) in self.jsonnet_maps}
+        self.prestaged_files.extend([item2 for (_, item2, _) in self.jsonnet_maps])
+        self.jsonnet_maps = {item1:item2 for (item1, item2, _) in self.jsonnet_maps}
         self.directory_maps = dict(self.directory_maps)
-        self.file_maps |= {os.path.join(self.get_local_staging_dir(), item2):item3 for (_, item2, item3) in self.curl_maps}
-        self.curl_maps = {item1:os.path.join(self.get_local_staging_dir(), item2) for (item1, item2, _) in self.curl_maps}
-        self.commands = [[self.get_resolved_command(c_part) for c_part in c.split()] for c in self.commands]
+        self.directory_maps |= {item2:item3 for (_, item2, item3) in self.jsonnet_multi_maps}
+        self.jsonnet_multi_maps = {item1:item2 for (item1, item2, _) in self.jsonnet_multi_maps}
+        self.file_maps |= {item2:item3 for (_, item2, item3) in self.curl_maps}
+        self.prestaged_files.extend([item2 for (_, item2, _) in self.curl_maps])
+        self.curl_maps = {item1:item2 for (item1, item2, _) in self.curl_maps}
 
     def is_localhost(self) -> bool:
         return self.hostname == platform.uname().node
@@ -58,7 +62,7 @@ class Host:
     def get_remote_staging_dir(self) -> str:
         if self.is_localhost():
             return self.get_local_staging_dir()
-        return os.path.join('.', self.config_dir, 'staging')
+        return os.path.join(self.config_dir, 'staging')
 
     def get_inflated_macro(self, key, file_path) -> list[str]:
         return [v.replace('@@FILE_NAME', Path(file_path).stem.upper())
@@ -250,17 +254,21 @@ def parse_jsonnet_now(jsonnet_file, ext_vars, output_string=False) -> dict | lis
         raise
 
 
-def parse_jsonnet(jsonnet_file, ext_vars, output_file, output_string=False) -> list:
+def parse_jsonnet(jsonnet_file, ext_vars, output_path, is_multicast=False, output_string=False) -> list:
     proc_args = ['jsonnet']
 
-    if output_file is not None:
-        output_string |= output_file.endswith('.sh') or output_file.endswith('.ini')
+    if output_path is not None:
+        output_string |= output_path.endswith('.sh') or output_path.endswith('.ini')
 
     if output_string:
         proc_args.append('-S')
 
-    if output_file is not None:
-        proc_args.extend(['-o', output_file])
+    if not is_multicast:
+        if output_path is not None:
+            proc_args.extend(['-o', output_path])
+    else:
+        proc_args.extend(['-m', output_path])
+
 
     for (key, val) in ext_vars.items():
         proc_args.extend(['-V', f'{key}={val}'])
@@ -303,15 +311,34 @@ def preprocess_curl_files(host, staging_dir, verbose=False) -> list:
 
     return ops
 
-def preprocess_jsonnet_files(host, staging_dir, verbose=False) -> list:
+def preprocess_jsonnet_files(host, source_dir, staging_dir, verbose=False) -> list:
     if not host.jsonnet_maps:
         return ['No jsonnet maps found']
 
-    full_paths = [(os.path.join(Path.cwd(), src), os.path.join(staging_dir, dest)) for (src, dest) in host.jsonnet_maps.items()]
+    full_paths = [(os.path.join(source_dir, src), os.path.join(staging_dir, dest)) for (src, dest) in host.jsonnet_maps.items()]
     staging_dests = set([os.path.dirname(d) for (_, d) in full_paths])
 
     ops = [['mkdir', '-p', d] for d in staging_dests]
     jsonnet_commands = [parse_jsonnet(s, get_ext_vars(host), d) for (s, d) in full_paths]
+
+    if verbose:
+        annotated_jsonnet_commands = [' '.join(j) for j in jsonnet_commands]
+        jsonnet_commands = [item for sublist in zip(annotated_jsonnet_commands, jsonnet_commands) for item in sublist]
+
+    ops.extend(jsonnet_commands)
+
+    return ops
+
+
+def preprocess_jsonnet_directories(host, source_dir, staging_dir, verbose=False) -> list:
+    if not host.jsonnet_multi_maps:
+        return ['No jsonnet multimaps found']
+
+    full_paths = [(os.path.join(source_dir, src), os.path.join(staging_dir, dest)) for (src, dest) in host.jsonnet_multi_maps.items()]
+    staging_dests = set([d for (_, d) in full_paths])
+
+    ops = [['mkdir', '-p', d] for d in staging_dests]
+    jsonnet_commands = [parse_jsonnet(s, get_ext_vars(host), d, is_multicast=True, output_string=True) for (s, d) in full_paths]
 
     if verbose:
         annotated_jsonnet_commands = [' '.join(j) for j in jsonnet_commands]
@@ -399,11 +426,15 @@ def make_finish_script(host, command_ops, verbose=False) -> list:
 
 
 def push_remote_staging(host, verbose=False) -> list:
-    ops = [f'Synching dotFiles for {host.hostname}']
+    ops = [f'Synching dotFiles for {host.hostname} from local staging directory']
 
     # Clean the remote dotFiles
     root_files_to_remove = [f for f in host.file_maps.values() if '/' not in f]
-    root_files_to_remove.extend([d for d in host.directory_maps.values()])
+    root_files_to_remove.extend(host.directory_maps.values())
+
+    if host.is_localhost():
+        root_files_to_remove = [os.path.join(HOME, f) for f in root_files_to_remove]
+
     root_files_to_remove.append(host.config_dir)
     if not host.is_localhost():
         root_files_to_remove.append(host.get_remote_staging_dir())
@@ -451,21 +482,16 @@ def process_staged_files(host, files) -> None:
 
 
 def stage_local(host, shallow, verbose=False) -> list[str]:
-    ops = []
+    ops = [f'Staging dotFiles for {host.hostname} in {host.get_local_staging_dir()}']
 
     ops.append(['rm', '-rf', host.get_local_staging_dir()])
 
-    if host.commands:
-        ops.append(f'>> Running {len(host.commands)} commands on {host.hostname}')
-        if verbose:
-            ops.extend([' '.join(c) for c in host.commands])
-        ops.extend(host.commands)
-
-    files_to_stage = list(host.file_maps.keys())
+    files_to_stage = [file for file in host.file_maps.keys() if file not in host.prestaged_files]
     ops.append('>> Precaching curl files')
-    ops.extend(preprocess_curl_files(host, CWD, verbose=verbose))
+    ops.extend(preprocess_curl_files(host, host.get_local_staging_dir(), verbose=verbose))
     ops.append('>> Preprocessing jsonnet files')
-    ops.extend(preprocess_jsonnet_files(host, CWD, verbose=verbose))
+    ops.extend(preprocess_jsonnet_files(host, CWD, host.get_local_staging_dir(), verbose=verbose))
+    ops.extend(preprocess_jsonnet_directories(host, CWD, host.get_local_staging_dir(), verbose=verbose))
     ops.extend(copy_files_local(CWD, files_to_stage, host.get_local_staging_dir(), files_to_stage))
     ops.append('>> Preprocessing macros in local staged files')
     ops.append(partial(process_staged_files, host=host, files=[f'{host.get_local_staging_dir()}/{file}' for file in files_to_stage]))
