@@ -16,8 +16,6 @@ KEYTIMEOUT=5
 
 # disable the default virtualenv prompt change
 VIRTUAL_ENV_DISABLE_PROMPT=1
-# Repo is implemented in terms of worktrees, so this gets noisy.
-SKIP_WORKTREE_IN_ANDROID_REPO=0
 
 END_OF_PROMPT_ICON=${ICON_MAP[MD_GREATER_THAN]}
 ELEVATED_END_OF_PROMPT_ICON="$"
@@ -128,12 +126,73 @@ zle-line-init() {
 
 zle -N zle-line-init
 
+_prompt_executing=""
+function __konsole_integration_precmd() {
+    local ret="$?"
+    if test "$_prompt_executing" != "0"
+    then
+      _PROMPT_SAVE_PS1="$PS1"
+      _PROMPT_SAVE_PS2="$PS2"
+      PS1=$'%{\e]133;P;k=i\a%}'$PS1$'%{\e]133;B\a\e]122;> \a%}'
+      PS2=$'%{\e]133;P;k=s\a%}'$PS2$'%{\e]133;B\a%}'
+    fi
+    if test "$_prompt_executing" != ""
+    then
+       printf "\033]133;D;%s;aid=%s\007" "$ret" "$$"
+    fi
+    printf "\033]133;A;cl=m;aid=%s\007" "$$"
+    _prompt_executing=0
+}
+
+function __konsole_integration_preexec() {
+    PS1="$_PROMPT_SAVE_PS1"
+    PS2="$_PROMPT_SAVE_PS2"
+    printf "\033]133;C;\007"
+    _prompt_executing=1
+}
+
 chpwd_functions=($chpwd_functions __update_prompt __auto_apply_venv_on_chpwd __update_title)
 
 # Use beam shape cursor for each new prompt.
 preexec_functions=($preexec_functions _set_cursor_beam)
 
 precmd_functions=($precmd_functions __update_prompt)
+
+function toggle_konsole_semantic_integration() {
+    function is_konsole_semantic_integration_active() {
+        [[ -n $(echo $preexec_functions | grep __konsole_integration_preexec) ]]
+    }
+
+    function add_konsole_semantic_integration() {
+        if ! is_konsole_semantic_integration_active; then
+            preexec_functions+=("__konsole_integration_preexec")
+            precmd_functions+=("__konsole_integration_precmd")
+        fi
+    }
+
+    function remove_konsole_semantic_integration() {
+        if is_konsole_semantic_integration_active; then
+            preexec_functions=(${preexec_functions:#__konsole_integration_preexec})
+            precmd_functions=(${precmd_functions:#__konsole_integration_precmd})
+        fi
+    }
+
+    if [[ "$1" == "0" ]]; then
+        remove_konsole_semantic_integration
+        return 0
+    elif [[ "$1" == "1" ]]; then
+        add_konsole_semantic_integration
+        return 0
+    fi
+
+    if is_konsole_semantic_integration_active; then
+        remove_konsole_semantic_integration
+    else
+        add_konsole_semantic_integration
+    fi
+}
+
+toggle_konsole_semantic_integration 1
 
 ACTIVE_DYNAMIC_PROMPT_STYLE="Unknown"
 
@@ -162,15 +221,16 @@ function __update_prompt() {
         local style="$1"
         case "${style}" in
         "Git")
-            preamble+="%{$fg[green]%}"
-            dynamic_part+='$(__print_git_info)'
+            preamble="%{$fg[green]%}"
+            dynamic_part='$(__print_git_info)'
             ;;
         "Repo")
             preamble="%{$fg[yellow]%}"
-            dynamic_part+='$(__print_repo_info)'
+            dynamic_part='$(__print_repo_info)'
             ;;
         *)
-            preamble+="%{$reset_color%}"
+            preamble="%{$reset_color%}"
+            dynamic_part=''
         esac
 
         preamble+='$(__cute_time_prompt) $(__virtualenv_info " ")'
@@ -337,14 +397,14 @@ function __print_repo_worktree() {
     echo -n "%{${fg_color}%}${line}%{$reset_color%} "
 }
 
-__print_git_info() {
+function __print_git_info() {
     if __is_in_git_repo; then
         __print_git_worktree
         __print_git_branch
     fi
 }
 
-__print_repo_info() {
+function __print_repo_info() {
     __print_repo_worktree
     if __is_in_git_repo; then
         if ! __git_is_detached_head; then
