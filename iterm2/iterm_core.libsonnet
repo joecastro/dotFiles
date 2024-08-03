@@ -8,18 +8,6 @@ local ExtendedTerminalColors = color_defs.ExtendedTerminalColors;
 
 local default_color_scheme = color_defs.Schemes.Iterm;
 
-local default_extended_colors = ExtendedTerminalColors(
-    Colors.White, // foreground
-    Colors.Black, // background
-    null, // bold
-    null, // link
-    Color(0.71, 0.84, 1), // selection_background
-    Colors.Black, // selection_foreground
-    Colors.White, // cursor_background
-    Colors.Black, // cursor_foreground
-    null, // underline
-    null); // tab
-
 local ItermColor(color) =
 {
     "Red Component": std.toString(color.red),
@@ -158,7 +146,6 @@ local ItermColorWhite = ItermColor(Colors.White);
         "Window Type": 0
     },
     ITermColorPreset:: ItermColorPreset,
-    DefaultExtendedTerminalColors:: default_extended_colors,
     ItermProfileTrigger(regex, action, parameter, partial=false)::
     {
         action : action,

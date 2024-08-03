@@ -9,8 +9,8 @@ local kolor_schemes = [
 ];
 
 local outputs = [
-    konsole_configs.KonsoleProfileIni('GLinux', null, 'Tango'),
-    konsole_configs.KonsoleColorSchemeIni("GCloud", color_defs.Schemes.GCloud, null, wallpapers.android_colorful.local_path),
+    konsole_configs.KonsoleProfileIni('GLinux', null, 'Tango Dark'),
+    konsole_configs.KonsoleColorSchemeIni('Tango Dark', color_defs.Schemes['Tango Dark'], null, wallpapers.android_colorful.local_path),
 ] + kolor_schemes;
 
 { [o.filename]: std.manifestIni(o) for o in outputs }
