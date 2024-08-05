@@ -206,7 +206,18 @@ local ExtendedTerminalColors(
             ColorFromHex("#3B78FF"),
             ColorFromHex("#B4009E"),
             ColorFromHex("#61D6D6"),
-            ColorFromHex("#F2F2F2")),
+            ColorFromHex("#F2F2F2"),
+            ExtendedTerminalColors(
+                ColorFromHex('#4a4543'), // foregound
+                ColorFromHex('#f7f7f7'), // background
+                ColorFromHex('#4a4543'), // bold
+                null, // link
+                ColorFromHex('#a5a2a2'), // selection_background
+                ColorFromHex('#4a4543'), // selection_foreground
+                ColorFromHex('#4a4543'), // cursor_background
+                ColorFromHex('#f7f7f7'), // cursor_foreground
+                null, // underline
+                null)), // tab
         Vintage: AnsiColorScheme(
             ColorFromHex("#000000"),
             ColorFromHex("#800000"),
