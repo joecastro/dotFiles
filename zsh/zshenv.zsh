@@ -3,6 +3,7 @@
 #pragma once
 
 test -e ~/.env_vars.sh && source ~/.env_vars.sh
+test -e ~/.cargo/env && source ~/.cargo/env
 
 EXPECT_NERD_FONTS="${EXPECT_NERD_FONTS:-0}"
 # BE_LOUD_ABOUT_SLOW_COMMANDS=0

@@ -5,93 +5,85 @@
 # Suppress warnings on bash 3
 declare -A ICON_MAP=([NOTHING]="") > /dev/null 2>&1
 
-function __refresh_icon_map() {
-    if __is_shell_old_bash; then
-        ICON_MAP=([UNSUPPORTED]="[?]")
-        return 0
-    fi
+declare -A EMOJI_ICON_MAP=(
+    [WINDOWS]=🪟
+    [LINUX_PENGUIN]=🐧
+    [GIT]=🐙
+    [GITHUB]=🐈
+    [GOOGLE]="{G}"
+    [VIM]="{vim}"
+    [ANDROID_HEAD]=🤖
+    [ANDROID_BODY]=🤖
+    [PYTHON]=🐍
+    [GIT_BRANCH]=️"(b)"
+    [GIT_COMMIT]="(c)"
+    [HOME_FOLDER]="📁‍🏠"
+    [COD_FILE_SUBMODULE]=📂
+    [TMUX]=🤵
+    [VS_CODE]=♾️
+    [COD_HOME]=🏠
+    [COD_PINNED]=📌
+    [COD_TOOLS]=🛠️
+    [COD_TAG]=🏷️
+    [COD_PACKAGE]=📦
+    [COD_SAVE]=💾
+    [FAE_TREE]=🌲
+    [MD_SUBMARINE]="{sub}"
+    [MD_GREATER_THAN]=">"
+    [MD_CHEVRON_DOUBLE_RIGHT]=">>"
+    [MD_MICROSOFT_VISUAL_STUDIO_CODE]=♾️
+    [MD_SNAPCHAT]=👻
+    [OCT_FILE_SUBMODULE]=🗄️
+    [COD_TERMINAL_BASH]="{bash}"
+    [FA_DOLLAR]=$
+    [FA_BEER]=🍺
+    [CIDER]=🍺
+    [YAWN]=🥱
+    [ACCOUNT]=🙋
+    [CLOUD]=🌥️
+    [DEBIAN]=🌀
+    [UBUNTU]=👫
+    )
 
-    local USE_NERD_FONTS="$1"
-    # emojipedia.org
-    #Nerdfonts - https://www.nerdfonts.com/cheat-sheet
-    if [[ "${USE_NERD_FONTS}" == "0" ]]; then
-        ICON_MAP=(
-        [WINDOWS]=
-        [LINUX_PENGUIN]=
-        [GIT]=
-        [GITHUB]=
-        [GOOGLE]=
-        [VIM]=
-        [ANDROID_HEAD]=󰀲
-        [ANDROID_BODY]=
-        [PYTHON]=
-        [GIT_BRANCH]=
-        [GIT_COMMIT]=
-        [HOME_FOLDER]=󱂵
-        [COD_FILE_SUBMODULE]=
-        [TMUX]=
-        [VS_CODE]=󰨞
-        [COD_HOME]=
-        [COD_PINNED]=
-        [COD_TOOLS]=
-        [COD_TAG]=
-        [COD_PACKAGE]=
-        [COD_SAVE]=
-        [FAE_TREE]=
-        [MD_SUBMARINE]=󱕬
-        [MD_GREATER_THAN]=󰥭
-        [MD_CHEVRON_DOUBLE_RIGHT]=󰄾
-        [MD_MICROSOFT_VISUAL_STUDIO_CODE]=󰨞
-        [MD_SNAPCHAT]=󰒶
-        [OCT_FILE_SUBMODULE]=
-        [COD_TERMINAL_BASH]=
-        [FA_DOLLAR]=
-        [FA_BEER]=
-        [CIDER]=
-        [YAWN]=
-        [ACCOUNT]=
-        [CLOUD]=󰅟
-        )
-    else
-        ICON_MAP=(
-        [WINDOWS]=🪟
-        [LINUX_PENGUIN]=🐧
-        [GIT]=🐙
-        [GITHUB]=🐈
-        [GOOGLE]="{G}"
-        [VIM]="{vim}"
-        [ANDROID_HEAD]=🤖
-        [ANDROID_BODY]=🤖
-        [PYTHON]=🐍
-        [GIT_BRANCH]=️"(b)"
-        [GIT_COMMIT]="(c)"
-        [HOME_FOLDER]="📁‍🏠"
-        [COD_FILE_SUBMODULE]=📂
-        [TMUX]=🤵
-        [VS_CODE]=♾️
-        [COD_HOME]=🏠
-        [COD_PINNED]=📌
-        [COD_TOOLS]=🛠️
-        [COD_TAG]=🏷️
-        [COD_PACKAGE]=📦
-        [COD_SAVE]=💾
-        [FAE_TREE]=🌲
-        [MD_SUBMARINE]="{sub}"
-        [MD_GREATER_THAN]=">"
-        [MD_CHEVRON_DOUBLE_RIGHT]=">>"
-        [MD_MICROSOFT_VISUAL_STUDIO_CODE]=♾️
-        [MD_SNAPCHAT]=👻
-        [OCT_FILE_SUBMODULE]=🗄️
-        [COD_TERMINAL_BASH]="{bash}"
-        [FA_DOLLAR]=$
-        [FA_BEER]=🍺
-        [CIDER]=🍺
-        [YAWN]=🥱
-        [ACCOUNT]=🙋
-        [CLOUD]=🌥️
-        )
-    fi
-}
+declare -A NF_ICON_MAP=(
+    [WINDOWS]=
+    [LINUX_PENGUIN]=
+    [GIT]=
+    [GITHUB]=
+    [GOOGLE]=
+    [VIM]=
+    [ANDROID_HEAD]=󰀲
+    [ANDROID_BODY]=
+    [PYTHON]=
+    [GIT_BRANCH]=
+    [GIT_COMMIT]=
+    [HOME_FOLDER]=󱂵
+    [COD_FILE_SUBMODULE]=
+    [TMUX]=
+    [VS_CODE]=󰨞
+    [COD_HOME]=
+    [COD_PINNED]=
+    [COD_TOOLS]=
+    [COD_TAG]=
+    [COD_PACKAGE]=
+    [COD_SAVE]=
+    [FAE_TREE]=
+    [MD_SUBMARINE]=󱕬
+    [MD_GREATER_THAN]=󰥭
+    [MD_CHEVRON_DOUBLE_RIGHT]=󰄾
+    [MD_MICROSOFT_VISUAL_STUDIO_CODE]=󰨞
+    [MD_SNAPCHAT]=󰒶
+    [OCT_FILE_SUBMODULE]=
+    [COD_TERMINAL_BASH]=
+    [FA_DOLLAR]=
+    [FA_BEER]=
+    [CIDER]=
+    [YAWN]=
+    [ACCOUNT]=
+    [CLOUD]=󰅟
+    [DEBIAN]=
+    [UBUNTU]=
+    )
 
 function __is_ssh_session() {
     [ -n "${SSH_CLIENT}" ] || [ -n "${SSH_TTY}" ] || [ -n "${SSH_CONNECTION}" ]
@@ -190,6 +182,46 @@ function __is_shell_old_bash() {
 function __is_shell_zsh() {
     [[ -n "$ZSH_VERSION" ]]
 }
+
+if __is_shell_old_bash; then
+    function __refresh_icon_map() {
+        ICON_MAP=([UNSUPPORTED]="[?]")
+        return 0
+    }
+fi
+if __is_shell_zsh; then
+source /dev/stdin <<'EOF'
+    function __refresh_icon_map() {
+        local USE_NERD_FONTS="$1"
+        # emojipedia.org
+        #Nerdfonts - https://www.nerdfonts.com/cheat-sheet
+        if [[ "${USE_NERD_FONTS}" == "0" ]]; then
+            for key val in "${(@kv)NF_ICON_MAP}"; do
+                ICON_MAP[$key]=$val
+            done
+        else
+            for key val in "${(@kv)EMOJI_ICON_MAP}"; do
+                ICON_MAP[$key]=$val
+            done
+        fi
+    }
+EOF
+else
+    function __refresh_icon_map() {
+        local USE_NERD_FONTS="$1"
+        # emojipedia.org
+        #Nerdfonts - https://www.nerdfonts.com/cheat-sheet
+        if [[ "${USE_NERD_FONTS}" == "0" ]]; then
+            for key in "${!NF_ICON_MAP[@]}"; do
+                ICON_MAP[$key]=${NF_ICON_MAP[$key]}
+            done
+        else
+            for key in "${!EMOJI_ICON_MAP[@]}"; do
+                ICON_MAP[$key]=${EMOJI_ICON_MAP[$key]}
+            done
+        fi
+    }
+fi
 
 # Shared cuteness
 

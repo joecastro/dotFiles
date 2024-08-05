@@ -87,9 +87,13 @@ function list_colors() {
     done
 }
 
-function clear_pragmas() {
-    # Undoes the pragma once guards in my source files.
-    unset -m "PRAGMA_*"
-}
+if __is_shell_zsh; then
+    function clear_pragmas() {
+        # Undoes the pragma once guards in my source files.
+        unset -m "PRAGMA_*"
+    }
 
-alias source_dotfiles='clear_pragmas; source ~/.zshenv; source ~/.zprofile; source ~/.zshrc'
+    alias source_dotfiles='clear_pragmas; source ~/.zshenv; source ~/.zprofile; source ~/.zshrc'
+elif __is_shell_bash; then
+    alias source_dotfiles='echo "Maybe later...'
+fi
