@@ -206,7 +206,46 @@ local ExtendedTerminalColors(
             ColorFromHex("#3B78FF"),
             ColorFromHex("#B4009E"),
             ColorFromHex("#61D6D6"),
-            ColorFromHex("#F2F2F2")),
+            ColorFromHex("#F2F2F2"),
+            ExtendedTerminalColors(
+                ColorFromHex('#CCCCCC'), // foregound
+                Black, // background
+                null, // bold
+                null, // link
+                White, // selection_background
+                null, // selection_foreground
+                null, // cursor_background
+                White, // cursor_foreground
+                null, // underline
+                null)), // tab
+        CampbellPoweshell: AnsiColorScheme(
+            ColorFromHex("#0C0C0C"),
+            ColorFromHex("#C50F1F"),
+            ColorFromHex("#13A10E"),
+            ColorFromHex("#C19C00"),
+            ColorFromHex("#0037DA"),
+            ColorFromHex("#881798"),
+            ColorFromHex("#3A96DD"),
+            ColorFromHex("#CCCCCC"),
+            ColorFromHex("#767676"),
+            ColorFromHex("#E74856"),
+            ColorFromHex("#16C60C"),
+            ColorFromHex("#F9F1A5"),
+            ColorFromHex("#3B78FF"),
+            ColorFromHex("#B4009E"),
+            ColorFromHex("#61D6D6"),
+            ColorFromHex("#F2F2F2"),
+            ExtendedTerminalColors(
+                ColorFromHex('#CCCCCC'), // foregound
+                ColorFromHex('#012456'), // background
+                null, // bold
+                null, // link
+                White, // selection_background
+                null, // selection_foreground
+                null, // cursor_background
+                White, // cursor_foreground
+                null, // underline
+                null)), // tab
         Vintage: AnsiColorScheme(
             ColorFromHex("#000000"),
             ColorFromHex("#800000"),
@@ -223,7 +262,18 @@ local ExtendedTerminalColors(
             ColorFromHex("#0000FF"),
             ColorFromHex("#FF00FF"),
             ColorFromHex("#00FFFF"),
-            ColorFromHex("#FFFFFF")),
+            ColorFromHex("#FFFFFF"),
+            ExtendedTerminalColors(
+                ColorFromHex('#C0C0C0'),
+                Black,
+                null,
+                null,
+                White,
+                null,
+                null,
+                White,
+                null,
+                null)),
         Frost: AnsiColorScheme(
             ColorFromHex("#3C5712"),
             ColorFromHex("#8D0C0C"),
@@ -1015,14 +1065,14 @@ local ExtendedTerminalColors(
             ColorFromHex('#37e6e8'),
             ColorFromHex('#f1f1f0'),
             ExtendedTerminalColors(
-                ColorFromHex('#ffffff'), // foregound
-                ColorFromHex('#000000'), // background
-                ColorFromHex('#ffffff'), // bold
+                ColorFromHex('#dbdbe8'), // foregound
+                Black, // background
+                null, // bold
                 null, // link
-                ColorFromHex('#c1deff'), // selection_background
-                ColorFromHex('#000000'), // selection_foreground
-                ColorFromHex('#ffffff'), // cursor_background
-                ColorFromHex('#000000'), // cursor_foreground
+                White, // selection_background
+                null, // selection_foreground
+                null, // cursor_background
+                White, // cursor_foreground
                 null, // underline
                 null)), // tab
         Tango: AnsiColorScheme(
@@ -1041,7 +1091,18 @@ local ExtendedTerminalColors(
             ColorFromHex("#729FCF"),
             ColorFromHex("#AD7FA8"),
             ColorFromHex("#34E2E2"),
-            ColorFromHex("#EEEEEC")),
+            ColorFromHex("#EEEEEC"),
+            ExtendedTerminalColors(
+                Black, // foregound
+                ColorFromHex('#D3D7CF'), // background
+                null, // bold
+                null, // link
+                White, // selection_background
+                null, // selection_foreground
+                null, // cursor_background
+                Black, // cursor_foreground
+                null, // underline
+                null)), // tab
         'Tango Adapted': AnsiColorScheme(
             ColorFromHex('#000000'),
             ColorFromHex('#d81e00'),

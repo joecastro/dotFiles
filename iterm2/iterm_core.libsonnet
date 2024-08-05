@@ -154,7 +154,7 @@ local ItermColorWhite = ItermColor(Colors.White);
         [if partial then "partial"]: true,
     },
     ItermProfile(profile_name, color, guid, wallpaper)::
-        ItermColorPreset(null, default_color_scheme, default_extended_colors) +
+        ItermColorPreset(null, default_color_scheme, default_color_scheme.terminal_colors) +
         $.ItermProfileTemplate +
     {
         "Background Image Location": std.extVar("cwd") + "/wallpaper/" + wallpaper.path,

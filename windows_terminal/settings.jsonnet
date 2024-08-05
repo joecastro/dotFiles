@@ -52,27 +52,15 @@ local Theme(name, applicationTheme) = {
     }
 };
 
-local Scheme(name, scheme, background, foreground, cursorColor=Colors.White, selectionBackground=Colors.White) = {
+local Scheme(name, scheme) = {
     name: name,
-    background: background.hexcolor,
-    cursorColor: cursorColor.hexcolor,
-    foreground: foreground.hexcolor,
-    selectionBackground: selectionBackground.hexcolor,
+    background: scheme.terminal_colors.background.hexcolor,
+    cursorColor: scheme.terminal_colors.cursor_foreground.hexcolor,
+    foreground: scheme.terminal_colors.foreground.hexcolor,
+    selectionBackground: scheme.terminal_colors.selection_background.hexcolor,
 } + scheme.color_pack + scheme.bright_color_pack;
 
-local schemes = {
-    Campbell: Scheme("Campbell", Schemes.Campbell,                      Schemes.Campbell.black, Schemes.Campbell.white),
-    CampbellPowershell: Scheme("Campbell Powershell", Schemes.Campbell, ColorFromHex("#012456"), Schemes.Campbell.white),
-    OneHalfDark: Scheme("One Half Dark", Schemes.OneHalfDark,           ColorFromHex("#282C34"), Schemes.OneHalfDark.white),
-    OneHalfLight: Scheme("One Half Light", Schemes.OneHalfLight,        Schemes.OneHalfLight.white, Schemes.OneHalfLight.black, Schemes.OneHalfLight.bright_black),
-    SolarizedDark: Scheme("Solarized Dark", Schemes.Solarized,          Schemes.Solarized.black, Schemes.Solarized.bright_blue),
-    SolarizedLight: Scheme("Solarized Light", Schemes.Solarized,        Schemes.Solarized.bright_white, Schemes.Solarized.bright_yellow, Schemes.Solarized.black),
-    TangoDark: Scheme("Tango Dark", Schemes.Tango,                      Schemes.Tango.black, Schemes.Tango.white),
-    TangoLight: Scheme("Tango Light", Schemes.Tango,                    Colors.White, Schemes.Tango.bright_black, Schemes.Tango.black),
-    Ubuntu: Scheme("Ubuntu", Schemes.Ubuntu,                            ColorFromHex("#300A24"), Colors.White),
-    Ubuntu2: Scheme("Ubuntu2", Schemes.Ubuntu2,                         ColorFromHex("#300A24"), ColorFromHex("#eeeeec"), ColorFromHex("#bbbbbb"), ColorFromHex("#b5d5ff")),
-    Vintage: Scheme("Vintage", Schemes.Vintage,                         Schemes.Vintage.black, Schemes.Vintage.white),
-};
+local schemes = {[o.key]: Scheme(o.key, o.value) for o in std.objectKeysValues(Schemes) if o.value.terminal_colors != null};
 
 local ProfileBase(name, scheme, source, guid, hidden=false) = {
     name: name,
@@ -96,8 +84,8 @@ local profiles = {
         font: fonts.LucidaConsole,
         padding: "20"
     },
-    GitBash: ProfileBase("Git Bash", schemes.OneHalfDark, "Git", "2ece5bfe-50ed-5f3a-ab87-5cd4baafed2b"),
-    Ubuntu: ProfileBase("Ubuntu", schemes.Ubuntu2, "Windows.Terminal.Wsl", "17bf3de4-5353-5709-bcf9-835bd952a95e") + {
+    GitBash: ProfileBase("Git Bash", schemes['One Half Dark'], "Git", "2ece5bfe-50ed-5f3a-ab87-5cd4baafed2b"),
+    Ubuntu: ProfileBase("Ubuntu", schemes.Ubuntu, "Windows.Terminal.Wsl", "17bf3de4-5353-5709-bcf9-835bd952a95e") + {
         backgroundImage: "%DOTFILES_SRC_DIR%\\wallpaper\\ubuntu_purple.jpg",
         backgroundImageOpacity: 0.7,
         opacity: 70,
@@ -149,7 +137,7 @@ local profiles = {
                 "window",
                 "taskbar",
             ],
-            colorScheme: schemes.SolarizedDark.name,
+            colorScheme: schemes['Solarized Dark'].name,
             font: fonts.CaskaydiaCoveMono,
             opacity: 100,
             useAcrylic: true,

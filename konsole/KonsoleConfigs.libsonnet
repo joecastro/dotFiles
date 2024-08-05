@@ -13,7 +13,7 @@ local getForeground(extended_scheme) = {
     value: if extended_scheme != null && extended_scheme.foreground != null then extended_scheme.foreground else color_defs.Colors.White
 };
 {
-    KonsoleColorSchemeIni(name, scheme, extended_scheme, wallpaper_path): {
+    KonsoleColorSchemeIni(name, scheme, wallpaper_path): {
         name:: name,
         filename:: name + '.colorscheme',
         sections: {
@@ -41,11 +41,11 @@ local getForeground(extended_scheme) = {
             Color7: KonsoleColor(scheme.color7),
             Color7Faint: KonsoleColor(scheme.color7),
             Color7Intense: KonsoleColor(scheme.color7_bold),
-            Background: KonsoleColor(getBackground(extended_scheme).value),
-            BackgroundIntense: KonsoleColor(getBackground(extended_scheme).value),
-            Foreground: KonsoleColor(getForeground(extended_scheme).value),
-            ForegroundFaint: KonsoleColor(getForeground(extended_scheme).value),
-            ForegroundIntense: KonsoleColor(getForeground(extended_scheme).value),
+            Background: KonsoleColor(getBackground(scheme.terminal_colors).value),
+            BackgroundIntense: KonsoleColor(getBackground(scheme.terminal_colors).value),
+            Foreground: KonsoleColor(getForeground(scheme.terminal_colors).value),
+            ForegroundFaint: KonsoleColor(getForeground(scheme.terminal_colors).value),
+            ForegroundIntense: KonsoleColor(getForeground(scheme.terminal_colors).value),
             General: {
                 Anchor: "0.5,0.5",
                 Blur: false,
