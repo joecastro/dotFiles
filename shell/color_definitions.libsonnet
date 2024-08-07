@@ -20,7 +20,8 @@ local Color(r, g, b, a=1) = {
     assert $.alpha255 >= 0 && $.alpha255 <= 255: "Alpha component must be between 0 and 255",
 
     hexcolor:: "#%02x%02x%02x" % [$.red255, $.green255, $.blue255],
-    HEXCOLOR:: std.asciiUpper($.hexcolor)
+    HEXCOLOR:: std.asciiUpper($.hexcolor),
+    rgb255:: "%d,%d,%d" % [$.red255, $.green255, $.blue255],
 };
 
 local ColorFromHex(hex) =

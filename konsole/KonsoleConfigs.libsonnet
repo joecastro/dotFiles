@@ -59,7 +59,7 @@ local getForeground(extended_scheme) = {
             },
         }
     },
-    KonsoleProfileIni(profile_name, icon_path, scheme_name): {
+    KonsoleProfileIni(profile_name, icon_path, scheme_name, tab_color, command=null): {
         name:: profile_name,
         filename:: profile_name + '.profile',
         sections: {
@@ -67,11 +67,13 @@ local getForeground(extended_scheme) = {
                 ColorScheme: scheme_name,
                 Font: 'CaskaydiaCove Nerd Font Mono,14,-1,5,50,0,0,0,0,0',
                 UseFontLineChararacters: true,
+                [if tab_color != null then 'TabColor']: tab_color.rgb255,
             },
             'Cursor Options': {
                 CursorShape: 1,
             },
             General: {
+                [if command != null then 'Command']: command,
                 AlternatingBackground: 1,
                 DimWhenInactive: false,
                 Icon: icon_path,
@@ -80,6 +82,12 @@ local getForeground(extended_scheme) = {
                 Name: profile_name,
                 Parent: 'FALLBACK/',
                 StartInCurrentSessionDir: false,
+            },
+            'Interaction Options': {
+                AutoCopySelectedText: true,
+                CopyTextAsHTML: false,
+                TrimLeadingSpacesInSelectedText: true,
+                TrimTrailingSpacesInSelectedText: true,
             },
             Scrolling: {
                 HistorySize: 10000,

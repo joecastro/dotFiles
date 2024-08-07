@@ -43,7 +43,7 @@ declare -A EMOJI_ICON_MAP=(
     [CLOUD]=🌥️
     [DEBIAN]=🌀
     [UBUNTU]=👫
-    )
+    ) > /dev/null 2>&1
 
 declare -A NF_ICON_MAP=(
     [WINDOWS]=
@@ -83,7 +83,7 @@ declare -A NF_ICON_MAP=(
     [CLOUD]=󰅟
     [DEBIAN]=
     [UBUNTU]=
-    )
+    ) > /dev/null 2>&1
 
 function __is_ssh_session() {
     [ -n "${SSH_CLIENT}" ] || [ -n "${SSH_TTY}" ] || [ -n "${SSH_CONNECTION}" ]
@@ -97,12 +97,38 @@ function __is_in_git_dir() {
     __is_in_git_repo && git rev-parse --is-inside-git-dir | grep "true" > /dev/null 2>&1;
 }
 
-function __is_in_repo() {
-    repo --show-toplevel > /dev/null 2>&1
+function __is_in_repo_root() {
+    local candidate_dir="${1:-$PWD}"
+    # Hackily relying on an implementation detail...
+    # Check _FindRepo() in the repo Python script.
+    [[ -f "${candidate_dir}/.repo/repo/main.py" ]]
 }
 
-function __is_in_repo_root() {
-    __is_in_repo && [[ "$(repo --show-toplevel)" == "${PWD}" ]]
+function __is_in_repo() {
+    local current_dir
+    current_dir=$(readlink -f "$PWD")
+    if [[ -n "${CWD_REPO_ROOT}" && "$current_dir" == "$CWD_REPO_ROOT"* ]]; then
+        return 0
+    fi
+    while [[ "$current_dir" != "/" ]]; do
+        if __is_in_repo_root "$current_dir"; then
+            if [[ "$(repo --show-toplevel)" != "${current_dir}" ]]; then
+                echo "BADBAD: ${current_dir}"
+            fi
+
+            if [[ "$current_dir" != "$CWD_REPO_ROOT" ]]; then
+                CWD_REPO_ROOT="${current_dir}"
+                export CWD_REPO_ROOT
+                CWD_REPO_MANIFEST_BRANCH=$(repo info -o --outer-manifest -l | grep -i "Manifest branch" | sed 's/^Manifest branch: //')
+                export CWD_REPO_MANIFEST_BRANCH
+            fi
+            return 0
+        fi
+        current_dir="$(dirname "$current_dir")"
+    done
+    unset CWD_REPO_ROOT
+    unset CWD_REPO_MANIFEST_BRANCH
+    return 1
 }
 
 function __is_shell_interactive() {
@@ -190,6 +216,8 @@ if __is_shell_old_bash; then
     }
 fi
 if __is_shell_zsh; then
+# Prevent bash from attempting to interpret invalid zsh syntax.
+# shellcheck disable=SC1091
 source /dev/stdin <<'EOF'
     function __refresh_icon_map() {
         local USE_NERD_FONTS="$1"
@@ -234,7 +262,7 @@ function __print_abbreviated_path() {
         result+="${part:0:1}/"
         input_string="${input_string#*/}"
     done
-    result+="${input_string:0:1}"
+    result+="${input_string}"
     echo -n "${result}"
 }
 
@@ -287,11 +315,9 @@ if ! __is_shell_old_bash; then
                 ;;
             esac
 
-            if [[ -n "${ANDROID_REPO_BRANCH}" ]]; then
-                if [[ "${ACTIVE_DIR##*/}" == "${ANDROID_REPO_BRANCH}" ]]; then
-                    echo -n "${ICON_MAP[ANDROID_HEAD]}"
-                    return 0
-                fi
+            if __is_in_repo_root "${ACTIVE_DIR}"; then
+                echo -n "${ICON_MAP[ANDROID_HEAD]}"
+                return 0
             fi
 
             case "${ACTIVE_DIR##*/}" in

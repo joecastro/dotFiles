@@ -4,12 +4,9 @@
 
 function repo_find() {
     if __is_in_repo; then
-        repo --show-toplevel
-    elif [[ -n ${ANDROID_REPO_ROOT} ]]; then
-        echo "${ANDROID_REPO_ROOT}"
-    else
-        find . -type d -name '.repo' -print -quit | sed 's#/\.repo$##'
+        echo "${CWD_REPO_ROOT}"
     fi
+    find . -type d -maxdepth 4 -name '.repo' -print -quit | sed 's#/\.repo$##'
 }
 
 alias repoGo='pushd "$(repo_find)"'
@@ -19,15 +16,7 @@ function repo_print_manifest_branch() {
     if ! __is_in_repo; then
         return 1
     fi
-
-    local manifest_branch
-    if (( ${+ANDROID_REPO_ROOT} )) && [[ "${PWD}" == "${ANDROID_REPO_ROOT}" || "${PWD}" == "${ANDROID_REPO_ROOT}"/* ]]; then
-        manifest_branch=$ANDROID_REPO_BRANCH
-    else
-        manifest_branch=$(repo info --outer-manifest -l -q "platform/no-project" 2>/dev/null | grep -i "Manifest branch" | sed 's/^Manifest branch: //')
-    fi
-
-    echo -n "${manifest_branch}"
+    echo -n "${CWD_REPO_MANIFEST_BRANCH}"
 }
 
 function repo_print_current_project() {
@@ -41,12 +30,6 @@ function repo_print_current_project() {
     fi
 
     __print_abbreviated_path "${current_project%% :*}"
-}
-
-function repo_upstream_branch() {
-    local upstream_branch
-    upstream_branch=$(repo info -o --outer-manifest -l | grep -i "Manifest branch" | sed 's/^Manifest branch: //')
-    echo "goog/${upstream_branch}"
 }
 
 function repo_current_project_branch() {
@@ -66,9 +49,14 @@ function repo_clean() {
         return 1
     fi
 
-    local upstream_branch
-    upstream_branch="${repo_upstream_branch}"
-    repo forall -vc "git checkout ${upstream_branch} && git reset --hard ${upstream_branch} &&  git clean -xfd"
+    repo list -p | while read -r repo_path; do
+        pushd "${CWD_REPO_ROOT}/${repo_path}" > /dev/null || return 1
+        upstream_branch=$(git remote show)
+        git checkout "${upstream_branch}" || return 1
+        git reset --hard "${upstream_branch}" || return 1
+        git clean -xfd || return 1
+        popd > /dev/null || return 1
+    done
 }
 
 function repo_pushd() {
@@ -120,19 +108,17 @@ function repo_sync_yesterday() {
 
 function repo_sync_at() {
     local last_commit_sha
-    local repo_upstream_branch
-    local repo_root_dir
+    local upstream_branch
 
     if ! __is_in_repo; then
         echo "error: Not in Android repo tree"
         return 1
     fi
 
-    repo_root_dir="$(repo_find)"
-    repo_upstream_branch="$(repo_upstream_branch)"
     repo list -p | while read -r repo_path; do
-        pushd "${repo_root_dir}/${repo_path}" > /dev/null || return 1
-        last_commit_sha=$(git rev-list -n 1 --before="$1" "${repo_upstream_branch}")
+        pushd "${CWD_REPO_ROOT}/${repo_path}" > /dev/null || return 1
+        upstream_branch=$(git remote show)
+        last_commit_sha=$(git rev-list -n 1 --before="$1" "${upstream_branch}")
         git checkout "${last_commit_sha}"
         popd > /dev/null || return 1
     done

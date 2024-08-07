@@ -272,9 +272,11 @@ function __update_title() {
     title+=$(__cute_pwd_short)
     title=$(echo "${title}" | sed 's/%{[^}]*%}//g')
 
-    for key val in "${(@kv)NF_ICON_MAP}"; do
-        title="${title//${val}/${EMOJI_ICON_MAP[$key]}}"
-    done
+    if __is_on_wsl; then
+        for key val in "${(@kv)NF_ICON_MAP}"; do
+            title="${title//${val}/${EMOJI_ICON_MAP[$key]}}"
+        done
+    fi
 
     if [[ "$1" == "--print" ]]; then
         echo "Title: ${title}"

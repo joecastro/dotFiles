@@ -53,6 +53,9 @@ class Host:
         self.prestaged_files.extend([item2 for (_, item2, _) in self.curl_maps])
         self.curl_maps = {item1:item2 for (item1, item2, _) in self.curl_maps}
 
+    def __repr__(self) -> str:
+        return self.hostname
+
     def is_localhost(self) -> bool:
         return self.hostname == platform.uname().node
 
@@ -123,7 +126,8 @@ def print_ops(ops: list, quiet=False) -> None:
         elif isinstance(entry, list):
             print(f'DEBUG: {" ".join(entry)}')
         elif callable(entry):
-            print(f'DEBUG: invoking function {str(entry)[:80]}...')
+            func_args = ', '.join([k+"="+str(v) for k, v in entry.keywords.items()])
+            print(f'DEBUG: invoking {entry.func.__name__}({func_args})')
         else:
             raise TypeError('Bad operation type')
 
@@ -461,24 +465,20 @@ def push_remote_staging(host, verbose=False) -> list:
     return ops
 
 
-def process_staged_files(host, files) -> None:
-    if not host.macros:
-        return
-
-    for file in [f for f in files if Path(f).suffix not in ['.png', '.jpg']]:
-        is_modified = False
-        modified_content = []
-        with open (file, 'r', encoding='utf-8') as f:
-            lines:list[str] = f.read().splitlines()
-            for line in lines:
-                if line in host.macros:
-                    is_modified = True
-                    modified_content.extend(host.get_inflated_macro(line, file))
-                else:
-                    modified_content.append(line)
-        if is_modified:
-            with open(file, 'w', encoding='utf-8') as f:
-                f.writelines(line + '\n' for line in modified_content)
+def process_staged_file(host, file) -> None:
+    is_modified = False
+    modified_content = []
+    with open (file, 'r', encoding='utf-8') as f:
+        lines:list[str] = f.read().splitlines()
+        for line in lines:
+            if line in host.macros:
+                is_modified = True
+                modified_content.extend(host.get_inflated_macro(line, file))
+            else:
+                modified_content.append(line)
+    if is_modified:
+        with open(file, 'w', encoding='utf-8') as f:
+            f.writelines(line + '\n' for line in modified_content)
 
 
 def stage_local(host, shallow, verbose=False) -> list[str]:
@@ -493,8 +493,10 @@ def stage_local(host, shallow, verbose=False) -> list[str]:
     ops.extend(preprocess_jsonnet_files(host, CWD, host.get_local_staging_dir(), verbose=verbose))
     ops.extend(preprocess_jsonnet_directories(host, CWD, host.get_local_staging_dir(), verbose=verbose))
     ops.extend(copy_files_local(CWD, files_to_stage, host.get_local_staging_dir(), files_to_stage))
-    ops.append('>> Preprocessing macros in local staged files')
-    ops.append(partial(process_staged_files, host=host, files=[f'{host.get_local_staging_dir()}/{file}' for file in files_to_stage]))
+    if host.macros:
+        files_to_process = [f'{host.get_local_staging_dir()}/{file}' for file in host.file_maps.keys() if Path(file).suffix not in ['png', 'jpg', 'svg']]
+        ops.append('>> Preprocessing macros in local staged files')
+        ops.extend([partial(process_staged_file, host=host, file=f) for f in files_to_process])
 
     finish_ops = []
     finish_ops.extend(copy_files_local(host.get_remote_staging_dir(), host.file_maps.keys(), '~', host.file_maps.values()))

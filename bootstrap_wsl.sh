@@ -20,9 +20,3 @@ sudo apt install -y \
 
 sudo apt-get install -y \
     repo
-
-if (( ${+ANDROID_REPO_BRANCH} )); then
-    mkdir -p "${ANDROID_REPO_ROOT}"
-    cd "${ANDROID_REPO_ROOT}" || exit 1
-    repo init -u https://android.googlesource.com/platform/manifest -b "${ANDROID_REPO_BRANCH}"
-fi
