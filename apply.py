@@ -23,10 +23,10 @@ CWD = '.'
 # pylint: disable-next=too-many-instance-attributes
 class Host:
     hostname: str
+    home: str
     kernel: str = 'linux'
     abstract_wallpaper: dict = None
     android_wallpaper: dict = None
-    konsole_wallpaper_path: str = None
     branch: str = 'none'
     color: str = 'default'
     config_dir: str = None
@@ -37,6 +37,7 @@ class Host:
     curl_maps: list[tuple[str, str, str]] | dict[str, str] = field(default_factory=list)
     macros: dict[str, list[str]] = field(default_factory=dict)
     prestaged_files: list[str] = field(default_factory=list)
+    prestaged_directories: list[str] = field(default_factory=list)
 
     def __post_init__(self):
         if self.hostname == 'localhost':
@@ -48,6 +49,7 @@ class Host:
         self.jsonnet_maps = {item1:item2 for (item1, item2, _) in self.jsonnet_maps}
         self.directory_maps = dict(self.directory_maps)
         self.directory_maps |= {item2:item3 for (_, item2, item3) in self.jsonnet_multi_maps}
+        self.prestaged_directories.extend([item2 for (_, item2, _) in self.jsonnet_multi_maps])
         self.jsonnet_multi_maps = {item1:item2 for (item1, item2, _) in self.jsonnet_multi_maps}
         self.file_maps |= {item2:item3 for (_, item2, item3) in self.curl_maps}
         self.prestaged_files.extend([item2 for (_, item2, _) in self.curl_maps])
@@ -71,17 +73,6 @@ class Host:
         return [v.replace('@@FILE_NAME', Path(file_path).stem.upper())
                  .replace('@@NOW', datetime.now().strftime("%Y-%m-%d %H:%M")) for v in self.macros[key]]
 
-    def get_resolved_command(self, command) -> str:
-        environment_vars = {
-            'STAGING_DIR': self.get_local_staging_dir(),
-            'HOME': HOME,
-            'PWD': os.getcwd()
-        }
-        for (key, value) in environment_vars.items():
-            command = command.replace(f'${key}', value)
-
-        return command
-
     def is_reachable(self) -> bool:
         if self.is_localhost():
             return True
@@ -102,7 +93,6 @@ class Host:
 @dataclass
 class Config:
     hosts: list[Host]
-    config_root: str
     workspace_overrides: dict
     vim_pack_plugin_start_repos: list
     vim_pack_plugin_opt_repos: list
@@ -223,16 +213,20 @@ def install_git_plugins_local(plugin_type: str, repo_list: list[str], install_ro
     return ops
 
 
-def copy_directories_local(source_root, source_dirs, dest_root, dest_dirs, verbose=False) -> list:
+def copy_directories_local(source_root, source_dirs, dest_root, dest_dirs, use_cp, verbose=False) -> list:
     ops = []
 
-    ops.extend([['mkdir', '-p', os.path.join(dest_root, dest)] for dest in dest_dirs])
+    full_destination_paths = {os.path.join(dest_root, dest) for dest in dest_dirs}
+    ops.extend([['mkdir', '-p', d] for d in full_destination_paths])
     for src, dest in zip(source_dirs, dest_dirs):
         src_path = os.path.join(source_root, src)
         dest_path = os.path.join(dest_root, dest)
         if verbose:
             ops.append(f'local: cp -r {src_path}/* {dest_path}')
-        ops.append(['cp', '-r', src_path + '/*', dest_path])
+        if use_cp:
+            ops.append(['cp', '-r', f'{src_path}/*', dest_path])
+        else:
+            ops.append(partial(shutil.copytree, src=src_path, dst=dest_path, dirs_exist_ok=True))
 
     return ops
 
@@ -293,11 +287,11 @@ def get_ext_vars(host:Host=None) -> list:
     if host is not None:
         ret_vars |= {
             'is_localhost': str(host.is_localhost()).lower(),
+            'home': host.home,
             'hostname': host.hostname,
             'kernel': host.kernel,
             'branch': host.branch,
             'color': host.color,
-            'android_wallpaper': os.getcwd() + '/' + host.android_wallpaper.get('local_path') if host.android_wallpaper else '',
         }
     return ret_vars
 
@@ -357,7 +351,8 @@ def copy_files_local(source_root, source_files, dest_root, dest_files, annotate:
 
     full_path_sources = [os.path.join(source_root, src) for src in source_files]
     full_path_dests = [os.path.join(dest_root, dest) for dest in dest_files]
-    ops = [['mkdir', '-p', d] for d in {os.path.dirname(d) for d in full_path_dests}]
+    full_path_directories = {os.path.dirname(d) for d in full_path_dests}
+    ops = [['mkdir', '-p', d] for d in full_path_directories]
 
     copy_ops = [['cp', src, dest] for (src, dest) in zip(full_path_sources, full_path_dests)]
     if annotate:
@@ -434,6 +429,12 @@ def push_remote_staging(host, verbose=False) -> list:
 
     # Clean the remote dotFiles
     root_files_to_remove = [f for f in host.file_maps.values() if '/' not in f]
+    # Remove subdirectories from root_files_to_remove
+    root_files_to_remove = [
+        f
+        for f in root_files_to_remove
+        if not any(f.startswith(d + "/") for d in root_files_to_remove if f != d)
+    ]
     root_files_to_remove.extend(host.directory_maps.values())
 
     if host.is_localhost():
@@ -445,21 +446,21 @@ def push_remote_staging(host, verbose=False) -> list:
 
     # Trying to overall minimize the number of SSH handshakes...
     ops.append(f'>> Cleaning existing configuration files for {host.hostname}: {", ".join(root_files_to_remove)}')
-    #1
+    # 1
     ops.extend(host.make_ops([['rm', '-rf'] + root_files_to_remove]))
 
     if not host.is_localhost():
         ops.append(f'>> Copying {len(host.file_maps) + 1} files and {len(host.directory_maps)} folders to {host.hostname} home directory')
-        #2
+        # 2
         ops.extend(host.make_ops([['mkdir', '-p', host.get_remote_staging_dir()]]))
         if verbose:
             ops.append(f'>> Copying staging directory to {host.hostname} ({host.get_remote_staging_dir()})')
-        #3
+        # 3
         scp_prefix = ['scp', '-r', '-q'] if not verbose else ['scp', '-r']
         ops.append(scp_prefix + [f'{host.get_local_staging_dir()}/.', f'{host.hostname}:{host.get_remote_staging_dir()}'])
 
     ops.append(f'>> Running finish script on {host.hostname}: {host.get_remote_staging_dir()}/finish.sh')
-    #4
+    # 4
     ops.extend(host.make_ops([['/bin/bash', host.get_remote_staging_dir() + '/finish.sh']]))
 
     return ops
@@ -487,20 +488,29 @@ def stage_local(host, shallow, verbose=False) -> list[str]:
     ops.append(['rm', '-rf', host.get_local_staging_dir()])
 
     files_to_stage = [file for file in host.file_maps.keys() if file not in host.prestaged_files]
+    directories_to_stage = [dir for dir in host.directory_maps.keys() if dir not in host.prestaged_directories]
     ops.append('>> Precaching curl files')
     ops.extend(preprocess_curl_files(host, host.get_local_staging_dir(), verbose=verbose))
     ops.append('>> Preprocessing jsonnet files')
     ops.extend(preprocess_jsonnet_files(host, CWD, host.get_local_staging_dir(), verbose=verbose))
     ops.extend(preprocess_jsonnet_directories(host, CWD, host.get_local_staging_dir(), verbose=verbose))
+    # Copy directories first. Any files that may be explicitly copied can overwrite these.
+    ops.append('>> Staging directories and files')
+    ops.extend(copy_directories_local(CWD, directories_to_stage, host.get_local_staging_dir(), directories_to_stage, False))
     ops.extend(copy_files_local(CWD, files_to_stage, host.get_local_staging_dir(), files_to_stage))
     if host.macros:
-        files_to_process = [f'{host.get_local_staging_dir()}/{file}' for file in host.file_maps.keys() if Path(file).suffix not in ['png', 'jpg', 'svg']]
+        files_to_process = [f'{host.get_local_staging_dir()}/{file}' for file in host.file_maps.keys() if Path(file).suffix not in ['.png', '.jpg', '.svg']]
         ops.append('>> Preprocessing macros in local staged files')
-        ops.extend([partial(process_staged_file, host=host, file=f) for f in files_to_process])
+        process_ops = []
+        for f in files_to_process:
+            if verbose:
+                process_ops.append(f'Processing macros in {f}')
+            process_ops.append(partial(process_staged_file, host=host, file=f))
+        ops.extend(process_ops)
 
     finish_ops = []
     finish_ops.extend(copy_files_local(host.get_remote_staging_dir(), host.file_maps.keys(), '~', host.file_maps.values()))
-    finish_ops.extend(copy_directories_local(host.get_remote_staging_dir(), host.directory_maps.keys(), '~', host.directory_maps.values()))
+    finish_ops.extend(copy_directories_local(host.get_remote_staging_dir(), host.directory_maps.keys(), '~', host.directory_maps.values(), True))
 
     if not shallow:
         finish_ops.extend(install_git_plugins_local('Vim startup plugin(s)', config.vim_pack_plugin_start_repos, os.path.join('~', '.vim', 'pack', 'plugins', 'start')))
@@ -537,10 +547,11 @@ def bootstrap_windows() -> list:
 
 def bootstrap_iterm2() -> list:
     ''' Associate the plist for iTerm2 with the dotFiles. '''
+    iterm2_config_root = Path.joinpath(HOME, config.get_localhost().config_dir, 'iterm2')
     return [
         # Specify the preferences directory
-        ['mkdir', '-p', f'{config.config_root}/iterm2'],
-        ['defaults', 'write', 'com.googlecode.iterm2', 'PrefsCustomFolder', '-string', f'{config.config_root}/iterm2'],
+        ['mkdir', '-p', iterm2_config_root],
+        ['defaults', 'write', 'com.googlecode.iterm2', 'PrefsCustomFolder', '-string', iterm2_config_root],
         # Tell iTerm2 to use the custom preferences in the directory
         ['defaults', 'write', 'com.googlecode.iterm2', 'LoadPrefsFromCustomFolder', '-bool', 'true']]
 

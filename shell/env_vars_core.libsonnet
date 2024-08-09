@@ -1,10 +1,10 @@
-local apply_configs_core = import '../apply_configs_core.jsonnet';
+local apply_configs = import '../apply_configs.jsonnet';
 {
     properties:: {
         # Note that Tmux supports hex colors, but only if they're encoded lowercase
-        [if std.extVar('color') != 'default' then 'HOST_COLOR']: std.asciiLower(std.extVar('color')),
-        DOTFILES_CONFIG_ROOT: '$HOME/' + apply_configs_core.config_dir,
-        ANDROID_HOME: if std.extVar('kernel') == 'darwin' then '~/Library/Android/sdk' else '$HOME/android_sdk',
+        [if apply_configs.active_host.color != null then 'HOST_COLOR']: apply_configs.active_host.color.hexcolor,
+        DOTFILES_CONFIG_ROOT: '$HOME/' + apply_configs.active_host.config_dir,
+        ANDROID_HOME: if std.extVar('kernel') == 'darwin' && std.extVar('is_localhost') == 'true' then '~/Library/Android/sdk' else '$HOME/android_sdk',
         LSCOLORS: 'GxDxbxhbcxegedabagacad',
         LS_COLORS: 'di=1;36:ln=1;33:so=31:pi=37;41:ex=32:bd=34;46:cd=34;43:su=30;41:sg=30;46:tw=30;42:ow=30;43',
     },

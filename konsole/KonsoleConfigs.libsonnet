@@ -1,46 +1,21 @@
 local color_defs = import '../shell/color_definitions.libsonnet';
 local wallpapers = import '../wallpaper/wallpapers.jsonnet';
 
-local Color = color_defs.Color;
 local KonsoleColor(color) = {
-    Color: "%d,%d,%d" % [color.red255, color.green255, color.blue255],
+    Color: color.rgb255,
 };
-
 local getBackground(extended_scheme) = {
     value: if extended_scheme != null && extended_scheme.background != null then extended_scheme.background else color_defs.Colors.Black
 };
 local getForeground(extended_scheme) = {
     value: if extended_scheme != null && extended_scheme.foreground != null then extended_scheme.foreground else color_defs.Colors.White
 };
+
 {
     KonsoleColorSchemeIni(name, scheme, wallpaper_path): {
         name:: name,
         filename:: name + '.colorscheme',
         sections: {
-            Color0: KonsoleColor(scheme.color0),
-            Color0Faint: KonsoleColor(scheme.color0),
-            Color0Intense: KonsoleColor(scheme.color0_bold),
-            Color1: KonsoleColor(scheme.color1),
-            Color1Faint: KonsoleColor(scheme.color1),
-            Color1Intense: KonsoleColor(scheme.color1_bold),
-            Color2: KonsoleColor(scheme.color2),
-            Color2Faint: KonsoleColor(scheme.color2),
-            Color2Intense: KonsoleColor(scheme.color2_bold),
-            Color3: KonsoleColor(scheme.color3),
-            Color3Faint: KonsoleColor(scheme.color3),
-            Color3Intense: KonsoleColor(scheme.color3_bold),
-            Color4: KonsoleColor(scheme.color4),
-            Color4Faint: KonsoleColor(scheme.color4),
-            Color4Intense: KonsoleColor(scheme.color4_bold),
-            Color5: KonsoleColor(scheme.color5),
-            Color5Faint: KonsoleColor(scheme.color5),
-            Color5Intense: KonsoleColor(scheme.color5_bold),
-            Color6: KonsoleColor(scheme.color6),
-            Color6Faint: KonsoleColor(scheme.color6),
-            Color6Intense: KonsoleColor(scheme.color6_bold),
-            Color7: KonsoleColor(scheme.color7),
-            Color7Faint: KonsoleColor(scheme.color7),
-            Color7Intense: KonsoleColor(scheme.color7_bold),
             Background: KonsoleColor(getBackground(scheme.terminal_colors).value),
             BackgroundIntense: KonsoleColor(getBackground(scheme.terminal_colors).value),
             Foreground: KonsoleColor(getForeground(scheme.terminal_colors).value),
@@ -57,7 +32,14 @@ local getForeground(extended_scheme) = {
                 WallpaperFlipType: "NoFlip",
                 WallpaperOpacity: 0.4,
             },
-        }
+        } + std.foldl(
+            function(acc, x) acc + x,
+            [{
+                ["Color" + std.toString(i)]: KonsoleColor(scheme["color" + std.toString(i)]),
+                ["Color" + std.toString(i) + "Faint"]: KonsoleColor(scheme["color" + std.toString(i)]),
+                ["Color" + std.toString(i) + "Intense"]: KonsoleColor(scheme["color" + std.toString(i) + "_bold"]),
+            } for i in std.range(0, 7)],
+            {})
     },
     KonsoleProfileIni(profile_name, icon_path, scheme_name, tab_color, command=null): {
         name:: profile_name,
@@ -94,9 +76,13 @@ local getForeground(extended_scheme) = {
             },
         },
     },
+    KonsoleProfileWithColorscheme(name, scheme, icon_path, wallpaper_path, command=null): {
+        colorscheme: $.KonsoleColorSchemeIni(name + ' Colors', scheme, wallpaper_path),
+        profile: $.KonsoleProfileIni(name, icon_path, name + ' Colors', scheme.terminal_colors.background, command),
+    },
     KonsoleSshconfigIniEntry(group_name, host, profile): {
-        group_name: group_name,
-        host: host,
+        group_name:: group_name,
+        host:: host,
         key: group_name + '][' + host.hostname,
         value: {
             hostname: host.hostname,
@@ -118,7 +104,7 @@ local getForeground(extended_scheme) = {
                 },
             },
     },
-    KonsolercIni(default_profile): {
+    KonsolercIni(default_profile_filename): {
         main: {
             "2050x1238 screen: Height": 550,
             "2050x1238 screen: Width": 1118,
@@ -129,7 +115,7 @@ local getForeground(extended_scheme) = {
         },
         sections: {
             "Desktop Entry": {
-                DefaultProfile: default_profile.filename,
+                DefaultProfile: default_profile_filename,
             },
             General: {
                 ConfigVersion: 1,
@@ -153,5 +139,9 @@ local getForeground(extended_scheme) = {
                 ColorScheme: "",
             }
         },
-    }
+    },
+    GenerateColorSchemesWithWallpaper(name_suffix, wallpaper_path): [
+        $.KonsoleColorSchemeIni(o.key + name_suffix, o.value, wallpaper_path)
+        for o in std.objectKeysValues(color_defs.Schemes)
+    ],
 }

@@ -151,7 +151,7 @@ function __konsole_integration_preexec() {
     _prompt_executing=1
 }
 
-chpwd_functions=($chpwd_functions __update_prompt __auto_apply_venv_on_chpwd __update_title)
+chpwd_functions=($chpwd_functions __update_prompt __auto_apply_venv_on_chpwd)
 
 # Use beam shape cursor for each new prompt.
 preexec_functions=($preexec_functions _set_cursor_beam)
