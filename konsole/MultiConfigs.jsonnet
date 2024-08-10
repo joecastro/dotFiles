@@ -2,24 +2,26 @@
 local konsole_configs = import './KonsoleConfigs.libsonnet';
 local color_defs = import '../shell/color_definitions.libsonnet';
 local wallpapers = import '../wallpaper/wallpapers.jsonnet';
-local apply_configs_core = import '../apply_configs_core.jsonnet';
+local apply_configs = import '../apply_configs.jsonnet';
+
+local host = apply_configs.host;
 
 local glinux = konsole_configs.KonsoleProfileWithColorscheme(
-    std.extVar('hostname'),
+    host.hostname,
     color_defs.Schemes['Tango Dark'],
-    std.extVar('home') + '/' + apply_configs_core.svg_paths.tux_simple,
-    std.extVar('cwd') + '/' + wallpapers.abstract_blue.local_path);
+    wallpapers.icons.tux.target_path(host),
+    wallpapers.abstract_blue.target_path(host));
 
 local quake = konsole_configs.KonsoleProfileWithColorscheme(
     'Quake',
     color_defs.Schemes['Red Sands'],
-    std.extVar('home') + '/' + apply_configs_core.svg_paths.quake,
-    std.extVar('cwd') + '/' + wallpapers.quake.local_path);
+    wallpapers.icons.quake.target_path(host),
+    wallpapers.quake.target_path(host));
 
 local outputs =
     konsole_configs.GenerateColorSchemesWithWallpaper(
         '',
-        std.extVar('cwd') + '/' + wallpapers.android_colorful.local_path) +
+        wallpapers.android_colorful.target_path(null)) +
     std.objectValues(glinux) +
     std.objectValues(quake);
 

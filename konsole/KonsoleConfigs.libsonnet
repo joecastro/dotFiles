@@ -41,7 +41,7 @@ local getForeground(extended_scheme) = {
             } for i in std.range(0, 7)],
             {})
     },
-    KonsoleProfileIni(profile_name, icon_path, scheme_name, tab_color, command=null): {
+    KonsoleProfileIni(profile_name, icon_path, scheme_name, tab_color, command=null, directory=null): {
         name:: profile_name,
         filename:: profile_name + '.profile',
         sections: {
@@ -56,6 +56,7 @@ local getForeground(extended_scheme) = {
             },
             General: {
                 [if command != null then 'Command']: command,
+                [if directory != null then 'Directory']: directory,
                 AlternatingBackground: 1,
                 DimWhenInactive: false,
                 Icon: icon_path,
@@ -76,9 +77,9 @@ local getForeground(extended_scheme) = {
             },
         },
     },
-    KonsoleProfileWithColorscheme(name, scheme, icon_path, wallpaper_path, command=null): {
+    KonsoleProfileWithColorscheme(name, scheme, icon_path, wallpaper_path, command=null, directory=null): {
         colorscheme: $.KonsoleColorSchemeIni(name + ' Colors', scheme, wallpaper_path),
-        profile: $.KonsoleProfileIni(name, icon_path, name + ' Colors', scheme.terminal_colors.background, command),
+        profile: $.KonsoleProfileIni(name, icon_path, name + ' Colors', scheme.terminal_colors.background, command, directory),
     },
     KonsoleSshconfigIniEntry(group_name, host, profile): {
         group_name:: group_name,

@@ -1,8 +1,23 @@
-local BackgroundImageNode(path, blend_percent=0.4) =
-{
+local ext_vars = import '../ext_vars.libsonnet';
+local BackgroundImageNode(path, blend_percent=0.4) = {
     path: path,
     blend: blend_percent,
     local_path: 'wallpaper/' + path,
+    target_path(host)::
+        if host == null then
+            ext_vars.cwd + '/' + $.local_path
+        else
+            'Pictures/' + path
+};
+local SvgImage(path) = {
+    path: path,
+    local_path: 'svg/' + path,
+    target_path(host)::
+        if host == null then
+            ext_vars.cwd + '/' + $.local_path
+        else
+            assert host.home != null && host.config_dir != null;
+            host.home + '/' + host.config_dir + '/' + path,
 };
 {
     abstract_blue: BackgroundImageNode("abstract_blue.png"),
@@ -23,4 +38,12 @@ local BackgroundImageNode(path, blend_percent=0.4) =
     hokusai_cranes: BackgroundImageNode("hokusai_cranes.png"),
     hokusai_mt_fuji: BackgroundImageNode("hokusai_mt_fuji.png"),
     hokusai_wave: BackgroundImageNode("hokusai_wave.jpg"),
+
+    icons: {
+        android: SvgImage("android.svg"),
+        google: SvgImage("google_logo.svg"),
+        google_cloud: SvgImage("google_cloud_icon.svg"),
+        quake: SvgImage("quake.svg"),
+        tux: SvgImage("tux_simple.svg"),
+    },
 }

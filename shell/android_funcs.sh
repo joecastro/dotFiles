@@ -5,21 +5,22 @@
 function repo_find() {
     if __is_in_repo; then
         echo "${CWD_REPO_ROOT}"
+        return 0
     fi
-    find . -type d -maxdepth 4 -name '.repo' -print -quit | sed 's#/\.repo$##'
+    find . -maxdepth 4 -type d -name '.repo' -print -quit | sed 's#/\.repo$##' | head -n1
 }
 
 alias repoGo='pushd "$(repo_find)"'
 alias repo_root='repoGo'
 
-function repo_print_manifest_branch() {
+function repo_manifest_branch() {
     if ! __is_in_repo; then
         return 1
     fi
     echo -n "${CWD_REPO_MANIFEST_BRANCH}"
 }
 
-function repo_print_current_project() {
+function repo_current_project() {
     if ! __is_in_repo; then
         return 1
     fi
@@ -29,13 +30,24 @@ function repo_print_current_project() {
         return 1
     fi
 
-    __print_abbreviated_path "${current_project%% :*}"
+    echo -n "${current_project%% :*}"
 }
 
 function repo_current_project_branch() {
     local current_project
     current_project=$(repo branch .) || return $?
     echo "${current_project%%|*}" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'
+}
+
+function repo_current_project_upstream() {
+    local git_remote
+    local manifest_revision
+
+    git_remote=$(git remote show)
+    manifest_revision=
+    manifest_revision=$(repo info . | grep -i "Manifest revision" | sed 's/^Manifest revision: //')
+
+    echo -n "${git_remote}/${manifest_revision}"
 }
 
 function repo_format() {
@@ -51,7 +63,7 @@ function repo_clean() {
 
     repo list -p | while read -r repo_path; do
         pushd "${CWD_REPO_ROOT}/${repo_path}" > /dev/null || return 1
-        upstream_branch=$(git remote show)
+        upstream_branch="$(repo_current_project_upstream)"
         git checkout "${upstream_branch}" || return 1
         git reset --hard "${upstream_branch}" || return 1
         git clean -xfd || return 1
@@ -70,12 +82,23 @@ function repo_pushd() {
         return 1
     fi
 
-    repo list -p | while read -r line; do
-        if [[ "${line##*/}" == "$1" ]]; then
-            pushd "$(repo_find)"/"${line}" || return 1
-            return 0
-        fi
-    done
+    local found_projects
+    local found_projects_filtered
+
+    found_projects=$(repo list -p | grep -i "$1")
+    found_projects_filtered=$(echo "${found_projects}" | grep -vi "prebuilt")
+    if [[ $(echo "$found_projects_filtered" | wc -l) -gt 1 ]]; then
+        echo "Multiple projects found. Please provide a more specific name."
+        # shellcheck disable=SC2001
+        found_projects="$(echo "$found_projects" | sed "s;$1;\\\e[1m&\\\e[0m;g")"
+        echo -e "${found_projects}"
+        return 1
+    fi
+    found_projects=$found_projects_filtered
+    if [[ -n "${found_projects}" ]]; then
+        pushd "${CWD_REPO_ROOT}/${found_projects}" || return 1
+        return 0
+    fi
 
     echo "Unknown project"
     return 1
@@ -117,7 +140,7 @@ function repo_sync_at() {
 
     repo list -p | while read -r repo_path; do
         pushd "${CWD_REPO_ROOT}/${repo_path}" > /dev/null || return 1
-        upstream_branch=$(git remote show)
+        upstream_branch=$(repo_current_project_upstream)
         last_commit_sha=$(git rev-list -n 1 --before="$1" "${upstream_branch}")
         git checkout "${last_commit_sha}"
         popd > /dev/null || return 1
@@ -130,7 +153,8 @@ function refresh_build_env() {
         return 1
     fi
 
-    repo_root
+    pushd "${CWD_REPO_ROOT}" || return 1
+
     # shellcheck source=/dev/null
     source ./build/envsetup.sh
 

@@ -253,6 +253,7 @@ function __update_prompt() {
 
     if [[ "${ACTIVE_DYNAMIC_PROMPT_STYLE}" != "${new_dynamic_style}" ]]; then
         PROMPT="$(__generate_prompt ${new_dynamic_style})"
+        __update_konsole_profile "${new_dynamic_style}"
         ACTIVE_DYNAMIC_PROMPT_STYLE="${new_dynamic_style}"
     fi
 }
@@ -285,6 +286,13 @@ function __update_title() {
     echo -ne "\e]0;${title}\a"
 }
 
+function __update_konsole_profile() {
+    if [[ "$1" == "Repo" ]]; then
+        konsoleprofile colors="Android Colors"
+    else
+        konsoleprofile colors="$(hostname) Colors"
+    fi
+}
 function __git_is_detached_head() {
     git status | grep "HEAD detached" > /dev/null 2>&1
 }
@@ -387,16 +395,16 @@ function __print_repo_worktree() {
 
     local line="${ICON_MAP[ANDROID_BODY]}"
     local manifest_branch
-    local current_branch
+    local current_project
     local fg_color="$fg[red]"
 
-    if ! manifest_branch=$(repo_print_manifest_branch); then
+    if ! manifest_branch=$(repo_manifest_branch); then
         line+="Unknown"
     else
         fg_color="$fg[green]"
         line="${ICON_MAP[ANDROID_BODY]}${manifest_branch}"
-        if current_branch=$(repo_print_current_project); then
-            line+=":${current_branch}"
+        if current_project=$(repo_current_project); then
+            line+=":$(__print_abbreviated_path ${current_project})"
         fi
     fi
 

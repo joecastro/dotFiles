@@ -1,5 +1,8 @@
 local wallpapers = import '../wallpaper/wallpapers.jsonnet';
 local color_defs = import '../shell/color_definitions.libsonnet';
+local apply_configs = import '../apply_configs.jsonnet';
+
+local host = apply_configs.host;
 
 local Color = color_defs.Color;
 local ColorWithAlpha = color_defs.ColorWithAlpha;
@@ -157,7 +160,7 @@ local ItermColorWhite = ItermColor(Colors.White);
         ItermColorPreset(null, default_color_scheme, default_color_scheme.terminal_colors) +
         $.ItermProfileTemplate +
     {
-        "Background Image Location": std.extVar("cwd") + "/wallpaper/" + wallpaper.path,
+        "Background Image Location": wallpaper.target_path(host),
         "Badge Color": ItermColorAlpha(ColorWithAlpha(color, 0.5)),
         "Blend": wallpaper.blend,
         "Cursor Guide Color": ItermColorAlpha(ColorWithAlpha(color, 0.25)),

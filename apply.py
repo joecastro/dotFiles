@@ -23,12 +23,7 @@ CWD = '.'
 # pylint: disable-next=too-many-instance-attributes
 class Host:
     hostname: str
-    home: str
     kernel: str = 'linux'
-    abstract_wallpaper: dict = None
-    android_wallpaper: dict = None
-    branch: str = 'none'
-    color: str = 'default'
     config_dir: str = None
     file_maps: list[tuple[str, str]] | dict[str, str] = field(default_factory=list)
     directory_maps: list[tuple[str, str]] | dict[str, str] = field(default_factory=list)
@@ -36,23 +31,25 @@ class Host:
     jsonnet_multi_maps: list[tuple[str, str, str]] | dict[str, str] = field(default_factory=list)
     curl_maps: list[tuple[str, str, str]] | dict[str, str] = field(default_factory=list)
     macros: dict[str, list[str]] = field(default_factory=dict)
-    prestaged_files: list[str] = field(default_factory=list)
-    prestaged_directories: list[str] = field(default_factory=list)
+
+    prestaged_files: set[str] = field(default_factory=set)
+    prestaged_directories: set[str] = field(default_factory=set)
 
     def __post_init__(self):
         if self.hostname == 'localhost':
             self.hostname = platform.uname().node
+        if self.hostname == platform.uname().node:
             self.kernel = platform.uname().system.lower()
         self.file_maps = dict(self.file_maps)
         self.file_maps |= {item2:item3 for (_, item2, item3) in self.jsonnet_maps}
-        self.prestaged_files.extend([item2 for (_, item2, _) in self.jsonnet_maps])
+        self.prestaged_files.update([item2 for (_, item2, _) in self.jsonnet_maps])
         self.jsonnet_maps = {item1:item2 for (item1, item2, _) in self.jsonnet_maps}
         self.directory_maps = dict(self.directory_maps)
         self.directory_maps |= {item2:item3 for (_, item2, item3) in self.jsonnet_multi_maps}
-        self.prestaged_directories.extend([item2 for (_, item2, _) in self.jsonnet_multi_maps])
+        self.prestaged_directories.update([item2 for (_, item2, _) in self.jsonnet_multi_maps])
         self.jsonnet_multi_maps = {item1:item2 for (item1, item2, _) in self.jsonnet_multi_maps}
         self.file_maps |= {item2:item3 for (_, item2, item3) in self.curl_maps}
-        self.prestaged_files.extend([item2 for (_, item2, _) in self.curl_maps])
+        self.prestaged_files.update([item2 for (_, item2, _) in self.curl_maps])
         self.curl_maps = {item1:item2 for (item1, item2, _) in self.curl_maps}
 
     def __repr__(self) -> str:
@@ -213,10 +210,19 @@ def install_git_plugins_local(plugin_type: str, repo_list: list[str], install_ro
     return ops
 
 
+def remove_parents_from_set(paths: set[str]) -> set[str]:
+    return {d for d in paths if not any(subdir != d and subdir.startswith(d) for subdir in paths)}
+
+
+def remove_children_from_set(paths: set[str], root: str = '') -> set[str]:
+    return {d for d in paths if not any(subdir != d and d.startswith(subdir) for subdir in paths) and not d.startswith(root)}
+
+
 def copy_directories_local(source_root, source_dirs, dest_root, dest_dirs, use_cp, verbose=False) -> list:
     ops = []
 
-    full_destination_paths = {os.path.join(dest_root, dest) for dest in dest_dirs}
+    full_destination_paths = remove_parents_from_set({os.path.join(dest_root, dest) for dest in dest_dirs})
+
     ops.extend([['mkdir', '-p', d] for d in full_destination_paths])
     for src, dest in zip(source_dirs, dest_dirs):
         src_path = os.path.join(source_root, src)
@@ -287,11 +293,8 @@ def get_ext_vars(host:Host=None) -> list:
     if host is not None:
         ret_vars |= {
             'is_localhost': str(host.is_localhost()).lower(),
-            'home': host.home,
             'hostname': host.hostname,
             'kernel': host.kernel,
-            'branch': host.branch,
-            'color': host.color,
         }
     return ret_vars
 
@@ -348,10 +351,16 @@ def preprocess_jsonnet_directories(host, source_dir, staging_dir, verbose=False)
 
 
 def copy_files_local(source_root, source_files, dest_root, dest_files, annotate: bool = False):
-
     full_path_sources = [os.path.join(source_root, src) for src in source_files]
     full_path_dests = [os.path.join(dest_root, dest) for dest in dest_files]
-    full_path_directories = {os.path.dirname(d) for d in full_path_dests}
+
+    for i in range(len(full_path_sources)-1, -1, -1):
+        if full_path_dests[i].startswith(os.getcwd()):
+            del full_path_sources[i]
+            del full_path_dests[i]
+
+    full_path_directories = remove_parents_from_set({os.path.dirname(d) for d in full_path_dests})
+
     ops = [['mkdir', '-p', d] for d in full_path_directories]
 
     copy_ops = [['cp', src, dest] for (src, dest) in zip(full_path_sources, full_path_dests)]
@@ -428,22 +437,18 @@ def push_remote_staging(host, verbose=False) -> list:
     ops = [f'Synching dotFiles for {host.hostname} from local staging directory']
 
     # Clean the remote dotFiles
-    root_files_to_remove = [f for f in host.file_maps.values() if '/' not in f]
-    # Remove subdirectories from root_files_to_remove
-    root_files_to_remove = [
-        f
-        for f in root_files_to_remove
-        if not any(f.startswith(d + "/") for d in root_files_to_remove if f != d)
-    ]
+    root_files_to_remove = []
+    root_files_to_remove.extend(host.file_maps.values())
     root_files_to_remove.extend(host.directory_maps.values())
+    root_files_to_remove.append(host.config_dir)
 
     if host.is_localhost():
-        root_files_to_remove = [os.path.join(HOME, f) for f in root_files_to_remove]
-
-    root_files_to_remove.append(host.config_dir)
-    if not host.is_localhost():
+        root_files_to_remove = {os.path.join(HOME, f) for f in root_files_to_remove}
+    else:
         root_files_to_remove.append(host.get_remote_staging_dir())
+        root_files_to_remove = set(root_files_to_remove)
 
+    root_files_to_remove = list(remove_children_from_set(root_files_to_remove, os.getcwd()))
     # Trying to overall minimize the number of SSH handshakes...
     ops.append(f'>> Cleaning existing configuration files for {host.hostname}: {", ".join(root_files_to_remove)}')
     # 1
