@@ -12,12 +12,10 @@
     "peacock.color": "#1857a4",
     "peacock.remoteColor": "#1857a4",
     "jsonnet.languageServer.extVars": {
-        "branch": "main",
         "is_localhost": "true",
+        "hostname": "localhost",
         "cwd": "${workspaceFolder}",
         "home": "${env:HOME}",
-        "color": "#1857a4",
-        "android_wallpaper": "${workspaceFolder}/wallpaper/under_construction.jpg",
         "kernel": "linux"
     },
     "jsonnet.languageServer.jpath": [

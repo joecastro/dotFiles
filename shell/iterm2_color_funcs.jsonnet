@@ -26,7 +26,7 @@ local changeColorFunctionContentList(colors) =
     [changeColorCommand(k, colors[iterm_color_keys[k]]) for k in std.objectFields(iterm_color_keys)];
 
 local makeChangeColorSchemeFunctionList(name, scheme) =
-    [ 'function changeScheme_%s() {' % [name] ]
+    [ 'function changeScheme_%s() {' % [std.strReplace(name, ' ', '')] ]
      + ['    %s' % line for line in changeColorFunctionContentList(scheme)]
      + [ '}', '' ];
 

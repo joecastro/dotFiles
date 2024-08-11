@@ -1,20 +1,22 @@
-local ext_vars = import '../ext_vars.libsonnet';
+local apply_configs_core = import '../apply_configs_core.jsonnet';
+
 local BackgroundImageNode(path, blend_percent=0.4) = {
     path: path,
     blend: blend_percent,
     local_path: 'wallpaper/' + path,
     target_path(host)::
         if host == null then
-            ext_vars.cwd + '/' + $.local_path
+            apply_configs_core.cwd + '/' + $.local_path
         else
-            'Pictures/' + path
+            assert host.home != null;
+            host.home + '/Pictures/' + path
 };
 local SvgImage(path) = {
     path: path,
     local_path: 'svg/' + path,
     target_path(host)::
         if host == null then
-            ext_vars.cwd + '/' + $.local_path
+            apply_configs_core.cwd + '/' + $.local_path
         else
             assert host.home != null && host.config_dir != null;
             host.home + '/' + host.config_dir + '/' + path,

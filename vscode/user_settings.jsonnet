@@ -1,4 +1,5 @@
 local color_defs = import '../shell/color_definitions.libsonnet';
+local apply_configs = import '../apply_configs.jsonnet';
 
 local PeacockColor(name, color) = {
     'name': name,
@@ -95,7 +96,7 @@ local vimSettings = {
     "typescript.enablePromptUseWorkspaceTsdk": true,
     "window.zoomLevel": 1,
     "workbench.editor.closeOnFileDelete": true,
-    "workbench.editor.tabActionLocation": if std.extVar('kernel') == 'darwin' then 'left' else 'right',
+    "workbench.editor.tabActionLocation": if apply_configs.host.is_osx then 'left' else 'right',
     "workbench.iconTheme": "a-file-icon-vscode",
     "workbench.productIconTheme": "feather-vscode",
     "workbench.settings.editor": "json",

@@ -193,6 +193,11 @@ function __is_iterm2_terminal() {
     [[ "iTerm2" == "${LC_TERMINAL}" ]]
 }
 
+function __is_konsole_terminal() {
+    # This doesn't work in SSH sessions...
+    [[ -n "${KONSOLE_VERSION}" ]]
+}
+
 function __is_tool_window() {
     [[ -n "${TOOL_WINDOW}" ]];
 }
