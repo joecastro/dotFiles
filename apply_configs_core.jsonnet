@@ -149,6 +149,8 @@ local Host(hostname, home, icon, color, primary_wallpaper, android_wallpaper) = 
             ANDROID_HOME: if ext_vars.is_osx
                 then '~/Library/Android/sdk'
                 else '$HOME/android_sdk',
+            [if primary_wallpaper != null then 'PRIMARY_WALLPAPER']: primary_wallpaper.target_path($),
+            [if android_wallpaper != null then 'ANDROID_WALLPAPER']: android_wallpaper.target_path($),
         },
     },
 };

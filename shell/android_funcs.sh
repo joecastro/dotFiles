@@ -20,6 +20,13 @@ function repo_manifest_branch() {
     echo -n "${CWD_REPO_MANIFEST_BRANCH}"
 }
 
+function repo_default_remote() {
+    if ! __is_in_repo; then
+        return 1
+    fi
+    echo -n "${CWD_REPO_DEFAULT_REMOTE}"
+}
+
 function repo_current_project() {
     if ! __is_in_repo; then
         return 1

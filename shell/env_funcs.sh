@@ -90,11 +90,22 @@ function __is_ssh_session() {
 }
 
 function __is_in_git_repo() {
-    git branch > /dev/null 2>&1;
+    if error_message=$(git branch 2>&1); then
+        if git rev-parse --is-inside-git-dir | grep "true" > /dev/null 2>&1; then
+            return 1
+        fi
+        return 0
+    fi
+
+    if [[ "${error_message}" == *"ot a git repository"* ]]; then
+        return 2
+    fi
+
+    return 1
 }
 
 function __is_in_git_dir() {
-    __is_in_git_repo && git rev-parse --is-inside-git-dir | grep "true" > /dev/null 2>&1;
+    [[ "$(__is_in_git_repo)" == "1" ]]
 }
 
 function __is_in_repo_root() {
@@ -121,6 +132,12 @@ function __is_in_repo() {
                 export CWD_REPO_ROOT
                 CWD_REPO_MANIFEST_BRANCH=$(repo info -o --outer-manifest -l | grep -i "Manifest branch" | sed 's/^Manifest branch: //')
                 export CWD_REPO_MANIFEST_BRANCH
+                if command -v xmllint &> /dev/null; then
+                    CWD_REPO_DEFAULT_REMOTE=$(xmllint --xpath '//manifest/default/@remote' "${current_dir}/.repo/manifests/default.xml" | sed -n 's/.*remote="\([^"]*\)".*/\1/p')
+                else
+                    CWD_REPO_DEFAULT_REMOTE="unknown"
+                fi
+                export CWD_REPO_DEFAULT_REMOTE
             fi
             return 0
         fi
@@ -128,6 +145,7 @@ function __is_in_repo() {
     done
     unset CWD_REPO_ROOT
     unset CWD_REPO_MANIFEST_BRANCH
+    unset CWD_REPO_DEFAULT_REMOTE
     return 1
 }
 
@@ -279,24 +297,25 @@ if ! __is_shell_old_bash; then
             is_short=0
         fi
 
-        if __is_in_git_repo; then
-            if [[ is_short -eq 0 ]]; then
+        __is_in_git_repo
+        local git_repo_result=$?
+        if [[ $git_repo_result != 2 ]]; then
+            if [[ $is_short == 0 ]]; then
                 echo -n "${PWD##*/}"
                 return 0
             fi
-
-            if ! __is_in_git_dir; then
+            if [[ $git_repo_result == 0 ]]; then
                 # If we're in a git repo then show the current directory relative to the root of that repo.
                 # These commands wind up spitting out an extra slash, so backspace to remove it on the console.
                 # Because this messes with the shell's perception of where the cursor is, make the anchor icon
                 # appear like an escape sequence instead of a printed character.
+                local prefix="${ICON_MAP[COD_PINNED]} "
                 if __is_shell_zsh; then
-                    echo -e "%{${ICON_MAP[COD_PINNED]} %}$(git rev-parse --show-toplevel | xargs basename)/$(git rev-parse --show-prefix)\b"
-                else
-                    echo -e "${ICON_MAP[COD_PINNED]} $(git rev-parse --show-toplevel | xargs basename)/$(git rev-parse --show-prefix)\b"
+                    prefix="%{${ICON_MAP[COD_PINNED]} %}"
                 fi
+                echo -ne "${prefix}$(git rev-parse --show-toplevel | xargs basename)/$(git rev-parse --show-prefix)\b"
             else
-                echo -n "${PWD}"
+                echo -n "${ICON_MAP[COD_TOOLS]} .git${PWD##*.git}"
             fi
             return 0
         fi

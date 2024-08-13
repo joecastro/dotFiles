@@ -302,12 +302,12 @@ function __git_is_nothing_to_commit() {
 }
 
 function __print_git_branch() {
-    if ! __is_in_git_repo; then
+    __is_in_git_repo
+    local git_repo_result=$?
+    if [[ ${git_repo_result} == 2 ]]; then
         echo -n ""
         return 1
-    fi
-
-    if __is_in_git_dir; then
+    elif [[ ${git_repo_result} == 1 ]]; then
         echo -n "${fg[yellow]%}${ICON_MAP[COD_TOOLS]} "
         return 0
     fi
@@ -333,12 +333,12 @@ function __print_git_branch() {
 }
 
 function __print_git_branch_short() {
-    if ! __is_in_git_repo; then
+    __is_in_git_repo
+    local git_repo_result=$?
+    if [[ ${git_repo_result} == 2 ]]; then
         echo -n ""
         return 1
-    fi
-
-    if __is_in_git_dir; then
+    elif [[ ${git_repo_result} == 1 ]]; then
         echo -n "${fg[yellow]%}${ICON_MAP[COD_TOOLS]} "
         return 0
     fi
@@ -367,7 +367,8 @@ function __print_git_branch_short() {
 }
 
 function __print_git_worktree() {
-    if ! __is_in_git_repo || __is_in_git_dir; then
+    __is_in_git_repo
+    if [[ $? != 0 ]]; then
         echo -n ""
         return 1
     fi
@@ -393,22 +394,39 @@ function __print_repo_worktree() {
         return 0
     fi
 
-    local line="${ICON_MAP[ANDROID_BODY]}"
     local manifest_branch
-    local current_project
-    local fg_color="$fg[red]"
-
     if ! manifest_branch=$(repo_manifest_branch); then
-        line+="Unknown"
-    else
-        fg_color="$fg[green]"
-        line="${ICON_MAP[ANDROID_BODY]}${manifest_branch}"
-        if current_project=$(repo_current_project); then
-            line+=":$(__print_abbreviated_path ${current_project})"
-        fi
+        echo -n "%{$fg[red]%}Unknown{%$reset_color%} "
+        return 1
     fi
 
-    echo -n "%{${fg_color}%}${line}%{$reset_color%} "
+    local default_remote
+    default_remote=$(repo_default_remote)
+
+    local line=""
+    case "${default_remote}" in
+    "goog")
+        line+="%{$fg[blue]%}"
+        line+="${ICON_MAP[ANDROID_BODY]}"
+        line+="%{$fg[green]%}"
+        ;;
+    "aosp")
+        line+="%{$fg[green]%}"
+        line+="${ICON_MAP[ANDROID_BODY]}"
+        ;;
+    "*")
+        line+="%{$fg[green]%}"
+        line+="${default_remote}/"
+        ;;
+    esac
+    line+="${manifest_branch}"
+
+    local current_project
+    if current_project=$(repo_current_project); then
+        line+=":$(__print_abbreviated_path ${current_project})"
+    fi
+
+    echo -n "${line}%{$reset_color%} "
 }
 
 function __print_git_info() {

@@ -58,13 +58,12 @@ def print_command(key, color):
     ''' Print the iTerm2 escape code to set a color '''
     color_key = scheme_2_iterm_colors[key]
     color_value = color.replace("#", "")
-    # print(f'\\033]1337;SetColors={color_key}={color_value}\\007')
     print(f'\033]1337;SetColors={color_key}={color_value}\007', end='')
 
 def main(args):
     ''' Main function '''
     if len(args) != 1:
-        print("Usage: verify_fonts.py <scheme-name>")
+        print("Usage: apply_color_scheme.py <scheme-name>")
         return 1
 
     config_file = Path.joinpath(Path.cwd(), 'color_schemes.jsonnet')

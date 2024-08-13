@@ -19,6 +19,7 @@ import sys
 HOME = str(Path.home())
 CWD = '.'
 
+BASH_COMMAND_PREFIX = 'BASH_COMMAND: '
 @dataclass
 # pylint: disable-next=too-many-instance-attributes
 class Host:
@@ -108,6 +109,8 @@ config:Config = None
 def print_ops(ops: list, quiet=False) -> None:
     for entry in ops:
         if isinstance(entry, str):
+            if str.startswith(entry, BASH_COMMAND_PREFIX):
+                raise ValueError('Any Bash commands should have been shelled out through a script')
             if not quiet:
                 print(entry)
         elif isinstance(entry, list):
@@ -122,6 +125,8 @@ def print_ops(ops: list, quiet=False) -> None:
 def run_ops(ops: list, quiet=False) -> None:
     for entry in ops:
         if isinstance(entry, str):
+            if str.startswith(entry, BASH_COMMAND_PREFIX):
+                raise ValueError('Any Bash commands should have been shelled out through a script')
             if not quiet:
                 print(entry)
         elif isinstance(entry, list):
@@ -199,13 +204,29 @@ def generate_derived_workspace() -> None:
     print(json.dumps(workspace, indent=4, sort_keys=True))
 
 
-def install_git_plugins_local(plugin_type: str, repo_list: list[str], install_root: str) -> list:
+def install_git_plugins_local(plugin_type: str, repo_list: list[str], install_root: str, clean: bool=False) -> list:
     pattern = re.compile("([^/]+)\\.git$")
 
-    ops = [f'>> Cloning {len(repo_list)} {plugin_type}']
-    ops.append(['rm', '-rf', install_root])
+    if clean:
+        ops = [f'>> Cloning {len(repo_list)} {plugin_type}']
+        ops.append(['rm', '-rf', install_root])
+        for (repo, target_path) in [(r, os.path.join(install_root, pattern.search(r).group(1))) for r in repo_list]:
+            ops.append(['git', 'clone', '-q', repo, target_path])
+
+        return ops
+
+    ops = [f'>> Updating {len(repo_list)} {plugin_type}']
+    ops.append(['mkdir', '-p', f'"{install_root}"'])
+    ops.append(['cd', install_root])
     for (repo, target_path) in [(r, os.path.join(install_root, pattern.search(r).group(1))) for r in repo_list]:
-        ops.append(['git', 'clone', '-q', repo, target_path])
+        ops.append(f'''{BASH_COMMAND_PREFIX}
+if [ -d "{target_path}" ]; then
+    cd "{target_path}"
+    git pull -q
+    cd - > /dev/null
+else
+    git clone -q "{repo}" "{target_path}"
+fi''')
 
     return ops
 
@@ -420,7 +441,13 @@ def make_finish_script(host, command_ops, verbose=False) -> list:
                 f.write('\n')
             for op in command_ops:
                 if isinstance(op, str):
-                    f.write('echo "' + op + '"\n')
+                    if op.startswith(BASH_COMMAND_PREFIX):
+                        op = op[len(BASH_COMMAND_PREFIX):]
+                        for line in op.split('\n'):
+                            if line:
+                                f.write(f'{line}\n')
+                    else:
+                        f.write('echo "' + op + '"\n')
                 else:
                     f.write(' '.join(op) + '\n')
 
@@ -518,9 +545,9 @@ def stage_local(host, shallow, verbose=False) -> list[str]:
     finish_ops.extend(copy_directories_local(host.get_remote_staging_dir(), host.directory_maps.keys(), '~', host.directory_maps.values(), True))
 
     if not shallow:
-        finish_ops.extend(install_git_plugins_local('Vim startup plugin(s)', config.vim_pack_plugin_start_repos, os.path.join('~', '.vim', 'pack', 'plugins', 'start')))
-        finish_ops.extend(install_git_plugins_local('Vim optional plugin(s)', config.vim_pack_plugin_opt_repos, os.path.join('~', '.vim', 'pack', 'plugins', 'opt')))
-        finish_ops.extend(install_git_plugins_local('Zsh plugin(s)', config.zsh_plugin_repos, os.path.join('~', '.zshext')))
+        finish_ops.extend(install_git_plugins_local('Vim startup plugin(s)', config.vim_pack_plugin_start_repos, os.path.join('$HOME', '.vim', 'pack', 'plugins', 'start')))
+        finish_ops.extend(install_git_plugins_local('Vim optional plugin(s)', config.vim_pack_plugin_opt_repos, os.path.join('$HOME', '.vim', 'pack', 'plugins', 'opt')))
+        finish_ops.extend(install_git_plugins_local('Zsh plugin(s)', config.zsh_plugin_repos, os.path.join('$HOME', '.zshext')))
 
     # Skip this for now because of the extra SSH calls it triggers.
     # finish_ops.append(f'>> Pushing vscode extensions to {host.hostname}')
