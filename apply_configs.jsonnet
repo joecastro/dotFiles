@@ -8,7 +8,7 @@ local wallpapers = import './wallpaper/wallpapers.jsonnet';
     zsh_plugin_repos: apply_configs_core.zsh_plugin_repos,
 
     workspace_overrides: null,
-    host:: apply_configs_core.Host(null, null, wallpapers.icons.tux, color_defs.Colors.YellowSea, wallpapers.abstract_blue, null),
+    host:: apply_configs_core.Host(null, null, wallpapers.icons.tux, color_defs.Colors.YellowSea, wallpapers.abstract_blue, wallpapers.android_backpack),
     hosts: [
         $.host
     ],

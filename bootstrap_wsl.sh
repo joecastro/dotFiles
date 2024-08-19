@@ -12,6 +12,7 @@ sudo apt install -y \
     vim \
     exa \
     python3 \
+    python3.11-venv \
     python-is-python3 \
     python3-dev \
     python3.11-venv \
