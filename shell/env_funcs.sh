@@ -2,6 +2,12 @@
 
 #pragma once
 
+function _dotTrace() {
+    if (( ${+TRACE_DOTFILES} )); then
+        echo "TRACE $(date +%T): $*"
+    fi
+}
+
 # Suppress warnings on bash 3
 declare -A ICON_MAP=([NOTHING]="") > /dev/null 2>&1
 
@@ -119,15 +125,28 @@ function __is_in_repo() {
     local current_dir
     current_dir=$(readlink -f "$PWD")
     if [[ -n "${CWD_REPO_ROOT}" && "$current_dir" == "$CWD_REPO_ROOT"* ]]; then
+        _dotTrace "__is_in_repo Already in repo root"
         return 0
     fi
+    _dotTrace "__is_in_repo Checking for repo root"
     while [[ "$current_dir" != "/" ]]; do
         if __is_in_repo_root "$current_dir"; then
+            _dotTrace "__is_in_repo Found repo root"
             if [[ "$(repo --show-toplevel)" != "${current_dir}" ]]; then
                 echo "BADBAD: ${current_dir}"
             fi
 
             if [[ "$current_dir" != "$CWD_REPO_ROOT" ]]; then
+                local cached_parts
+                if cached_parts=$(__cache_get "REPO_INFO_${current_dir}"); then
+                    IFS='%' read -r CWD_REPO_ROOT CWD_REPO_MANIFEST_BRANCH CWD_REPO_DEFAULT_REMOTE <<< "$cached_parts"
+                    export CWD_REPO_ROOT
+                    export CWD_REPO_MANIFEST_BRANCH
+                    export CWD_REPO_DEFAULT_REMOTE
+                    _dotTrace "__is_in_repo Using cached repo environment variables"
+                    return 0
+                fi
+
                 CWD_REPO_ROOT="${current_dir}"
                 export CWD_REPO_ROOT
                 CWD_REPO_MANIFEST_BRANCH=$(repo info -o --outer-manifest -l | grep -i "Manifest branch" | sed 's/^Manifest branch: //')
@@ -138,11 +157,15 @@ function __is_in_repo() {
                     CWD_REPO_DEFAULT_REMOTE="unknown"
                 fi
                 export CWD_REPO_DEFAULT_REMOTE
+
+                __cache_put "REPO_INFO_${current_dir}" "${CWD_REPO_ROOT}%${CWD_REPO_MANIFEST_BRANCH}%${CWD_REPO_DEFAULT_REMOTE}" 3000
             fi
+            _dotTrace "__is_in_repo Updated repo environment variables"
             return 0
         fi
         current_dir="$(dirname "$current_dir")"
     done
+    _dotTrace "__is_in_repo Not in repo root"
     unset CWD_REPO_ROOT
     unset CWD_REPO_MANIFEST_BRANCH
     unset CWD_REPO_DEFAULT_REMOTE
@@ -232,16 +255,67 @@ function __is_shell_zsh() {
     [[ -n "$ZSH_VERSION" ]]
 }
 
-if __is_shell_old_bash; then
-    function __refresh_icon_map() {
-        ICON_MAP=([UNSUPPORTED]="[?]")
-        return 0
-    }
-fi
 if __is_shell_zsh; then
+
+    declare -A Z_CACHE=()
+
+    function __cache_put() {
+        local key="$1"
+        local value="$2"
+        local expiration_time="${3:-0}"
+
+        Z_CACHE["${key}"]="${value}"
+        if [[ "${expiration_time}" -gt 0 ]]; then
+            Z_CACHE["${key}_expiration"]="$(( $(date +%s) + expiration_time ))"
+        fi
+    }
+
+    function __cache_get() {
+        local key="$1"
+        local current_time
+        current_time=$(date +%s)
+
+        if [[ -n "${Z_CACHE["${key}_expiration"]}" ]]; then
+            if [[ "${Z_CACHE["${key}_expiration"]}" -lt "${current_time}" ]]; then
+                unset "Z_CACHE[${key}]"
+                unset "Z_CACHE[${key}_expiration]"
+                return 1
+            fi
+        fi
+
+        if [[ -n "${Z_CACHE["${key}"]}" ]]; then
+            echo -n "${Z_CACHE["${key}"]}"
+            return 0
+        fi
+
+        return 1
+    }
+
+    function __cache_clear() {
+        Z_CACHE=()
+    }
+
 # Prevent bash from attempting to interpret invalid zsh syntax.
 # shellcheck disable=SC1091
 source /dev/stdin <<'EOF'
+    function __cache_save() {
+        local cache_file="$1"
+        local key
+        local value
+        for key value in "${(@kv)Z_CACHE}"; do
+            echo "${key}=${value}"
+        done > "${cache_file}"
+    }
+
+    function __cache_load() {
+        local cache_file="$1"
+        local key
+        local value
+        while read -r key value; do
+            Z_CACHE["${key}"]="${value}"
+        done < "${cache_file}"
+    }
+
     function __refresh_icon_map() {
         local USE_NERD_FONTS="$1"
         # emojipedia.org
@@ -258,20 +332,39 @@ source /dev/stdin <<'EOF'
     }
 EOF
 else
-    function __refresh_icon_map() {
-        local USE_NERD_FONTS="$1"
-        # emojipedia.org
-        #Nerdfonts - https://www.nerdfonts.com/cheat-sheet
-        if [[ "${USE_NERD_FONTS}" == "0" ]]; then
-            for key in "${!NF_ICON_MAP[@]}"; do
-                ICON_MAP[$key]=${NF_ICON_MAP[$key]}
-            done
-        else
-            for key in "${!EMOJI_ICON_MAP[@]}"; do
-                ICON_MAP[$key]=${EMOJI_ICON_MAP[$key]}
-            done
-        fi
+    function __cache_put() {
+        return 0
     }
+
+    function __cache_get() {
+        return 1
+    }
+
+    function __cache_clear() {
+        return 0
+    }
+
+    if __is_shell_old_bash; then
+        function __refresh_icon_map() {
+            ICON_MAP=([UNSUPPORTED]="[?]")
+            return 0
+        }
+    else
+        function __refresh_icon_map() {
+            local USE_NERD_FONTS="$1"
+            # emojipedia.org
+            #Nerdfonts - https://www.nerdfonts.com/cheat-sheet
+            if [[ "${USE_NERD_FONTS}" == "0" ]]; then
+                for key in "${!NF_ICON_MAP[@]}"; do
+                    ICON_MAP[$key]=${NF_ICON_MAP[$key]}
+                done
+            else
+                for key in "${!EMOJI_ICON_MAP[@]}"; do
+                    ICON_MAP[$key]=${EMOJI_ICON_MAP[$key]}
+                done
+            fi
+        }
+    fi
 fi
 
 # Shared cuteness

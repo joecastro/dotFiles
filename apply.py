@@ -24,6 +24,7 @@ BASH_COMMAND_PREFIX = 'BASH_COMMAND: '
 # pylint: disable-next=too-many-instance-attributes
 class Host:
     hostname: str
+    branch: str | None = None
     kernel: str = 'linux'
     config_dir: str = None
     file_maps: list[tuple[str, str]] | dict[str, str] = field(default_factory=list)

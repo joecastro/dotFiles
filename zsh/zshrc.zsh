@@ -128,26 +128,28 @@ zle -N zle-line-init
 
 _prompt_executing=""
 function __konsole_integration_precmd() {
+    _dotTrace "__konsole_integration_precmd"
+
     local ret="$?"
-    if test "$_prompt_executing" != "0"
-    then
-      _PROMPT_SAVE_PS1="$PS1"
-      _PROMPT_SAVE_PS2="$PS2"
-      PS1=$'%{\e]133;P;k=i\a%}'$PS1$'%{\e]133;B\a\e]122;> \a%}'
-      PS2=$'%{\e]133;P;k=s\a%}'$PS2$'%{\e]133;B\a%}'
+    if [[ "$_prompt_executing" != "0" ]]; then
+        _PROMPT_SAVE_PS1="$PS1"
+        _PROMPT_SAVE_PS2="$PS2"
+        PS1=$'%{\e]133;P;k=i\a%}'$PS1$'%{\e]133;B\a\e]122;> \a%}'
+        PS2=$'%{\e]133;P;k=s\a%}'$PS2$'%{\e]133;B\a%}'
     fi
-    if test "$_prompt_executing" != ""
-    then
-       printf "\033]133;D;%s;aid=%s\007" "$ret" "$$"
+    if [[ "$_prompt_executing" != "" ]]; then
+        printf "\e]133;D;%s;aid=%s\a" "$ret" "$$"
     fi
-    printf "\033]133;A;cl=m;aid=%s\007" "$$"
+    printf "\e]133;A;cl=m;aid=%s\a" "$$"
     _prompt_executing=0
 }
 
 function __konsole_integration_preexec() {
+    _dotTrace "__konsole_integration_preexec"
+
     PS1="$_PROMPT_SAVE_PS1"
     PS2="$_PROMPT_SAVE_PS2"
-    printf "\033]133;C;\007"
+    printf "\e]133;C;\a"
     _prompt_executing=1
 }
 
@@ -159,6 +161,8 @@ preexec_functions=($preexec_functions _set_cursor_beam)
 precmd_functions=($precmd_functions __update_prompt)
 
 function toggle_konsole_semantic_integration() {
+    _dotTrace "toggle_konsole_semantic_integration"
+
     function is_konsole_semantic_integration_active() {
         [[ -n $(echo $preexec_functions | grep __konsole_integration_preexec) ]]
     }
@@ -197,6 +201,8 @@ toggle_konsole_semantic_integration 1
 ACTIVE_DYNAMIC_PROMPT_STYLE="Unknown"
 
 function __update_prompt() {
+    _dotTrace "__update_prompt"
+
     function __generate_static_prompt_part() {
         local PromptHostColor="$fg[yellow]"
         local PromptHostName="%m"
@@ -242,6 +248,7 @@ function __update_prompt() {
         echo -n "${preamble}${static}${dynamic_part}${suffix}"
     }
 
+    _dotTrace "__update_prompt - calculating new style"
     local new_dynamic_style
     if __is_in_repo; then
         new_dynamic_style="Repo"
@@ -252,10 +259,12 @@ function __update_prompt() {
     fi
 
     if [[ "${ACTIVE_DYNAMIC_PROMPT_STYLE}" != "${new_dynamic_style}" ]]; then
+        _dotTrace "__update_prompt - updating prompt to ${new_dynamic_style}"
         PROMPT="$(__generate_prompt ${new_dynamic_style})"
         __update_konsole_profile "${new_dynamic_style}"
         ACTIVE_DYNAMIC_PROMPT_STYLE="${new_dynamic_style}"
     fi
+    _dotTrace "__update_prompt - done"
 }
 
 function __update_title() {
@@ -271,7 +280,7 @@ function __update_title() {
     esac
 
     title+=$(__cute_pwd_short)
-    title=$(echo "${title}" | sed 's/%{[^}]*%}//g')
+    title=$(echo -n "${title}" | sed 's/%{[^}]*%}//g')
 
     if __is_on_wsl; then
         for key val in "${(@kv)NF_ICON_MAP}"; do
@@ -279,20 +288,25 @@ function __update_title() {
         done
     fi
 
-    if [[ "$1" == "--print" ]]; then
-        echo "Title: ${title}"
-    fi
+    _dotTrace "__update_title - setting title to ${title}"
 
     echo -ne "\e]0;${title}\a"
 }
 
 function __update_konsole_profile() {
+    _dotTrace "__update_konsole_profile"
+
+    local arg=""
     if [[ "$1" == "Repo" ]]; then
-        konsoleprofile colors="Android Colors"
+        arg="Colors=Android Colors"
     else
-        konsoleprofile colors="$(hostname) Colors"
+        arg="Colors=$(hostname) Colors"
     fi
+    _dotTrace "__update_konsole_profile - setting default profile"
+    echo -ne "\e]50;${arg}\a"
+    _dotTrace "__update_konsole_profile - done"
 }
+
 function __git_is_detached_head() {
     git status | grep "HEAD detached" > /dev/null 2>&1
 }
@@ -333,37 +347,39 @@ function __print_git_branch() {
 }
 
 function __print_git_branch_short() {
-    __is_in_git_repo
-    local git_repo_result=$?
-    if [[ ${git_repo_result} == 2 ]]; then
+    local icon=""
+    local icon_color=""
+    case __is_in_git_repo in
+    2)
         echo -n ""
         return 1
-    elif [[ ${git_repo_result} == 1 ]]; then
-        echo -n "${fg[yellow]%}${ICON_MAP[COD_TOOLS]} "
-        return 0
-    fi
+        ;;
+    1)
+        icon="${ICON_MAP[COD_TOOLS]}"
+        icon_color="fg[yellow]"
+        ;;
+    0)
+        if __git_is_nothing_to_commit; then
+            icon_color="$fg[green]"
+        else
+            icon_color="$fg[yellow]"
+        fi
 
-    local head_commit
-    head_commit=$(git rev-parse --short HEAD)
-    local matching_branch
-    matching_branch=$(git show-ref --head | grep "$head_commit" | grep -o 'refs/remotes/[^ ]*' | head -n 1)
+        local head_commit=$(git rev-parse --short HEAD)
+        local matching_branch=$(git show-ref --head | grep "$head_commit" | grep -o 'refs/remotes/[^ ]*' | head -n 1)
+        if [ -n "$matching_branch" ]; then
+            icon="${ICON_MAP[GIT_BRANCH]}"
+        else
+            icon="${ICON_MAP[GIT_COMMIT]}"
+        fi
+    esac
 
-    local has_matching_branch=1
-    if [ -n "$matching_branch" ]; then
-        # echo -n "${matching_branch#refs/remotes/}"
-        has_matching_branch=0
+    if [[ "$1" == "no-color" ]]; then
+        echo -n "${icon} "
+    else
+        echo -n "%{${icon_color}%}${icon}%{${reset_color}%} "
     fi
-
-    local icon="$ICON_MAP[GIT_COMMIT]"
-    if [[ "${has_matching_branch}" == 0 ]]; then
-        icon="$ICON_MAP[GIT_BRANCH]"
-    fi
-    local icon_color="$fg[green]"
-    if ! __git_is_nothing_to_commit; then
-        icon_color="$fg[yellow]"
-    fi
-
-    echo -n "%{${icon_color}%}${icon}%{${reset_color}%} "
+    return 0
 }
 
 function __print_git_worktree() {
