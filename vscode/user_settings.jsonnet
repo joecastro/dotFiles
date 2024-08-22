@@ -100,7 +100,8 @@ local vimSettings = {
     "workbench.iconTheme": "a-file-icon-vscode",
     "workbench.productIconTheme": "feather-vscode",
     "workbench.settings.editor": "json",
-    "workbench.startupEditor": "none"
+    "workbench.startupEditor": "none",
+    "update.mode": "none",
 }
     + editorSettings
     + terminalSettings

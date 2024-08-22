@@ -431,7 +431,7 @@ if ! __is_shell_old_bash; then
         )
 
         if [[ -v KNOWN_FOLDER_NAMES[${ACTIVE_DIR##*/}] ]]; then
-            echo -n "${KNOWN_DIRS[$ACTIVE_DIR]}"
+            echo -n "${KNOWN_FOLDER_NAMES[${ACTIVE_DIR##*/}]}"
             return 0
         fi
 
