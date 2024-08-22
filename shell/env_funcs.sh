@@ -49,6 +49,12 @@ declare -A EMOJI_ICON_MAP=(
     [CLOUD]=🌥️
     [DEBIAN]=🌀
     [UBUNTU]=👫
+    [DOWNLOAD]=📥
+    [DESKTOP]=🖥️
+    [PICTURES]=🖼️
+    [MUSIC]=🎵
+    [VIDEOS]=🎥
+    [DOCUMENTS]=📄
     ) > /dev/null 2>&1
 
 declare -A NF_ICON_MAP=(
@@ -89,6 +95,12 @@ declare -A NF_ICON_MAP=(
     [CLOUD]=󰅟
     [DEBIAN]=
     [UBUNTU]=
+    [DOWNLOAD]=
+    [DESKTOP]=
+    [PICTURES]=
+    [MUSIC]=
+    [VIDEOS]=
+    [DOCUMENTS]=
     ) > /dev/null 2>&1
 
 function __is_ssh_session() {
@@ -384,6 +396,48 @@ function __print_abbreviated_path() {
 
 if ! __is_shell_old_bash; then
 
+    function __cute_pwd_lookup() {
+        local ACTIVE_DIR=$1
+
+        declare -A KNOWN_DIRS=(
+            ["${HOME}"]=${ICON_MAP[COD_HOME]}
+            ["${HOME}/Desktop"]=${ICON_MAP[DESKTOP]}
+            ["${HOME}/Documents"]=${ICON_MAP[DOCUMENTS]}
+            ["${HOME}/Videos"]=${ICON_MAP[VIDEOS]}
+            ["${HOME}/Downloads"]=${ICON_MAP[DOWNLOAD]}
+            ["${HOME}/Pictures"]=${ICON_MAP[PICTURES]}
+            ["${HOME}/Music"]=${ICON_MAP[MUSIC]}
+            ["${WIN_USERPROFILE}"]=${ICON_MAP[WINDOWS]}
+            ["/"]=${ICON_MAP[FAE_TREE]}
+        )
+
+        # These should only match if they're exact.
+        if [[ -v KNOWN_DIRS[$ACTIVE_DIR] ]]; then
+            echo -n "${KNOWN_DIRS[$ACTIVE_DIR]}"
+            return 0
+        fi
+
+        if __is_in_repo_root "${ACTIVE_DIR}"; then
+            echo -n "${ICON_MAP[ANDROID_HEAD]}"
+            return 0
+        fi
+
+        declare -A KNOWN_FOLDER_NAMES=(
+            ["src"]=${ICON_MAP[COD_SAVE]}
+            ["source"]=${ICON_MAP[COD_SAVE]}
+            ["github"]=${ICON_MAP[GITHUB]}
+            ["cloud"]=${ICON_MAP[CLOUD]}
+            ["$USER"]=${ICON_MAP[ACCOUNT]}
+        )
+
+        if [[ -v KNOWN_FOLDER_NAMES[${ACTIVE_DIR##*/}] ]]; then
+            echo -n "${KNOWN_DIRS[$ACTIVE_DIR]}"
+            return 0
+        fi
+
+        return 1
+    }
+
     function __cute_pwd() {
         local is_short=1
         if [[ "$1" == "--short" ]]; then
@@ -412,52 +466,6 @@ if ! __is_shell_old_bash; then
             fi
             return 0
         fi
-
-        function __cute_pwd_lookup() {
-            local ACTIVE_DIR=$1
-
-            # These should only match if they're exact.
-            case "${ACTIVE_DIR}" in
-            "${HOME}")
-                echo -n "${ICON_MAP[COD_HOME]}${SUFFIX}"
-                return 0
-                ;;
-            "${WIN_USERPROFILE}")
-                echo -n "${ICON_MAP[WINDOWS]}${SUFFIX}"
-                return 0
-                ;;
-            "/")
-                echo -n "${ICON_MAP[FAE_TREE]}"
-                return 0
-                ;;
-            esac
-
-            if __is_in_repo_root "${ACTIVE_DIR}"; then
-                echo -n "${ICON_MAP[ANDROID_HEAD]}"
-                return 0
-            fi
-
-            case "${ACTIVE_DIR##*/}" in
-            "github")
-                echo -n "${ICON_MAP[GITHUB]}"
-                return 0
-                ;;
-            "src" | "source")
-                echo -n "${ICON_MAP[COD_SAVE]}"
-                return 0
-                ;;
-            "cloud")
-                echo -n "${ICON_MAP[CLOUD]}"
-                return 0
-                ;;
-            "$USER")
-                echo -n "${ICON_MAP[ACCOUNT]}"
-                return 0
-                ;;
-            esac
-
-            return 1
-        }
 
         if [[ is_short -ne 0 ]]; then
             # Print the parent directory only if it has a special expansion.
@@ -593,6 +601,97 @@ function __do_vscode_shell_integration() {
         # Also, in some contexts .zprofile isn't sourced when started inside the Python debug console.
         # shellcheck disable=SC1090
         source ~/.zprofile
+    fi
+}
+
+_prompt_executing=""
+function __konsole_integration_precmd() {
+    _dotTrace "__konsole_integration_precmd"
+
+    local ret="$?"
+    if [[ "$_prompt_executing" != "0" ]]; then
+        _PROMPT_SAVE_PS1="$PS1"
+        _PROMPT_SAVE_PS2="$PS2"
+        PS1=$'%{\e]133;P;k=i\a%}'$PS1$'%{\e]133;B\a\e]122;> \a%}'
+        PS2=$'%{\e]133;P;k=s\a%}'$PS2$'%{\e]133;B\a%}'
+    fi
+    if [[ "$_prompt_executing" != "" ]]; then
+        echo -ne "\e]133;D;$ret;aid=$$\a"
+    fi
+    echo -ne "\e]133;A;cl=m;aid=$$\a"
+    _prompt_executing=0
+}
+
+function __konsole_integration_preexec() {
+    _dotTrace "__konsole_integration_preexec"
+
+    PS1="$_PROMPT_SAVE_PS1"
+    PS2="$_PROMPT_SAVE_PS2"
+    echo -ne "\e]133;C;\a"
+    _prompt_executing=1
+}
+
+function toggle_konsole_semantic_integration() {
+    _dotTrace "toggle_konsole_semantic_integration"
+
+    function is_konsole_semantic_integration_active() {
+        echo "${preexec_functions}" | grep -q __konsole_integration_preexec
+    }
+
+    function add_konsole_semantic_integration() {
+        if ! is_konsole_semantic_integration_active; then
+            preexec_functions+=("__konsole_integration_preexec")
+            precmd_functions+=("__konsole_integration_precmd")
+        fi
+    }
+
+    function remove_konsole_semantic_integration() {
+        if is_konsole_semantic_integration_active; then
+            preexec_functions=("${preexec_functions:#__konsole_integration_preexec}")
+            precmd_functions=("${precmd_functions:#__konsole_integration_precmd}")
+        fi
+    }
+
+    if [[ "$1" == "0" ]]; then
+        remove_konsole_semantic_integration
+        return 0
+    elif [[ "$1" == "1" ]]; then
+        add_konsole_semantic_integration
+        return 0
+    fi
+
+    if is_konsole_semantic_integration_active; then
+        remove_konsole_semantic_integration
+    else
+        add_konsole_semantic_integration
+    fi
+}
+
+function __update_konsole_profile() {
+    _dotTrace "__update_konsole_profile"
+
+    local arg=""
+    if [[ "$ACTIVE_DYNAMIC_PROMPT_STYLE" == "Repo" ]]; then
+        arg="Colors=Android Colors"
+    else
+        arg="Colors=$(hostname) Colors"
+    fi
+    if [[ $(__cache_get "KONSOLE_PROFILE") == "${arg}" ]]; then
+        _dotTrace "__update_konsole_profile - already set"
+        return
+    fi
+
+    _dotTrace "__update_konsole_profile - setting default profile"
+    echo -ne "\e]50;${arg}\a"
+    __cache_put "KONSOLE_PROFILE" "${arg}" 30000
+    _dotTrace "__update_konsole_profile - done"
+}
+
+function __do_konsole_shell_integration() {
+    if __is_shell_zsh; then
+        toggle_konsole_semantic_integration 1
+
+        precmd_functions+=(__update_konsole_profile)
     fi
 }
 

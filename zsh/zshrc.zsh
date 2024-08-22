@@ -23,8 +23,8 @@ ELEVATED_END_OF_PROMPT_ICON="$"
 fpath=("${DOTFILES_CONFIG_ROOT}/zfuncs" $fpath)
 
 # defines __git_ps1
-[[ -f "${DOTFILES_CONFIG_ROOT}/git-prompt.sh" ]] && source "${DOTFILES_CONFIG_ROOT}/git-prompt.sh"
-[[ -f "~/.zshext/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" ]] \
+[ -f "${DOTFILES_CONFIG_ROOT}/git-prompt.sh" ] && source "${DOTFILES_CONFIG_ROOT}/git-prompt.sh"
+[ -f "~/.zshext/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" ] \
     && source "~/.zshext/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
 
 autoload -Uz async && async
@@ -126,77 +126,12 @@ zle-line-init() {
 
 zle -N zle-line-init
 
-_prompt_executing=""
-function __konsole_integration_precmd() {
-    _dotTrace "__konsole_integration_precmd"
-
-    local ret="$?"
-    if [[ "$_prompt_executing" != "0" ]]; then
-        _PROMPT_SAVE_PS1="$PS1"
-        _PROMPT_SAVE_PS2="$PS2"
-        PS1=$'%{\e]133;P;k=i\a%}'$PS1$'%{\e]133;B\a\e]122;> \a%}'
-        PS2=$'%{\e]133;P;k=s\a%}'$PS2$'%{\e]133;B\a%}'
-    fi
-    if [[ "$_prompt_executing" != "" ]]; then
-        printf "\e]133;D;%s;aid=%s\a" "$ret" "$$"
-    fi
-    printf "\e]133;A;cl=m;aid=%s\a" "$$"
-    _prompt_executing=0
-}
-
-function __konsole_integration_preexec() {
-    _dotTrace "__konsole_integration_preexec"
-
-    PS1="$_PROMPT_SAVE_PS1"
-    PS2="$_PROMPT_SAVE_PS2"
-    printf "\e]133;C;\a"
-    _prompt_executing=1
-}
-
 chpwd_functions=($chpwd_functions __update_prompt __auto_apply_venv_on_chpwd)
 
 # Use beam shape cursor for each new prompt.
 preexec_functions=($preexec_functions _set_cursor_beam)
 
 precmd_functions=($precmd_functions __update_prompt)
-
-function toggle_konsole_semantic_integration() {
-    _dotTrace "toggle_konsole_semantic_integration"
-
-    function is_konsole_semantic_integration_active() {
-        [[ -n $(echo $preexec_functions | grep __konsole_integration_preexec) ]]
-    }
-
-    function add_konsole_semantic_integration() {
-        if ! is_konsole_semantic_integration_active; then
-            preexec_functions+=("__konsole_integration_preexec")
-            precmd_functions+=("__konsole_integration_precmd")
-        fi
-    }
-
-    function remove_konsole_semantic_integration() {
-        if is_konsole_semantic_integration_active; then
-            preexec_functions=(${preexec_functions:#__konsole_integration_preexec})
-            precmd_functions=(${precmd_functions:#__konsole_integration_precmd})
-        fi
-    }
-
-    if [[ "$1" == "0" ]]; then
-        remove_konsole_semantic_integration
-        return 0
-    elif [[ "$1" == "1" ]]; then
-        add_konsole_semantic_integration
-        return 0
-    fi
-
-    if is_konsole_semantic_integration_active; then
-        remove_konsole_semantic_integration
-    else
-        add_konsole_semantic_integration
-    fi
-}
-
-toggle_konsole_semantic_integration 1
 
 ACTIVE_DYNAMIC_PROMPT_STYLE="Unknown"
 
@@ -261,7 +196,6 @@ function __update_prompt() {
     if [[ "${ACTIVE_DYNAMIC_PROMPT_STYLE}" != "${new_dynamic_style}" ]]; then
         _dotTrace "__update_prompt - updating prompt to ${new_dynamic_style}"
         PROMPT="$(__generate_prompt ${new_dynamic_style})"
-        __update_konsole_profile "${new_dynamic_style}"
         ACTIVE_DYNAMIC_PROMPT_STYLE="${new_dynamic_style}"
     fi
     _dotTrace "__update_prompt - done"
@@ -291,20 +225,6 @@ function __update_title() {
     _dotTrace "__update_title - setting title to ${title}"
 
     echo -ne "\e]0;${title}\a"
-}
-
-function __update_konsole_profile() {
-    _dotTrace "__update_konsole_profile"
-
-    local arg=""
-    if [[ "$1" == "Repo" ]]; then
-        arg="Colors=Android Colors"
-    else
-        arg="Colors=$(hostname) Colors"
-    fi
-    _dotTrace "__update_konsole_profile - setting default profile"
-    echo -ne "\e]50;${arg}\a"
-    _dotTrace "__update_konsole_profile - done"
 }
 
 function __git_is_detached_head() {
@@ -410,39 +330,24 @@ function __print_repo_worktree() {
         return 0
     fi
 
-    local manifest_branch
-    if ! manifest_branch=$(repo_manifest_branch); then
-        echo -n "%{$fg[red]%}Unknown{%$reset_color%} "
-        return 1
-    fi
+    local manifest_branch=${CWD_REPO_MANIFEST_BRANCH}
+    local default_remote=${CWD_REPO_DEFAULT_REMOTE}
 
-    local default_remote
-    default_remote=$(repo_default_remote)
+    local line="%{$fg[green]%}"
+    line+="${ICON_MAP[ANDROID_BODY]}"
 
-    local line=""
-    case "${default_remote}" in
-    "goog")
-        line+="%{$fg[blue]%}"
-        line+="${ICON_MAP[ANDROID_BODY]}"
-        line+="%{$fg[green]%}"
-        ;;
-    "aosp")
-        line+="%{$fg[green]%}"
-        line+="${ICON_MAP[ANDROID_BODY]}"
-        ;;
-    "*")
-        line+="%{$fg[green]%}"
+    if [[ "${default_remote}" != "goog" ]]; then
         line+="${default_remote}/"
-        ;;
-    esac
+    fi
     line+="${manifest_branch}"
 
     local current_project
     if current_project=$(repo_current_project); then
         line+=":$(__print_abbreviated_path ${current_project})"
     fi
+    line+="%{$reset_color%} "
 
-    echo -n "${line}%{$reset_color%} "
+    echo -n ${line}
 }
 
 function __print_git_info() {
@@ -493,6 +398,8 @@ fi
 __do_iterm2_shell_integration
 
 __do_vscode_shell_integration
+
+__do_konsole_shell_integration
 
 __do_eza_aliases
 
