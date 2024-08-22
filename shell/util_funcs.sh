@@ -97,3 +97,17 @@ if __is_shell_zsh; then
 elif __is_shell_bash; then
     alias source_dotfiles='echo "Maybe later...'
 fi
+
+# Linter is not happy with ZSH syntax in a bash script.
+function debug_color_env() {
+    local color_var=${1:-"LS_COLORS"}
+    # shellcheck disable=SC2034 disable=SC2296
+    color_var=${(P)color_var}
+    # shellcheck disable=SC2206 disable=SC2296
+    local parts=(${(s/:/)color_var})
+    # shellcheck disable=SC2128
+    for ls_color in $parts; do
+        echo -ne "\e[${ls_color##*=}m${ls_color%%=*}\e[0m "
+    done
+    echo ""
+}
