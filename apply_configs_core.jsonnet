@@ -97,12 +97,37 @@ local macros = {
     ],
 };
 
+// Colors for less binary
+// Source: https://github.com/Valloric/dotfiles/blob/master/less/LESS_TERMCAP
+// Source: http://unix.stackexchange.com/a/147
+// More info: http://unix.stackexchange.com/a/108840
+local less_termcaps_properties ={
+    // LESS_TERMCAP_DEBUG: 0, // set this to see tags printed in less.
+    LESS_TERMCAP_mb: "$(tput bold; tput setaf 2)", // green
+    LESS_TERMCAP_md: "$(tput bold; tput setaf 6)", // cyan
+    LESS_TERMCAP_me: "$(tput sgr0)",
+    LESS_TERMCAP_so: "$(tput bold; tput setaf 3; tput setab 4)", // yellow on blue
+    LESS_TERMCAP_se: "$(tput rmso; tput sgr0)",
+    LESS_TERMCAP_us: "$(tput smul; tput bold; tput setaf 7)", // white
+    LESS_TERMCAP_ue: "$(tput rmul; tput sgr0)",
+    LESS_TERMCAP_mr: "$(tput rev)",
+    LESS_TERMCAP_mh: "$(tput dim)",
+    LESS_TERMCAP_ZN: "$(tput ssubm)",
+    LESS_TERMCAP_ZV: "$(tput rsubm)",
+    LESS_TERMCAP_ZO: "$(tput ssupm)",
+    LESS_TERMCAP_ZW: "$(tput rsupm)",
+    GROFF_NO_SGR: 1, // For Konsole and Gnome-terminal
+    LESS: "--RAW-CONTROL-CHARS",
+    // https://stackoverflow.com/questions/1049350/how-to-make-less-indicate-location-in-percentage/19871578#19871578
+    MANPAGER: 'less -s -M +Gg',
+};
+
 local env_vars = {
     properties: {
         DOTFILES_CONFIG_ROOT: '$HOME/' + config_dir,
         LSCOLORS: 'GxDxbxhbcxegedabagacad',
         LS_COLORS: 'di=1;36:ln=1;33:so=31:pi=37;41:ex=32:bd=34;46:cd=34;43:su=30;41:sg=30;46:tw=30;42:ow=30;43',
-    },
+    } + less_termcaps_properties,
     aliases: {
         '...': 'cd ../..',
     },
