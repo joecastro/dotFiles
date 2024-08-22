@@ -10,12 +10,8 @@ if has("gui_running")
         " This makes most of the expected standard keyboard shortcuts work.
         source $VIMRUNTIME/mswin.vim
         behave mswin
-        set guifont=CaskaydiaCove_Nerd_Font_Mono:h12:cANSI:qDRAFT
-    elseif has("gui_gtk3")
-        set guifont=Inconsolata\ 12
-    elseif has("gui_macvim")
-        set guifont=CaskaydiaCoveNerdFontCompleteM-Regular:h14
     endif
+    set guifont=Cascadia\ Code\ 12
 endif
 
 " source ~/extra_commands.vim

@@ -7,7 +7,7 @@ local PeacockColor(name, color) = {
 };
 
 local editorSettings = {
-    "editor.fontFamily": "CaskaydiaCove Nerd Font Mono, Cascadia Code, Consolas",
+    "editor.fontFamily": "Cascadia Code NF, Consolas",
     "editor.fontLigatures": true,
     "editor.formatOnType": true,
     "editor.renderWhitespace": "all",

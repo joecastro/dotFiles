@@ -120,7 +120,7 @@ local ItermColorWhite = ItermColor(Colors.White);
         "Link Color": ItermColorAlpha(Colors.CeruleanBlue),
         "Mouse Reporting": true,
         "Non-ASCII Anti Aliased": true,
-        "Normal Font": "CaskaydiaCoveNFM-Regular 14",
+        "Normal Font": "Cascadia Code NF-Regular 14",
         "Only The Default BG Color Uses Transparency": false,
         "Option Key Sends": 0,
         "Prompt Before Closing 2": false,

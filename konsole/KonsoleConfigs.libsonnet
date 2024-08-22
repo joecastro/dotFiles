@@ -47,7 +47,7 @@ local getForeground(extended_scheme) = {
         sections: {
             Appearance: {
                 ColorScheme: scheme_name,
-                Font: 'CaskaydiaCove Nerd Font Mono,14,-1,5,50,0,0,0,0,0',
+                Font: 'Cascadia Code NF,12,-1,5,29,0,0,0,0,0,SemiLight',
                 UseFontLineChararacters: true,
                 [if tab_color != null then 'TabColor']: tab_color.rgb255,
             },

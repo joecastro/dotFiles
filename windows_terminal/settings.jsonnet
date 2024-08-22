@@ -35,7 +35,7 @@ local Font(face) = {
 };
 
 local fonts = {
-    CaskaydiaCoveMono: Font("CaskaydiaCove Nerd Font Mono"),
+    CascadiaCode: Font("Cascadia Code NF"),
     LucidaConsole: Font("Lucida Console"),
 };
 
@@ -138,7 +138,7 @@ local profiles = {
                 "taskbar",
             ],
             colorScheme: schemes['Solarized Dark'].name,
-            font: fonts.CaskaydiaCoveMono,
+            font: fonts.CascadiaCode,
             opacity: 100,
             useAcrylic: true,
             useAtlasEngine: true,
