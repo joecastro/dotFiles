@@ -20,7 +20,7 @@ local terminalSettings = {
     "terminal.integrated.cursorStyle": "line",
     "terminal.integrated.defaultProfile.osx": "zsh",
     "terminal.integrated.enableImages": true,
-    "terminal.integrated.fontFamily": "",
+    "terminal.integrated.fontFamily": "Cascadia Code NF, Consolas",
     "terminal.integrated.profiles.linux": {
         "bash": {
             "icon": "terminal-bash",
