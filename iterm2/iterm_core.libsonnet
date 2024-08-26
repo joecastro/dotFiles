@@ -9,7 +9,7 @@ local ColorWithAlpha = color_defs.ColorWithAlpha;
 local Colors = color_defs.Colors;
 local ExtendedTerminalColors = color_defs.ExtendedTerminalColors;
 
-local default_color_scheme = color_defs.Schemes.Iterm;
+local default_color_scheme = color_defs.Schemes.ITerm;
 
 local ItermColor(color) =
 {
@@ -120,7 +120,7 @@ local ItermColorWhite = ItermColor(Colors.White);
         "Link Color": ItermColorAlpha(Colors.CeruleanBlue),
         "Mouse Reporting": true,
         "Non-ASCII Anti Aliased": true,
-        "Normal Font": "Cascadia Code NF-Regular 14",
+        "Normal Font": "CascadiaCodeNF-Regular_SemiLight 14",
         "Only The Default BG Color Uses Transparency": false,
         "Option Key Sends": 0,
         "Prompt Before Closing 2": false,

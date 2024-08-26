@@ -620,6 +620,7 @@ def push_iterm2_prefs(out_path=None) -> None:
     if out_path is None:
         out_path = iterm2_prefs_plist_location()
     print(f'Writing iTerm2 preferences to {out_path}')
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
     with open(out_path, 'wb') as f:
         plistlib.dump(build_iterm2_prefs_json(), f)
 
