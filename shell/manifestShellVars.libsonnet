@@ -7,6 +7,11 @@
             local directives = if std.objectHas(root, 'directives')
                 then ['export %s=`%s`' % [k, root.directives[k]] for k in std.objectFields(root.directives)]
                 else [];
+            local interactive_directives = if std.objectHas(root, 'interactive_directives')
+                then ['if [[ $- == *i* ]]; then'] +
+                ['    export %s=`%s`' % [k, root.interactive_directives[k]] for k in std.objectFields(root.interactive_directives)] +
+                ['fi']
+                else [];
             local aliases = if std.objectHas(root, 'aliases')
                 then ["alias %s='%s'" % [k, root.aliases[k]] for k in std.objectFields(root.aliases)]
                 else [];
@@ -17,6 +22,6 @@
                 '',
                 '#pragma once',
                 ''],
-                props, directives, aliases]));
+                props, directives, interactive_directives, aliases]));
         aux(value)
 }

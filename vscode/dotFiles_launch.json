@@ -34,12 +34,15 @@
             ]
         },
         {
-            "name": "Pull VS Code User settings",
+            "name": "Pull from remote host (joec1)",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/apply.py",
             "console": "integratedTerminal",
-            "args": [ "--pull-vscode-settings" ]
+            "args": [
+                "--pull",
+                "joec1.c.googlers.com"
+            ]
         },
         {
             "name": "Update Workspace recommended extensions",
@@ -80,6 +83,14 @@
             "program": "${workspaceFolder}/apply.py",
             "console": "integratedTerminal",
             "args": ["--compare-iterm2-prefs"]
+        },
+        {
+            "name": "Compare VSCode User Settings",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/apply.py",
+            "console": "integratedTerminal",
+            "args": ["--compare-user-settings"]
         },
         {
             "name": "Bootstrap Windows Environment",

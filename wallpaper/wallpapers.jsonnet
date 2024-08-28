@@ -16,10 +16,10 @@ local SvgImage(path) = {
     local_path: 'svg/' + path,
     target_path(host)::
         if host == null then
-            apply_configs_core.cwd + '/' + $.local_path
+            apply_configs_core.cwd + '/svg/' + $.local_path
         else
             assert host.home != null && host.config_dir != null;
-            host.home + '/' + host.config_dir + '/' + path,
+            host.home + '/' + host.config_dir + '/svg/' + path,
 };
 {
     abstract_blue: BackgroundImageNode("abstract_blue.png"),

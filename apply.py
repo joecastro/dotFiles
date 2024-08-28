@@ -82,7 +82,7 @@ class Host:
             return os.path.exists(path)
         return subprocess.run(['ssh', self.hostname, f'test -d {path}'], capture_output=True, check=False).returncode == 0
 
-    def make_ops(self, ops: list) -> list:
+    def make_ops(self, ops: list[list]) -> list:
         if self.is_localhost():
             return ops
 
@@ -161,29 +161,6 @@ def update_workspace_extensions() -> None:
 
     with open(repo_workspace_extensions_location, 'w', encoding='utf-8') as f:
         json.dump(extensions_node, f, indent=4, sort_keys=True)
-
-
-def push_vscode_user_settings() -> None:
-    repo_user_settings_location = os.path.join('vscode', 'user_settings.jsonnet')
-    mac_settings_location = f'{HOME}/Library/Application Support/Code/User/settings.json'
-
-    user_settings = parse_jsonnet_now(repo_user_settings_location, get_ext_vars(config.get_localhost()))
-
-    with open(mac_settings_location, 'w', encoding='utf-8') as f:
-        json.dump(user_settings, f, indent=4, sort_keys=True)
-
-
-def pull_vscode_user_settings() -> None:
-    dotfiles_settings_location = 'vscode/user_settings.jsonnet'
-    mac_settings_location = f'{HOME}/Library/Application Support/Code/User/settings.json'
-
-    with open(mac_settings_location, encoding='utf-8') as f:
-        settings = json.load(f)
-
-    sorted_settings = json.dumps(settings, indent=4, sort_keys=True)
-
-    with open(dotfiles_settings_location, 'w', encoding='utf-8') as f:
-        f.write(sorted_settings)
 
 
 def generate_derived_workspace() -> None:
@@ -428,11 +405,10 @@ def install_vscode_extensions(host, verbose=False) -> list:
     return ops
 
 
-def make_finish_script(host, command_ops, verbose=False) -> list:
-    finish_script = os.path.join(host.get_local_staging_dir(), 'finish.sh')
+def make_finish_script(host, command_ops, script_path: str, verbose) -> list:
 
     def do_write():
-        with open(finish_script, 'w', encoding='utf-8') as f:
+        with open(script_path, 'w', encoding='utf-8') as f:
             f.write('#!/bin/bash\n')
             f.write('\n')
             f.write('set -e\n')
@@ -450,13 +426,13 @@ def make_finish_script(host, command_ops, verbose=False) -> list:
                     else:
                         f.write('echo "' + op + '"\n')
                 else:
-                    f.write(' '.join(op) + '\n')
+                    f.write(' '.join([o.replace(' ', '\\ ') for o in op]) + '\n')
 
     ops = [partial(do_write)]
 
     if verbose:
-        ops.append(f'Generated finish script at {finish_script}')
-    ops.append(['chmod', 'u+x', finish_script])
+        ops.append(f'Generated finish script at {script_path}')
+    ops.append(['chmod', 'u+x', script_path])
 
     return ops
 
@@ -555,19 +531,41 @@ def stage_local(host, shallow, verbose=False) -> list[str]:
     # finish_ops.extend(install_vscode_extensions(host, verbose=verbose))
     # finish_ops.append(f'Finished pushing files to {host.hostname}')
 
-    ops.extend(make_finish_script(host, finish_ops, verbose=verbose))
+    finish_script = os.path.join(host.get_local_staging_dir(), 'finish.sh')
+    ops.extend(make_finish_script(host, finish_ops, finish_script, verbose=verbose))
 
     return ops
 
 
-def pull_remote(host) -> list:
-    staging_dir = host.get_local_staging_dir('ingest')
+def pull_remote(host: Host) -> list[str]:
+    snapshot_dir = host.get_local_staging_dir('ingest')
+    ops = [
+        f'Recreating staged dotFiles for {host.hostname}',
+        partial(shutil.rmtree, path=snapshot_dir, ignore_errors=True),
+        ['mkdir', '-p', snapshot_dir]]
 
-    ops = [f'>> Snapshotting dotFiles from {host.hostname} into {staging_dir}']
-    ops.extend(partial(shutil.rmtree, path=staging_dir, ignore_errors=True))
-    # This doesn't decompose the files back into jsonnet. But the directories are diffable with the local staged copies
-    # ops.extend(copy_files(host, HOME, host.file_maps.values(), config.get_localhost(), staging_dir, host.file_maps.keys()))
-    # TODO: Make this work again, later
+    ops.extend(host.make_ops([
+        ['rm', '-rf', host.get_remote_staging_dir()],
+        ['mkdir', '-p', host.get_remote_staging_dir()]
+    ]))
+
+    if host.is_localhost():
+        ops.extend(copy_directories_local('~', host.directory_maps.values(),  snapshot_dir, host.directory_maps.keys(), True))
+        ops.extend(copy_files_local('~', host.file_maps.values(), snapshot_dir, host.file_maps.keys()))
+    else:
+        remote_ops = ['>> Unstaging directories and files']
+        remote_ops.extend(copy_directories_local('~', host.directory_maps.values(),  host.get_remote_staging_dir(), host.directory_maps.keys(), True))
+        remote_ops.extend(copy_files_local('~', host.file_maps.values(), host.get_remote_staging_dir(), host.file_maps.keys()))
+
+        unfinish_script = os.path.join(snapshot_dir, 'unfinish.sh')
+        ops.extend(make_finish_script(host, remote_ops, unfinish_script, verbose=False))
+
+        ops.append(f'>> Copying unfinish script to {host.hostname}')
+        ops.append(['scp', unfinish_script, f'{host.hostname}:{host.get_remote_staging_dir()}'])
+
+        ops.extend(host.make_ops([['/bin/bash', './' + host.get_remote_staging_dir() + '/unfinish.sh']]))
+
+        ops.append(['scp', '-r', f'{host.hostname}:{host.get_remote_staging_dir()}/.', snapshot_dir])
 
     return ops
 
@@ -635,15 +633,21 @@ def compare_iterm2_prefs() -> None:
     print(f'diff {snapshot_path} {gen_path}')
 
 
-def compare_user_settings() -> None:
-    repo_user_settings_location = os.path.join('vscode', 'user_settings.jsonnet')
-    original_path = f'{HOME}/Library/Application Support/Code/User/settings.json'
-    gen_path = os.path.join('out', 'user_settings.json')
-    snapshot_path = os.path.join('out', 'user_settings.snapshot.json')
+def compare_user_settings(host) -> None:
+    target_jsonnet_map_entry = next((entry for entry in host.jsonnet_maps.items() if entry[0] == 'vscode/user_settings.jsonnet'), None)
+    if not target_jsonnet_map_entry:
+        print(f'No vscode user settings for {host.hostname}')
+    target_target_jsonnet_map_entry = next((entry for entry in host.file_maps.items() if entry[0] == target_jsonnet_map_entry[1]), None)
+    if not target_target_jsonnet_map_entry:
+        raise ValueError(f'No vscode user settings file for {host.hostname}')
 
-    gen_user_settings = parse_jsonnet_now(repo_user_settings_location, get_ext_vars(config.get_localhost()))
+    template_path = target_jsonnet_map_entry[0]
+    gen_path = os.path.join(host.get_local_staging_dir(), os.path.splitext(target_jsonnet_map_entry[1])[0] + '.gen.json')
+    original_path = os.path.join(HOME, target_target_jsonnet_map_entry[1])
+    snapshot_path = os.path.join(host.get_local_staging_dir(), os.path.splitext(target_jsonnet_map_entry[1])[0] + '.snapshot.json')
 
     with open(gen_path, 'w', encoding='utf-8') as f:
+        gen_user_settings = parse_jsonnet_now(template_path, get_ext_vars(host))
         json.dump(gen_user_settings, f, indent=4, sort_keys=True)
 
     with open(original_path, encoding='utf-8') as in_path:
@@ -734,11 +738,7 @@ def main(args) -> int:
         case '--compare-iterm2-prefs':
             ops.append(compare_iterm2_prefs)
         case '--compare-user-settings':
-            ops.append(compare_user_settings)
-        case '--pull-vscode-settings':
-            ops.append(pull_vscode_user_settings)
-        case '--push-vscode-settings':
-            ops.append(push_vscode_user_settings)
+            ops.append(partial(compare_user_settings, host=config.get_localhost()))
         case '--update-workspace-extensions':
             ops.append(update_workspace_extensions)
         case '--generate-workspace':

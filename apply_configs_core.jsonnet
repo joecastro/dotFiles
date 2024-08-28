@@ -16,6 +16,10 @@ local jsonnet_maps = [
     ['shell/iterm2_color_funcs.jsonnet', 'gen/iterm2_color_funcs.sh', config_dir + '/iterm2_color_funcs.sh'],
 ];
 
+local jsonnet_localhost_mac_maps = [
+    ['vscode/user_settings.jsonnet', 'gen/vscode_user_settings.json', 'Library/Application Support/Code/User/settings.json']
+];
+
 local jsonnet_multi_maps = [
     ['konsole/LocalProfiles.jsonnet', 'gen/konsole_profiles', '.local/share/konsole'],
     ['konsole/ColorConfigs.jsonnet', 'gen/konsole_colors', '.local/share/konsole'],
@@ -48,7 +52,7 @@ local file_maps = [
 
 local directory_maps = [
     ['vim/colors', '.vim/colors'],
-    ['svg', config_dir],
+    ['svg', config_dir + '/svg'],
 ];
 
 local vim_pack_plugin_start_repos = [
@@ -101,21 +105,24 @@ local macros = {
 // Source: https://github.com/Valloric/dotfiles/blob/master/less/LESS_TERMCAP
 // Source: http://unix.stackexchange.com/a/147
 // More info: http://unix.stackexchange.com/a/108840
-local less_termcaps_properties ={
+local less_termcaps_directives = {
     // LESS_TERMCAP_DEBUG: 0, // set this to see tags printed in less.
-    LESS_TERMCAP_mb: "$(tput bold; tput setaf 2)", // green
-    LESS_TERMCAP_md: "$(tput bold; tput setaf 6)", // cyan
-    LESS_TERMCAP_me: "$(tput sgr0)",
-    LESS_TERMCAP_so: "$(tput bold; tput setaf 3; tput setab 4)", // yellow on blue
-    LESS_TERMCAP_se: "$(tput rmso; tput sgr0)",
-    LESS_TERMCAP_us: "$(tput smul; tput bold; tput setaf 7)", // white
-    LESS_TERMCAP_ue: "$(tput rmul; tput sgr0)",
-    LESS_TERMCAP_mr: "$(tput rev)",
-    LESS_TERMCAP_mh: "$(tput dim)",
-    LESS_TERMCAP_ZN: "$(tput ssubm)",
-    LESS_TERMCAP_ZV: "$(tput rsubm)",
-    LESS_TERMCAP_ZO: "$(tput ssupm)",
-    LESS_TERMCAP_ZW: "$(tput rsupm)",
+    LESS_TERMCAP_mb: 'tput bold; tput setaf 2', // green
+    LESS_TERMCAP_md: 'tput bold; tput setaf 6', // cyan
+    LESS_TERMCAP_me: 'tput sgr0',
+    LESS_TERMCAP_so: 'tput bold; tput setaf 3; tput setab 4', // yellow on blue
+    LESS_TERMCAP_se: 'tput rmso; tput sgr0',
+    LESS_TERMCAP_us: 'tput smul; tput bold; tput setaf 7', // white
+    LESS_TERMCAP_ue: 'tput rmul; tput sgr0',
+    LESS_TERMCAP_mr: 'tput rev',
+    LESS_TERMCAP_mh: 'tput dim',
+    LESS_TERMCAP_ZN: 'tput ssubm',
+    LESS_TERMCAP_ZV: 'tput rsubm',
+    LESS_TERMCAP_ZO: 'tput ssupm',
+    LESS_TERMCAP_ZW: 'tput rsupm',
+};
+
+local less_termcaps_properties = {
     GROFF_NO_SGR: 1, // For Konsole and Gnome-terminal
     LESS: "--RAW-CONTROL-CHARS",
     // https://stackoverflow.com/questions/1049350/how-to-make-less-indicate-location-in-percentage/19871578#19871578
@@ -128,6 +135,7 @@ local env_vars = {
         LSCOLORS: 'GxDxbxhbcxegedabagacad',
         LS_COLORS: 'di=1;36:ln=1;33:so=31:pi=37;41:ex=32:bd=34;46:cd=34;43:su=30;41:sg=30;46:tw=30;42:ow=30;43',
     } + less_termcaps_properties,
+    interactive_directives: less_termcaps_directives,
     aliases: {
         '...': 'cd ../..',
     },
@@ -159,7 +167,8 @@ local Host(hostname, home, icon, color, primary_wallpaper, android_wallpaper) = 
 
     config_dir: config_dir,
     curl_maps: curl_maps,
-    jsonnet_maps: jsonnet_maps,
+    jsonnet_maps: jsonnet_maps +
+        if $.is_osx then jsonnet_localhost_mac_maps else [],
     jsonnet_multi_maps: jsonnet_multi_maps,
     directory_maps: directory_maps,
     macros: macros,
