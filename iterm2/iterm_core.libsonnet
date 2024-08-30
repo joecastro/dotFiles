@@ -160,7 +160,7 @@ local ItermColorWhite = ItermColor(Colors.White);
         ItermColorPreset(null, default_color_scheme, default_color_scheme.terminal_colors) +
         $.ItermProfileTemplate +
     {
-        "Background Image Location": wallpaper.target_path(host),
+        "Background Image Location": wallpaper.target_path(null),
         "Badge Color": ItermColorAlpha(ColorWithAlpha(color, 0.5)),
         "Blend": wallpaper.blend,
         "Cursor Guide Color": ItermColorAlpha(ColorWithAlpha(color, 0.25)),

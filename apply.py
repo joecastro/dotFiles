@@ -576,17 +576,6 @@ def bootstrap_windows() -> list:
         ['SETX', 'DOTFILES_SRC_DIR', os.getcwd()]]
 
 
-def bootstrap_iterm2() -> list:
-    ''' Associate the plist for iTerm2 with the dotFiles. '''
-    iterm2_config_root = Path.joinpath(HOME, config.get_localhost().config_dir, 'iterm2')
-    return [
-        # Specify the preferences directory
-        ['mkdir', '-p', iterm2_config_root],
-        ['defaults', 'write', 'com.googlecode.iterm2', 'PrefsCustomFolder', '-string', iterm2_config_root],
-        # Tell iTerm2 to use the custom preferences in the directory
-        ['defaults', 'write', 'com.googlecode.iterm2', 'LoadPrefsFromCustomFolder', '-bool', 'true']]
-
-
 def iterm2_prefs_plist_location() -> str:
     plist_pref_file_proc = subprocess.run(['defaults', 'read', 'com.googlecode.iterm2', 'PrefsCustomFolder'], check=True, capture_output=True)
     return plist_pref_file_proc.stdout.decode('utf-8').strip() + '/com.googlecode.iterm2.plist'
@@ -610,13 +599,22 @@ def snapshot_iterm2_prefs_json(out_path=None) -> None:
             json.dump(plist_prefs, out, indent=4, sort_keys=False)
 
 
-def push_iterm2_prefs(out_path=None) -> None:
+def push_iterm2_prefs() -> None:
     '''
     Build and apply the repo's iTerm2 preferences.
     Requires iTerm2 to not be running or else it will overwrite the output.
     '''
-    if out_path is None:
-        out_path = iterm2_prefs_plist_location()
+
+    ''' Associate the plist for iTerm2 with the dotFiles. '''
+    iterm2_config_root = Path.joinpath(Path.home(), config.get_localhost().config_dir, 'iterm2')
+    run_ops([
+        # Specify the preferences directory
+        ['mkdir', '-p', iterm2_config_root],
+        ['defaults', 'write', 'com.googlecode.iterm2', 'PrefsCustomFolder', '-string', iterm2_config_root],
+        # Tell iTerm2 to use the custom preferences in the directory
+        ['defaults', 'write', 'com.googlecode.iterm2', 'LoadPrefsFromCustomFolder', '-bool', 'true']])
+
+    out_path = iterm2_prefs_plist_location()
     print(f'Writing iTerm2 preferences to {out_path}')
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     with open(out_path, 'wb') as f:
@@ -743,9 +741,7 @@ def main(args) -> int:
             ops.append(update_workspace_extensions)
         case '--generate-workspace':
             ops.append(generate_derived_workspace)
-        case '--bootstrap-iterm2':
-            ops.extend(bootstrap_iterm2())
-        case '--snapshot-iterm2-prefs-json':
+        case '--snapshot-iterm2-prefs':
             ops.append(snapshot_iterm2_prefs_json)
         case '--push-iterm2-prefs':
             ops.append(push_iterm2_prefs)
@@ -758,6 +754,8 @@ def main(args) -> int:
         case '--push':
             ops.extend(chain.from_iterable([stage_local(host, shallow, verbose=verbose) for host in hosts]))
             ops.extend(chain.from_iterable([push_remote_staging(host, verbose=verbose) for host in hosts]))
+            if any(host.is_localhost() and host.kernel == 'darwin' for host in hosts):
+                ops.append(push_iterm2_prefs)
         case '--stage':
             ops.extend(chain.from_iterable([stage_local(host, shallow, verbose=verbose) for host in hosts]))
         case '--pull':
