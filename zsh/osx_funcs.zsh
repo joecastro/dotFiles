@@ -17,3 +17,12 @@ function chjava() {
     PATH=$JAVA_HOME/bin:$PATH
     export PATH
 }
+
+function google-chrome() {
+    if [[ -z "$1" ]]; then
+        open -a "/Applications/Google Chrome.app" "$1"
+    else
+        open "/Applications/Google Chrome.app"
+    fi
+}
+

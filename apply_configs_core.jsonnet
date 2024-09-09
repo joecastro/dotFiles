@@ -131,6 +131,7 @@ local less_termcaps_properties = {
 
 local env_vars = {
     properties: {
+        // XDG_CONFIG_HOME: '${XDG_CONFIG_HOME:-$HOME/.config}',
         DOTFILES_CONFIG_ROOT: '$HOME/' + config_dir,
         LSCOLORS: 'GxDxbxhbcxegedabagacad',
         LS_COLORS: 'di=1;36:ln=1;33:so=31:pi=37;41:ex=32:bd=34;46:cd=34;43:su=30;41:sg=30;46:tw=30;42:ow=30;43',

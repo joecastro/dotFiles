@@ -454,5 +454,3 @@ case "$(__z_effective_distribution)" in
 esac
 
 __cute_shell_header
-# Initialize the title to the distribution. chpwd will handle it from here on out.
-wintitle $(__z_effective_distribution)
