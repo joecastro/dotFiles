@@ -123,7 +123,8 @@ function __is_in_git_repo() {
 }
 
 function __is_in_git_dir() {
-    [[ "$(__is_in_git_repo)" == "1" ]]
+    __is_in_git_repo
+    [[ "$?" == "1" ]]
 }
 
 function __is_in_repo_root() {

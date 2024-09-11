@@ -267,18 +267,17 @@ function __print_git_branch() {
 }
 
 function __print_git_branch_short() {
-    local icon=""
-    local icon_color=""
-    case __is_in_git_repo in
-    2)
+    if ! __is_in_git_repo; then
         echo -n ""
         return 1
-        ;;
-    1)
+    fi
+
+    local icon=""
+    local icon_color=""
+    if __is_in_git_dir; then
         icon="${ICON_MAP[COD_TOOLS]}"
         icon_color="fg[yellow]"
-        ;;
-    0)
+    else
         if __git_is_nothing_to_commit; then
             icon_color="$fg[green]"
         else
@@ -292,7 +291,7 @@ function __print_git_branch_short() {
         else
             icon="${ICON_MAP[GIT_COMMIT]}"
         fi
-    esac
+    fi
 
     if [[ "$1" == "no-color" ]]; then
         echo -n "${icon} "
