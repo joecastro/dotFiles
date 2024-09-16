@@ -2,6 +2,10 @@
 
 #pragma once
 
+# Defines __git_ps1
+# shellcheck source=/dev/null
+source "${DOTFILES_CONFIG_ROOT}/completion/git-prompt.sh"
+
 function _dotTrace() {
     if (( ${+TRACE_DOTFILES} )); then
         echo "TRACE $(date +%T): $*"
@@ -127,6 +131,112 @@ function __is_in_git_dir() {
     [[ "$?" == "1" ]]
 }
 
+function __git_is_detached_head() {
+    git status | grep "HEAD detached" > /dev/null 2>&1
+}
+
+function __git_is_nothing_to_commit() {
+    git status | grep "nothing to commit" > /dev/null 2>&1
+}
+
+function __git_is_in_worktree() {
+    # git rev-parse --is-inside-work-tree | grep "true" > /dev/null 2>&1
+    local root_worktree active_worktree
+
+    root_worktree=$(git worktree list | head -n1 | awk '{print $1;}')
+    active_worktree=$(git worktree list | grep "$(git rev-parse --show-toplevel)" | head -n1 | awk '{print $1;}')
+
+    [[ "${root_worktree}" != "${active_worktree}" ]]
+}
+
+function __print_git_branch() {
+    __is_in_git_repo
+    local git_repo_result=$?
+    if [[ ${git_repo_result} == 2 ]]; then
+        echo -n ""
+        return 1
+    elif [[ ${git_repo_result} == 1 ]]; then
+        echo -n "${ICON_MAP[COD_TOOLS]} "
+        return 0
+    fi
+
+    local COMMIT_TEMPLATE_STRING
+    local COMMIT_MOD_TEMPLATE_STRING
+    local BRANCH_TEMPLATE_STRING
+    local BRANCH_MOD_TEMPLATE_STRING
+    if [[ ${EXPECT_NERD_FONTS} == 0 ]]; then
+        COMMIT_TEMPLATE_STRING="${ICON_MAP[GIT_COMMIT]}%s"
+        COMMIT_MOD_TEMPLATE_STRING="${ICON_MAP[GIT_COMMIT]}%s*"
+        BRANCH_TEMPLATE_STRING="${ICON_MAP[GIT_BRANCH]}%s"
+        BRANCH_MOD_TEMPLATE_STRING="${ICON_MAP[GIT_BRANCH]}%s*"
+    else
+        COMMIT_TEMPLATE_STRING="%s"
+        COMMIT_MOD_TEMPLATE_STRING="{%s *}"
+        BRANCH_TEMPLATE_STRING="(%s)"
+        BRANCH_MOD_TEMPLATE_STRING="{%s *}"
+    fi
+
+    if __git_is_detached_head; then
+        if __git_is_nothing_to_commit; then
+            echo -ne "$(__git_ps1 "${COMMIT_TEMPLATE_STRING}")"
+        else
+            echo -ne "$(__git_ps1 "${COMMIT_MOD_TEMPLATE_STRING}")"
+        fi
+    else
+        if __git_is_nothing_to_commit; then
+            echo -ne "$(__git_ps1 "${BRANCH_TEMPLATE_STRING}")"
+        else
+            echo -ne "$(__git_ps1 "${BRANCH_MOD_TEMPLATE_STRING}")"
+        fi
+    fi
+}
+
+function __print_git_branch_short() {
+    if ! __is_in_git_repo; then
+        echo -n ""
+        return 1
+    fi
+
+    if __is_in_git_dir; then
+        echo -n "${ICON_MAP[COD_TOOLS]}"
+        return 0
+    fi
+
+    local head_commit matching_branch
+    head_commit=$(git rev-parse --short HEAD)
+    matching_branch=$(git show-ref --head | grep "$head_commit" | grep -o 'refs/remotes/[^ ]*' | head -n 1)
+    if [ -n "$matching_branch" ]; then
+        echo -n "${ICON_MAP[GIT_BRANCH]}"
+    else
+        echo -n "${ICON_MAP[GIT_COMMIT]}"
+    fi
+    return 0
+}
+
+function __print_git_worktree() {
+    if ! __is_in_git_repo; then
+        echo -n ""
+        return 1
+    fi
+
+    if ! __git_is_in_worktree; then
+        echo -n ""
+        return 1
+    fi
+
+    local root_worktree active_worktree submodule_worktree
+    submodule_worktree=$(git rev-parse --show-superproject-working-tree)
+    if [[ "${submodule_worktree}" != "" ]]; then
+        echo -n "${ICON_MAP[COD_FILE_SUBMODULE]}${submodule_worktree##*/}"
+        return 0
+    fi
+
+    root_worktree=$(git worktree list | head -n1 | awk '{print $1;}')
+    active_worktree=$(git worktree list | grep "$(git rev-parse --show-toplevel)" | head -n1 | awk '{print $1;}')
+
+    echo -n "${ICON_MAP[OCT_FILE_SUBMODULE]}${root_worktree##*/}:${active_worktree##*/}"
+}
+
 function __is_in_repo_root() {
     local candidate_dir="${1:-$PWD}"
     # Hackily relying on an implementation detail...
@@ -183,6 +293,30 @@ function __is_in_repo() {
     unset CWD_REPO_MANIFEST_BRANCH
     unset CWD_REPO_DEFAULT_REMOTE
     return 1
+}
+
+function __print_repo_worktree() {
+    if ! __is_in_repo; then
+        echo -n ""
+        return 0
+    fi
+
+    local manifest_branch=${CWD_REPO_MANIFEST_BRANCH}
+    local default_remote=${CWD_REPO_DEFAULT_REMOTE}
+
+    local line="${ICON_MAP[ANDROID_BODY]}"
+
+    if [[ "${default_remote}" != "goog" ]]; then
+        line+="${default_remote}/"
+    fi
+    line+="${manifest_branch}"
+
+    local current_project
+    if current_project=$(repo_current_project); then
+        line+=":$(__print_abbreviated_path "${current_project}")"
+    fi
+
+    echo -n "${line}"
 }
 
 function __is_shell_interactive() {
@@ -268,7 +402,14 @@ function __is_shell_zsh() {
     [[ -n "$ZSH_VERSION" ]]
 }
 
+function __cache_available() {
+    return 1
+}
+
 if __is_shell_zsh; then
+    function __cache_available() {
+        return 0
+    }
 
     declare -A Z_CACHE=()
 
@@ -408,9 +549,12 @@ if ! __is_shell_old_bash; then
             ["${HOME}/Downloads"]=${ICON_MAP[DOWNLOAD]}
             ["${HOME}/Pictures"]=${ICON_MAP[PICTURES]}
             ["${HOME}/Music"]=${ICON_MAP[MUSIC]}
-            ["${WIN_USERPROFILE}"]=${ICON_MAP[WINDOWS]}
             ["/"]=${ICON_MAP[FAE_TREE]}
         )
+
+        if __is_on_wsl; then
+            KNOWN_DIRS["${WIN_USERPROFILE}"]=${ICON_MAP[WINDOWS]}
+        fi
 
         # These should only match if they're exact.
         if [[ -v KNOWN_DIRS[$ACTIVE_DIR] ]]; then
@@ -589,6 +733,10 @@ function __do_iterm2_shell_integration() {
 }
 
 function __do_vscode_shell_integration() {
+    if __is_on_osx && ! __is_ssh_session && ! command -v code &> /dev/null; then
+        echo "## CLI for VSCode is unavailable. Check https://code.visualstudio.com/docs/setup/mac"
+    fi
+
     if ! __is_vscode_terminal; then
         return 0
     fi

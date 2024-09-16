@@ -9,6 +9,9 @@ source ~/.profile
 # If not running interactively, don't do anything
 __is_shell_interactive || return
 
+# shellcheck source=/dev/null
+source "${DOTFILES_CONFIG_ROOT}/completion/git-completion.bash"
+
 # Various PS1 aliases
 
 Time12h="\T"
@@ -19,7 +22,7 @@ NewLine="\n"
 Jobs="\j"
 
 # Reset
-Color_Off='\e[0m'       # Text Reset
+Color_Off='\e[0m'
 
 # Normal Colors
 Black='\e[0;30m'
@@ -91,31 +94,10 @@ export PS1
 
 __do_iterm2_shell_integration
 
-# shellcheck source=/dev/null
-source "${DOTFILES_CONFIG_ROOT}/git-prompt.sh" # defines __git_ps1
+__do_eza_aliases
 
 if declare -f chjava &>/dev/null; then
     chjava 22
-fi
-
-__do_eza_aliases
-
-if __is_on_osx; then
-    if [ -d "/opt/homebrew/bin" ]; then
-        if [[ -f "$(brew --prefix)/etc/bash_completion.d/git-completion.bash" ]]; then
-            # shellcheck source=/dev/null
-            source "$(brew --prefix)/etc/bash_completion.d/git-completion.bash"
-            # shellcheck source=/dev/null
-            source "$(brew --prefix)/etc/bash_completion.d/git-prompt.sh"
-        fi
-    fi
-
-    JAVA_HOME=$(/usr/libexec/java_home)
-    export JAVA_HOME
-
-    export PATH=$JAVA_HOME/bin:$PATH
-
-    export PATH=${PATH}:$ANDROID_HOME/tools:$ANDROID_HOME/platform-tools:$ANDROID_NDK
 fi
 
 __cute_shell_header

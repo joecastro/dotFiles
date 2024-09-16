@@ -22,11 +22,6 @@ ELEVATED_END_OF_PROMPT_ICON="$"
 
 fpath=("${DOTFILES_CONFIG_ROOT}/zfuncs" $fpath)
 
-# defines __git_ps1
-[ -f "${DOTFILES_CONFIG_ROOT}/git-prompt.sh" ] && source "${DOTFILES_CONFIG_ROOT}/git-prompt.sh"
-[ -f "~/.zshext/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" ] \
-    && source "~/.zshext/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
-
 autoload -Uz async && async
 
 async_init
@@ -84,6 +79,9 @@ zstyle ':completion:*:default' list-colors ${(s.:.)LS_COLORS}
 # zstyle ':completion:*:*:kill:*:processes' list-colors '=(#b) #([0-9]#)*=0=01;31'
 # zstyle ':completion:*:kill:*' command 'ps -u $USER -o pid,%cpu,tty,cputime,cmd'
 
+# ZSH's git-completion needs git's bash completion script installed. :shrug:
+zstyle ':completion:*:*:git:*' script "${DOTFILES_CONFIG_ROOT}/completion/git-completion.bash"
+
 # Set cursor style (DECSCUSR), VT520.
 # 0 ⇒ blinking block.
 # 1 ⇒ blinking block (default).
@@ -126,14 +124,19 @@ zle-line-init() {
 
 zle -N zle-line-init
 
+# Finish all the autoloads before sourcing. Some scripts presume compinit and no more zle's
+source "${HOME}/.config/zshext/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
+
+if __is_on_osx; then
+    source "${DOTFILES_CONFIG_ROOT}/osx_funcs.zsh"
+fi
+
 chpwd_functions=($chpwd_functions __update_prompt __auto_apply_venv_on_chpwd)
 
 # Use beam shape cursor for each new prompt.
 preexec_functions=($preexec_functions _set_cursor_beam)
 
 precmd_functions=($precmd_functions __update_prompt)
-
-ACTIVE_DYNAMIC_PROMPT_STYLE="Unknown"
 
 function __update_prompt() {
     _dotTrace "__update_prompt"
@@ -193,176 +196,69 @@ function __update_prompt() {
         new_dynamic_style="None"
     fi
 
-    if [[ "${ACTIVE_DYNAMIC_PROMPT_STYLE}" != "${new_dynamic_style}" ]]; then
+    local active_dynamic_prompt_style=$(__cache_get "ACTIVE_DYNAMIC_PROMPT_STYLE")
+
+    if [[ "${active_dynamic_prompt_style}" != "${new_dynamic_style}" ]]; then
         _dotTrace "__update_prompt - updating prompt to ${new_dynamic_style}"
         PROMPT="$(__generate_prompt ${new_dynamic_style})"
-        ACTIVE_DYNAMIC_PROMPT_STYLE="${new_dynamic_style}"
+        __cache_put "ACTIVE_DYNAMIC_PROMPT_STYLE" "${new_dynamic_style}"
     fi
     _dotTrace "__update_prompt - done"
 }
 
-function __update_title() {
-    local title=''
-    title+=$(__virtualenv_info " ")
-    case "${ACTIVE_DYNAMIC_PROMPT_STYLE}" in
-    "Git")
-        title+=$(__print_git_branch_short)
-        ;;
-    "Repo")
-        title+=$(__print_repo_worktree)
-        ;;
-    esac
-
-    title+=$(__cute_pwd_short)
-    title=$(echo -n "${title}" | sed 's/%{[^}]*%}//g')
-
-    if __is_on_wsl; then
-        for key val in "${(@kv)NF_ICON_MAP}"; do
-            title="${title//${val}/${EMOJI_ICON_MAP[$key]}}"
-        done
-    fi
-
-    _dotTrace "__update_title - setting title to ${title}"
-
-    echo -ne "\e]0;${title}\a"
-}
-
-function __git_is_detached_head() {
-    git status | grep "HEAD detached" > /dev/null 2>&1
-}
-
-function __git_is_nothing_to_commit() {
-    git status | grep "nothing to commit" > /dev/null 2>&1
-}
-
-function __print_git_branch() {
-    __is_in_git_repo
-    local git_repo_result=$?
-    if [[ ${git_repo_result} == 2 ]]; then
-        echo -n ""
-        return 1
-    elif [[ ${git_repo_result} == 1 ]]; then
-        echo -n "${fg[yellow]%}${ICON_MAP[COD_TOOLS]} "
-        return 0
-    fi
-
-    local COMMIT_TEMPLATE_STRING=$([[ ${EXPECT_NERD_FONTS} = 0 ]] && echo "${ICON_MAP[GIT_COMMIT]}%s" || echo "%s")
-    local COMMIT_MOD_TEMPLATE_STRING=$([[ ${EXPECT_NERD_FONTS} = 0 ]] && echo "${ICON_MAP[GIT_COMMIT]}%s*" || echo "{%s *}")
-    local BRANCH_TEMPLATE_STRING=$([[ ${EXPECT_NERD_FONTS} = 0 ]] && echo "${ICON_MAP[GIT_BRANCH]}%s" || echo "(%s)")
-    local BRANCH_MOD_TEMPLATE_STRING=$([[ ${EXPECT_NERD_FONTS} = 0 ]] && echo "${ICON_MAP[GIT_BRANCH]}%s*" || echo "{%s *}")
-
+function __print_git_branch_colored() {
+    local line=""
     if __git_is_detached_head; then
-        if __git_is_nothing_to_commit; then
-            echo -ne "%{$fg[red]%}"$(__git_ps1 ${COMMIT_TEMPLATE_STRING})"%{$reset_color%} "
-        else
-            echo -ne "%{$fg[red]%}"$(__git_ps1 ${COMMIT_MOD_TEMPLATE_STRING})"%{$reset_color%} "
-        fi
+        line+="%{$fg[red]%}"
+    elif __git_is_nothing_to_commit; then
+        line+="%{$fg[green]%}"
     else
-        if __git_is_nothing_to_commit; then
-            echo -ne "%{$fg[green]%}"$(__git_ps1 ${BRANCH_TEMPLATE_STRING})"%{$reset_color%} "
-        else
-            echo -ne "%{$fg[yellow]%}"$(__git_ps1 ${BRANCH_MOD_TEMPLATE_STRING})"%{$reset_color%} "
-        fi
+        line+="%{$fg[yellow]%}"
     fi
+    if [[ "$1" == "--short" ]]; then
+        line+="$(__print_git_branch_short)"
+    else
+        line+="$(__print_git_branch)"
+    fi
+    line+="%{$reset_color%} "
+
+    echo -ne "${line}"
 }
 
-function __print_git_branch_short() {
-    if ! __is_in_git_repo; then
-        echo -n ""
-        return 1
-    fi
-
-    local icon=""
-    local icon_color=""
-    if __is_in_git_dir; then
-        icon="${ICON_MAP[COD_TOOLS]}"
-        icon_color="fg[yellow]"
-    else
-        if __git_is_nothing_to_commit; then
-            icon_color="$fg[green]"
-        else
-            icon_color="$fg[yellow]"
-        fi
-
-        local head_commit=$(git rev-parse --short HEAD)
-        local matching_branch=$(git show-ref --head | grep "$head_commit" | grep -o 'refs/remotes/[^ ]*' | head -n 1)
-        if [ -n "$matching_branch" ]; then
-            icon="${ICON_MAP[GIT_BRANCH]}"
-        else
-            icon="${ICON_MAP[GIT_COMMIT]}"
-        fi
-    fi
-
-    if [[ "$1" == "no-color" ]]; then
-        echo -n "${icon} "
-    else
-        echo -n "%{${icon_color}%}${icon}%{${reset_color}%} "
-    fi
-    return 0
-}
-
-function __print_git_worktree() {
-    __is_in_git_repo
-    if [[ $? != 0 ]]; then
+function __print_git_worktree_colored() {
+    if ! __git_is_in_worktree; then
         echo -n ""
         return 1
     fi
 
     local PINK_FLAMINGO_FG="%F{#ff5fff}"
 
-    local ROOT_WORKTREE=$(git worktree list | head -n1 | awk '{print $1;}')
-    local ACTIVE_WORKTREE=$(git worktree list | grep "$(git rev-parse --show-toplevel)" | head -n1 | awk '{print $1;}')
-
-    if [[ "${ROOT_WORKTREE}" != "${ACTIVE_WORKTREE}" ]]; then
-        local SUBMODULE_WORKTREE=$(git rev-parse --show-superproject-working-tree)
-        if [[ "${SUBMODULE_WORKTREE}" == "" ]]; then
-            echo -n "%{$fg[green]%}${ICON_MAP[OCT_FILE_SUBMODULE]}%{$PINK_FLAMINGO_FG%}${ROOT_WORKTREE##*/}:%{$fg[green]%}${ACTIVE_WORKTREE##*/} "
-        else
-            echo -n "%{$PINK_FLAMINGO_FG%}${ICON_MAP[COD_FILE_SUBMODULE]}${SUBMODULE_WORKTREE##*/} "
-        fi
-    fi
+    echo -n "%{$PINK_FLAMINGO_FG%}$(__print_git_worktree) "
 }
 
-function __print_repo_worktree() {
+function __print_repo_worktree_colored() {
     if ! __is_in_repo; then
         echo -n ""
         return 0
     fi
 
-    local manifest_branch=${CWD_REPO_MANIFEST_BRANCH}
-    local default_remote=${CWD_REPO_DEFAULT_REMOTE}
-
-    local line="%{$fg[green]%}"
-    line+="${ICON_MAP[ANDROID_BODY]}"
-
-    if [[ "${default_remote}" != "goog" ]]; then
-        line+="${default_remote}/"
-    fi
-    line+="${manifest_branch}"
-
-    local current_project
-    if current_project=$(repo_current_project); then
-        line+=":$(__print_abbreviated_path ${current_project})"
-    fi
-    line+="%{$reset_color%} "
-
-    echo -n ${line}
+    echo -n "%{$fg[green]%}$(__print_repo_worktree)%{$reset_color%} "
 }
 
 function __print_git_info() {
     if __is_in_git_repo; then
-        __print_git_worktree
-        __print_git_branch
+        __print_git_worktree_colored
+        __print_git_branch_colored
     fi
 }
 
 function __print_repo_info() {
-    __print_repo_worktree
+    __print_repo_worktree_colored
     if __is_in_git_repo; then
         if ! __git_is_detached_head; then
-            __print_git_branch
+            __print_git_branch_colored
         else
-            __print_git_branch_short
+            __print_git_branch_colored --short
         fi
     fi
 }
@@ -395,41 +291,29 @@ if ! __is_tool_window && ! __z_is_embedded_terminal; then
 fi
 
 __do_iterm2_shell_integration
-
 __do_vscode_shell_integration
-
 __do_konsole_shell_integration
-
 __do_eza_aliases
 
 # echo "Welcome to $(__z_effective_distribution)!"
 case "$(__z_effective_distribution)" in
 "GLinux")
     # echo "GLinux zshrc load complete"
-    if declare -f __on_glinux_zshrc_load_complete > /dev/null; then
-        __on_glinux_zshrc_load_complete
-    fi
+    __on_glinux_zshrc_load_complete
 
     ;;
 "OSX")
     # echo "OSX zshrc load complete"
-    if [[ -f "${DOTFILES_CONFIG_ROOT}/osx_funcs.zsh" ]]; then
-        source "${DOTFILES_CONFIG_ROOT}/osx_funcs.zsh"
-        # RPROMPT='$(battery_charge)'
-        chjava 22
-    fi
-
     if command -v brew > /dev/null; then
-        [[ -f "$(brew --prefix)/opt/zsh-git-prompt/zshrc.sh" ]] && source "$(brew --prefix)/opt/zsh-git-prompt/zshrc.sh"
-
-        if [ -d "$(brew --prefix)/opt/coreutils/libexec/gnubin" ]; then
-            PATH="$(brew --prefix)/opt/coreutils/libexec/gnubin:$PATH"
+        gnubin_path="$(brew --prefix)/opt/coreutils/libexec/gnubin"
+        if [ -d "${gnubin_path}" ]; then
+            path=("${gnubin_path}" $path)
         fi
+        unset gnubin_path
     fi
 
-    if ! __is_ssh_session && ! command -v code &> /dev/null; then
-        echo "## CLI for VSCode is unavailable. Check https://code.visualstudio.com/docs/setup/mac"
-    fi
+    # RPROMPT='$(battery_charge)'
+    chjava 22
 
     if declare -f __on_gmac_zshrc_load_complete > /dev/null; then
         __on_gmac_zshrc_load_complete

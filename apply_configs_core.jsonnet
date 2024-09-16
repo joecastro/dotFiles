@@ -26,7 +26,9 @@ local jsonnet_multi_maps = [
 ];
 
 local curl_maps = [
-    ['https://raw.githubusercontent.com/git/git/master/contrib/completion/git-prompt.sh', 'curl/git-prompt.sh', config_dir + '/git-prompt.sh'],
+    ['https://raw.githubusercontent.com/git/git/master/contrib/completion/git-prompt.sh', 'curl/git-prompt.sh', config_dir + '/completion/git-prompt.sh'],
+    ['https://raw.githubusercontent.com/git/git/master/contrib/completion/git-completion.bash', 'curl/git-completion.bash', config_dir + '/completion/git-completion.bash'],
+    ['https://raw.githubusercontent.com/git/git/master/contrib/completion/git-completion.zsh', 'curl/git-completion.zsh', config_dir + '/zfuncs/_git'],
     ['https://iterm2.com/shell_integration/zsh', 'curl/iterm2_shell_integration.zsh', config_dir + '/iterm2_shell_integration.zsh'],
     ['https://iterm2.com/shell_integration/bash', 'curl/iterm2_shell_integration.bash', config_dir + '/iterm2_shell_integration.bash'],
     ['https://raw.githubusercontent.com/eza-community/eza/main/completions/zsh/_eza', 'curl/_eza', config_dir + '/zfuncs/_eza'],

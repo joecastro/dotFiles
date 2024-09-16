@@ -18,6 +18,8 @@ import sys
 
 HOME = str(Path.home())
 CWD = '.'
+OUT_DIR_ROOT = os.path.join(CWD, 'out')
+GIT_PLUGINS_DIR = os.path.join(OUT_DIR_ROOT, 'plugins')
 
 BASH_COMMAND_PREFIX = 'BASH_COMMAND: '
 @dataclass
@@ -182,29 +184,49 @@ def generate_derived_workspace() -> None:
     print(json.dumps(workspace, indent=4, sort_keys=True))
 
 
-def install_git_plugins_local(plugin_type: str, repo_list: list[str], install_root: str, clean: bool=False) -> list:
+def get_plugin_relative_target_path(repo: str) -> str:
     pattern = re.compile("([^/]+)\\.git$")
+    target_suffix = pattern.search(repo).group(1)
 
-    if clean:
-        ops = [f'>> Cloning {len(repo_list)} {plugin_type}']
-        ops.append(['rm', '-rf', install_root])
-        for (repo, target_path) in [(r, os.path.join(install_root, pattern.search(r).group(1))) for r in repo_list]:
-            ops.append(['git', 'clone', '-q', repo, target_path])
+    # To prevent these from being deleted on push, keep them out of the dotShell config directory.
+    directory_prefixes = {
+        'vim_start': os.path.join('.vim', 'pack', 'plugins', 'start'),
+        'vim_opt': os.path.join('.vim', 'pack', 'plugins', 'opt'),
+        'zsh_ext': os.path.join('.config', 'zshext'),
+    }
 
-        return ops
+    target_prefix: str = None
+    if repo in config.vim_pack_plugin_start_repos:
+        target_prefix = 'vim_start'
+    elif repo in config.vim_pack_plugin_opt_repos:
+        target_prefix = 'vim_opt'
+    elif repo in config.zsh_plugin_repos:
+        target_prefix = 'zsh_ext'
+    else:
+        raise ValueError(f'Unknown plugin repo: {repo}')
+
+    target_prefix = directory_prefixes[target_prefix]
+
+    return os.path.join(target_prefix, target_suffix)
+
+
+def make_install_plugins_bash_commands(plugin_type: str, repo_list: list[str], install_root: str) -> list[str]:
+    ops = []
 
     ops = [f'>> Updating {len(repo_list)} {plugin_type}']
-    ops.append(['mkdir', '-p', f'"{install_root}"'])
-    ops.append(['cd', install_root])
-    for (repo, target_path) in [(r, os.path.join(install_root, pattern.search(r).group(1))) for r in repo_list]:
-        ops.append(f'''{BASH_COMMAND_PREFIX}
-if [ -d "{target_path}" ]; then
-    cd "{target_path}"
-    git pull -q
-    cd - > /dev/null
-else
-    git clone -q "{repo}" "{target_path}"
-fi''')
+    for repo in repo_list:
+        target_path = os.path.join(install_root, get_plugin_relative_target_path(repo))
+        bash_commands = [
+            f'if [ -d "{target_path}" ]; then',
+            f'    cd "{target_path}"',
+            f'    git pull',
+            f'    cd - > /dev/null',
+            f'else',
+            f'    mkdir -p $(dirname "{target_path}")',
+            f'    git clone "{repo}" "{target_path}"',
+            f'fi'
+        ]
+        ops.extend([BASH_COMMAND_PREFIX + line for line in bash_commands])
 
     return ops
 
@@ -491,7 +513,7 @@ def process_staged_file(host, file) -> None:
             f.writelines(line + '\n' for line in modified_content)
 
 
-def stage_local(host, shallow, verbose=False) -> list[str]:
+def stage_local(host, verbose=False) -> list[str]:
     ops = [f'Staging dotFiles for {host.hostname} in {host.get_local_staging_dir()}']
 
     ops.append(['rm', '-rf', host.get_local_staging_dir()])
@@ -520,11 +542,9 @@ def stage_local(host, shallow, verbose=False) -> list[str]:
     finish_ops = []
     finish_ops.extend(copy_files_local(host.get_remote_staging_dir(), host.file_maps.keys(), '~', host.file_maps.values()))
     finish_ops.extend(copy_directories_local(host.get_remote_staging_dir(), host.directory_maps.keys(), '~', host.directory_maps.values(), True))
-
-    if not shallow:
-        finish_ops.extend(install_git_plugins_local('Vim startup plugin(s)', config.vim_pack_plugin_start_repos, os.path.join('$HOME', '.vim', 'pack', 'plugins', 'start')))
-        finish_ops.extend(install_git_plugins_local('Vim optional plugin(s)', config.vim_pack_plugin_opt_repos, os.path.join('$HOME', '.vim', 'pack', 'plugins', 'opt')))
-        finish_ops.extend(install_git_plugins_local('Zsh plugin(s)', config.zsh_plugin_repos, os.path.join('$HOME', '.zshext')))
+    finish_ops.extend(make_install_plugins_bash_commands('Vim startup plugin(s)', config.vim_pack_plugin_start_repos, '$HOME'))
+    finish_ops.extend(make_install_plugins_bash_commands('Vim optional plugin(s)', config.vim_pack_plugin_opt_repos, '$HOME'))
+    finish_ops.extend(make_install_plugins_bash_commands('Zsh plugin(s)', config.zsh_plugin_repos, '$HOME'))
 
     # Skip this for now because of the extra SSH calls it triggers.
     # finish_ops.append(f'>> Pushing vscode extensions to {host.hostname}')
@@ -692,9 +712,6 @@ def main(args) -> int:
         print_only = True
         args.remove('--dry-run')
     shallow = False
-    if '--shallow' in args:
-        shallow = True
-        args.remove('--shallow')
     if '--working-dir' in args:
         index = args.index('--working-dir')
         working_dir = args[index + 1]
@@ -752,12 +769,12 @@ def main(args) -> int:
         case '--install-sublime-plugins':
             ops.extend(push_sublimetext_windows_plugins())
         case '--push':
-            ops.extend(chain.from_iterable([stage_local(host, shallow, verbose=verbose) for host in hosts]))
+            ops.extend(chain.from_iterable([stage_local(host, verbose=verbose) for host in hosts]))
             ops.extend(chain.from_iterable([push_remote_staging(host, verbose=verbose) for host in hosts]))
             if any(host.is_localhost() and host.kernel == 'darwin' for host in hosts):
                 ops.append(push_iterm2_prefs)
         case '--stage':
-            ops.extend(chain.from_iterable([stage_local(host, shallow, verbose=verbose) for host in hosts]))
+            ops.extend(chain.from_iterable([stage_local(host, verbose=verbose) for host in hosts]))
         case '--pull':
             if len(hosts) != 1:
                 raise ValueError('Cannot pull from multiple hosts')
