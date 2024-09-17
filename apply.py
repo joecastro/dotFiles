@@ -65,10 +65,8 @@ class Host:
     def get_local_staging_dir(self, suffix='dot') -> str:
         return os.path.join(CWD, 'out', f'{self.hostname}-{suffix}')
 
-    def get_remote_staging_dir(self) -> str:
-        if self.is_localhost():
-            return self.get_local_staging_dir()
-        return os.path.join(self.config_dir, 'staging')
+    def get_remote_staging_dir(self, prefix_tilde=None) -> str:
+        return os.path.join('~', self.config_dir + '-staging')
 
     def get_inflated_macro(self, key, file_path) -> list[str]:
         return [v.replace('@@FILE_NAME', Path(file_path).stem.upper())
@@ -119,8 +117,12 @@ def print_ops(ops: list, quiet=False) -> None:
         elif isinstance(entry, list):
             print(f'DEBUG: {" ".join(entry)}')
         elif callable(entry):
-            func_args = ', '.join([k+"="+str(v) for k, v in entry.keywords.items()])
-            print(f'DEBUG: invoking {entry.func.__name__}({func_args})')
+            # e.g. partial
+            try:
+                func_args = ', '.join([k+"="+str(v) for k, v in entry.keywords.items()])
+                print(f'DEBUG: invoking {entry.func.__name__}({func_args})')
+            except AttributeError:
+                print(f'DEBUG: invoking {entry.__name__}()')
         else:
             raise TypeError('Bad operation type')
 
@@ -222,7 +224,7 @@ def make_install_plugins_bash_commands(plugin_type: str, repo_list: list[str], i
             f'    git pull',
             f'    cd - > /dev/null',
             f'else',
-            f'    mkdir -p $(dirname "{target_path}")',
+            f'    mkdir -p "{os.path.dirname(target_path)}"',
             f'    git clone "{repo}" "{target_path}"',
             f'fi'
         ]
@@ -235,8 +237,8 @@ def remove_parents_from_set(paths: set[str]) -> set[str]:
     return {d for d in paths if not any(subdir != d and subdir.startswith(d) for subdir in paths)}
 
 
-def remove_children_from_set(paths: set[str], root: str = '') -> set[str]:
-    return {d for d in paths if not any(subdir != d and d.startswith(subdir) for subdir in paths) and not d.startswith(root)}
+def remove_children_from_set(paths: set[str]) -> set[str]:
+    return {d for d in paths if not any(subdir != d and d.startswith(subdir) for subdir in paths)}
 
 
 def copy_directories_local(source_root, source_dirs, dest_root, dest_dirs, use_cp, verbose=False) -> list:
@@ -427,7 +429,7 @@ def install_vscode_extensions(host, verbose=False) -> list:
     return ops
 
 
-def make_finish_script(host, command_ops, script_path: str, verbose) -> list:
+def make_finish_script(command_ops, script_path: str, verbose) -> list:
 
     def do_write():
         with open(script_path, 'w', encoding='utf-8') as f:
@@ -462,42 +464,27 @@ def make_finish_script(host, command_ops, script_path: str, verbose) -> list:
 def push_remote_staging(host, verbose=False) -> list:
     ops = [f'Synching dotFiles for {host.hostname} from local staging directory']
 
-    # Clean the remote dotFiles
-    root_files_to_remove = []
-    root_files_to_remove.extend(host.file_maps.values())
-    root_files_to_remove.extend(host.directory_maps.values())
-    root_files_to_remove.append(host.config_dir)
-
-    if host.is_localhost():
-        root_files_to_remove = {os.path.join(HOME, f) for f in root_files_to_remove}
-    else:
-        root_files_to_remove.append(host.get_remote_staging_dir())
-        root_files_to_remove = set(root_files_to_remove)
-
-    root_files_to_remove = list(remove_children_from_set(root_files_to_remove, os.getcwd()))
     # Trying to overall minimize the number of SSH handshakes...
-    ops.append(f'>> Cleaning existing configuration files for {host.hostname}: {", ".join(root_files_to_remove)}')
-    # 1
-    ops.extend(host.make_ops([['rm', '-rf'] + root_files_to_remove]))
 
+    ops.append(f'>> Copying {len(host.file_maps) + 1} files and {len(host.directory_maps)} folders to {host.hostname} home directory')
+    # 1
+    ops.extend(host.make_ops([['mkdir', '-p', host.get_remote_staging_dir()]]))
+    if verbose:
+        ops.append(f'>> Copying staging directory to {host.hostname} ({host.get_remote_staging_dir()})')
+    dest_host_prefix = ''
     if not host.is_localhost():
-        ops.append(f'>> Copying {len(host.file_maps) + 1} files and {len(host.directory_maps)} folders to {host.hostname} home directory')
-        # 2
-        ops.extend(host.make_ops([['mkdir', '-p', host.get_remote_staging_dir()]]))
-        if verbose:
-            ops.append(f'>> Copying staging directory to {host.hostname} ({host.get_remote_staging_dir()})')
-        # 3
-        scp_prefix = ['scp', '-r', '-q'] if not verbose else ['scp', '-r']
-        ops.append(scp_prefix + [f'{host.get_local_staging_dir()}/.', f'{host.hostname}:{host.get_remote_staging_dir()}'])
+        dest_host_prefix = f'{host.hostname}:'
+    # 2
+    ops.append(['rsync', '-axv', '--numeric-ids', '--delete', '--progress', host.get_local_staging_dir() + '/', f'{dest_host_prefix}{host.get_remote_staging_dir()}'])
 
     ops.append(f'>> Running finish script on {host.hostname}: {host.get_remote_staging_dir()}/finish.sh')
-    # 4
-    ops.extend(host.make_ops([['/bin/bash', host.get_remote_staging_dir() + '/finish.sh']]))
+    # 3
+    ops.extend(host.make_ops([['/bin/bash', os.path.join(host.get_remote_staging_dir(), 'finish.sh')]]))
 
     return ops
 
 
-def process_staged_file(host, file) -> None:
+def process_macros_for_staged_files(host, file) -> None:
     is_modified = False
     modified_content = []
     with open (file, 'r', encoding='utf-8') as f:
@@ -536,10 +523,17 @@ def stage_local(host, verbose=False) -> list[str]:
         for f in files_to_process:
             if verbose:
                 process_ops.append(f'Processing macros in {f}')
-            process_ops.append(partial(process_staged_file, host=host, file=f))
+            process_ops.append(partial(process_macros_for_staged_files, host=host, file=f))
         ops.extend(process_ops)
 
     finish_ops = []
+
+    finish_ops.append(f'>> Cleaning existing configuration files for {host.hostname}')
+    dirs_to_remove = remove_children_from_set(set(host.directory_maps.values()).union({host.config_dir}))
+    files_to_remove = [f for f in host.file_maps.values() if not any(f.startswith(d) for d in dirs_to_remove)]
+    finish_ops.extend(['rm', '-f', os.path.join('~', f)] for f in sorted(files_to_remove))
+    finish_ops.extend(['rm', '-rf', os.path.join('~', d)] for d in sorted(dirs_to_remove))
+
     finish_ops.extend(copy_files_local(host.get_remote_staging_dir(), host.file_maps.keys(), '~', host.file_maps.values()))
     finish_ops.extend(copy_directories_local(host.get_remote_staging_dir(), host.directory_maps.keys(), '~', host.directory_maps.values(), True))
     finish_ops.extend(make_install_plugins_bash_commands('Vim startup plugin(s)', config.vim_pack_plugin_start_repos, '$HOME'))
@@ -552,7 +546,7 @@ def stage_local(host, verbose=False) -> list[str]:
     # finish_ops.append(f'Finished pushing files to {host.hostname}')
 
     finish_script = os.path.join(host.get_local_staging_dir(), 'finish.sh')
-    ops.extend(make_finish_script(host, finish_ops, finish_script, verbose=verbose))
+    ops.extend(make_finish_script(finish_ops, finish_script, verbose=verbose))
 
     return ops
 
@@ -569,23 +563,25 @@ def pull_remote(host: Host) -> list[str]:
         ['mkdir', '-p', host.get_remote_staging_dir()]
     ]))
 
+    remote_ops = ['>> Unstaging directories and files']
+    remote_ops.extend(copy_directories_local('~', host.directory_maps.values(),  host.get_remote_staging_dir(), host.directory_maps.keys(), True))
+    remote_ops.extend(copy_files_local('~', host.file_maps.values(), host.get_remote_staging_dir(), host.file_maps.keys()))
+    unfinish_script = os.path.join(snapshot_dir, 'unfinish.sh')
+    ops.extend(make_finish_script(remote_ops, unfinish_script, verbose=False))
+
+    ops.append(f'>> Copying unfinish script to {host.hostname}')
+
     if host.is_localhost():
-        ops.extend(copy_directories_local('~', host.directory_maps.values(),  snapshot_dir, host.directory_maps.keys(), True))
-        ops.extend(copy_files_local('~', host.file_maps.values(), snapshot_dir, host.file_maps.keys()))
+        ops.append(['cp', unfinish_script, host.get_remote_staging_dir()])
     else:
-        remote_ops = ['>> Unstaging directories and files']
-        remote_ops.extend(copy_directories_local('~', host.directory_maps.values(),  host.get_remote_staging_dir(), host.directory_maps.keys(), True))
-        remote_ops.extend(copy_files_local('~', host.file_maps.values(), host.get_remote_staging_dir(), host.file_maps.keys()))
-
-        unfinish_script = os.path.join(snapshot_dir, 'unfinish.sh')
-        ops.extend(make_finish_script(host, remote_ops, unfinish_script, verbose=False))
-
-        ops.append(f'>> Copying unfinish script to {host.hostname}')
         ops.append(['scp', unfinish_script, f'{host.hostname}:{host.get_remote_staging_dir()}'])
 
-        ops.extend(host.make_ops([['/bin/bash', './' + host.get_remote_staging_dir() + '/unfinish.sh']]))
+    ops.extend(host.make_ops([['/bin/bash', host.get_remote_staging_dir() + '/unfinish.sh']]))
 
-        ops.append(['scp', '-r', f'{host.hostname}:{host.get_remote_staging_dir()}/.', snapshot_dir])
+    if host.is_localhost():
+        ops.append(['cp', '-r', f'{host.get_remote_staging_dir()}/.', snapshot_dir])
+    else:
+        ops.append(['rsync', '-axv', '--numeric-ids', '--delete', '--progress', f'{host.hostname}:{host.get_remote_staging_dir()}/', snapshot_dir])
 
     return ops
 
@@ -743,7 +739,7 @@ def main(args) -> int:
         option = option[:len(option)-len('-all')]
         host_args = ['--all']
 
-    if option in ['--push', '--pull', '--stage']:
+    if option in ['--push', '--pull', '--stage', '--push-only']:
         hosts = parse_hosts_from_args(host_args)
         if len(hosts) == 0:
             raise ValueError(f'No hosts found in "{host_args}"')
@@ -775,6 +771,8 @@ def main(args) -> int:
                 ops.append(push_iterm2_prefs)
         case '--stage':
             ops.extend(chain.from_iterable([stage_local(host, verbose=verbose) for host in hosts]))
+        case '--push-only':
+            ops.extend(chain.from_iterable([push_remote_staging(host, verbose=verbose) for host in hosts]))
         case '--pull':
             if len(hosts) != 1:
                 raise ValueError('Cannot pull from multiple hosts')

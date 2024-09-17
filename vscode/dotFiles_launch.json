@@ -13,6 +13,16 @@
             ]
         },
         {
+            "name": "Stage remote hosts",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/apply.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--stage-all"
+            ]
+        },
+        {
             "name": "Push to remote hosts",
             "type": "debugpy",
             "request": "launch",
