@@ -159,7 +159,7 @@ local Host(hostname, home, icon, color, primary_wallpaper, android_wallpaper) = 
         if hostname != null then hostname
         else if ext_vars.is_localhost then ext_vars.hostname
         else 'localhost',
-    home:: if home != null then home else ext_vars.home,
+    home: if home != null then home else ext_vars.home,
     color:: color,
     primary_wallpaper:: primary_wallpaper,
     android_wallpaper:: android_wallpaper,

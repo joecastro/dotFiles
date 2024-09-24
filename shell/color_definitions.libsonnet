@@ -1,8 +1,8 @@
 local Color(r, g, b, a=1) = {
-    assert r >= 0 && r <= 1: "Red component must be between 0 and 1",
-    assert g >= 0 && g <= 1: "Green component must be between 0 and 1",
-    assert b >= 0 && b <= 1: "Blue component must be between 0 and 1",
-    assert a >= 0 && a <= 1: "Alpha component must be between 0 and 1",
+    assert r >= 0 && r <= 1: 'Red component must be between 0 and 1',
+    assert g >= 0 && g <= 1: 'Green component must be between 0 and 1',
+    assert b >= 0 && b <= 1: 'Blue component must be between 0 and 1',
+    assert a >= 0 && a <= 1: 'Alpha component must be between 0 and 1',
 
     red:: r,
     green:: g,
@@ -14,14 +14,14 @@ local Color(r, g, b, a=1) = {
     blue255:: std.round(b * 255),
     alpha255:: std.round(a * 255),
 
-    assert $.red255 >= 0 && $.red255 <= 255: "Red component must be between 0 and 255",
-    assert $.green255 >= 0 && $.green255 <= 255: "Green component must be between 0 and 255",
-    assert $.blue255 >= 0 && $.blue255 <= 255: "Blue component must be between 0 and 255",
-    assert $.alpha255 >= 0 && $.alpha255 <= 255: "Alpha component must be between 0 and 255",
+    assert $.red255 >= 0 && $.red255 <= 255: 'Red component must be between 0 and 255',
+    assert $.green255 >= 0 && $.green255 <= 255: 'Green component must be between 0 and 255',
+    assert $.blue255 >= 0 && $.blue255 <= 255: 'Blue component must be between 0 and 255',
+    assert $.alpha255 >= 0 && $.alpha255 <= 255: 'Alpha component must be between 0 and 255',
 
-    hexcolor:: "#%02x%02x%02x" % [$.red255, $.green255, $.blue255],
+    hexcolor:: '#%02x%02x%02x' % [$.red255, $.green255, $.blue255],
     HEXCOLOR:: std.asciiUpper($.hexcolor),
-    rgb255:: "%d,%d,%d" % [$.red255, $.green255, $.blue255],
+    rgb255:: '%d,%d,%d' % [$.red255, $.green255, $.blue255],
 };
 
 local ColorFromHex(hex) =
@@ -36,14 +36,154 @@ local Color255(r, g, b, a=255) =
 local ColorWithAlpha(color, alpha) =
     Color(color.red, color.green, color.blue, alpha);
 
-local Black = Color(0, 0, 0);
-local Blue = Color(0, 0, 1);
-local Green = Color(0, 1, 0);
-local Cyan = Color(0, 1, 1);
-local Red = Color(1, 0, 0);
-local Magenta = Color(1, 0, 1);
-local Yellow = Color(1, 1, 0);
-local White = Color(1, 1, 1);
+local Palettes = {
+    # https://hexcolor.co
+    Primary: {
+        Black: ColorFromHex('#000000'),
+        NavyBlue: ColorFromHex('#000080'),
+        Blue: ColorFromHex('#0000FF'),
+        JapaneseLaurel: ColorFromHex('#008000'),
+        Teal: ColorFromHex('#008080'),
+        CeruleanBlue: ColorFromHex('2a52be'),
+        Green: ColorFromHex('#00FF00'),
+        Cyan: ColorFromHex('#00FFFF'),
+        ForestGreen: ColorFromHex('#228B22'),
+        BlueMartini: ColorFromHex('#52B4D3'),
+        Maroon: ColorFromHex('#800000'),
+        Olive: ColorFromHex('#808000'),
+        FreshEggplant: ColorFromHex('#800080'),
+        Gray: ColorFromHex('#808080'),
+        NoblePlum: ColorFromHex('#871F78'),
+        BlueBell: ColorFromHex('#95a0c5'),
+        RoofTerracotta: ColorFromHex('#a51d2d'),
+        Ginger: ColorFromHex('#B06500'),
+        Cardinal: ColorFromHex('#c01c28'),
+        Silver: ColorFromHex('#C0C0C0'),
+        Viola: ColorFromHex('#cc87a9'),
+        Ghost: ColorFromHex('#ccd1d9'),
+        GuardsmanRed: ColorFromHex('#D31100'),
+        Carnation: ColorFromHex('#f66151'),
+        SelectiveYellow: ColorFromHex('#ffb506'),
+        YellowSea: ColorFromHex('#ffaf00'),
+        Magenta: ColorFromHex('#FF00FF'),
+        Red: ColorFromHex('#FF0000'),
+        Yellow: ColorFromHex('#FFFF00'),
+        White: ColorFromHex('#FFFFFF'),
+    },
+    // https://catppuccin.com/palette
+    CatppuccinFrappe: {
+        Rosewater: ColorFromHex('#f2d5cf'),
+        Flamingo: ColorFromHex('#eebebe'),
+        Pink: ColorFromHex('#f4b8e4'),
+        Mauve: ColorFromHex('#ca9ee6'),
+        Red: ColorFromHex('#e78284'),
+        Maroon: ColorFromHex('#ea999c'),
+        Peach: ColorFromHex('#ef9f76'),
+        Yellow: ColorFromHex('#e5c890'),
+        Green: ColorFromHex('#a6d189'),
+        Teal: ColorFromHex('#81c8be'),
+        Sky: ColorFromHex('#99d1db'),
+        Sapphire: ColorFromHex('#85c1dc'),
+        Blue: ColorFromHex('#8caaee'),
+        Lavender: ColorFromHex('#babbf1'),
+        Text: ColorFromHex('#c6d0f5'),
+        Subtext1: ColorFromHex('#b5bfe2'),
+        Subtext0: ColorFromHex('#a5adce'),
+        Overlay2: ColorFromHex('#949cbb'),
+        Overlay1: ColorFromHex('#838ba7'),
+        Overlay0: ColorFromHex('#737994'),
+        Surface2: ColorFromHex('#626880'),
+        Surface1: ColorFromHex('#51576d'),
+        Surface0: ColorFromHex('#414559'),
+        Base: ColorFromHex('#303446'),
+        Mantle: ColorFromHex('#292c3c'),
+        Crust: ColorFromHex('#232634'),
+    },
+    CatppuccinLatte: {
+        Rosewater: ColorFromHex('#dc8a78'),
+        Flamingo: ColorFromHex('#dd7878'),
+        Pink: ColorFromHex('#ea76cb'),
+        Mauve: ColorFromHex('#8839ef'),
+        Red: ColorFromHex('#d20f39'),
+        Maroon: ColorFromHex('#e64553'),
+        Peach: ColorFromHex('#fe640b'),
+        Yellow: ColorFromHex('#df8e1d'),
+        Green: ColorFromHex('#40a02b'),
+        Teal: ColorFromHex('#179299'),
+        Sky: ColorFromHex('#04a5e5'),
+        Sapphire: ColorFromHex('#209fb5'),
+        Blue: ColorFromHex('#1e66f5'),
+        Lavender: ColorFromHex('#7287fd'),
+        Text: ColorFromHex('#4c4f69'),
+        Subtext1: ColorFromHex('#5c5f77'),
+        Subtext0: ColorFromHex('#6c6f85'),
+        Overlay2: ColorFromHex('#7c7f93'),
+        Overlay1: ColorFromHex('#8c8fa1'),
+        Overlay0: ColorFromHex('#9ca0b0'),
+        Surface2: ColorFromHex('#acb0be'),
+        Surface1: ColorFromHex('#bcc0cc'),
+        Surface0: ColorFromHex('#ccd0da'),
+        Base: ColorFromHex('#eff1f5'),
+        Mantle: ColorFromHex('#e6e9ef'),
+        Crust: ColorFromHex('#dce0e8'),
+    },
+    CatppuccinMacchiato: {
+        Rosewater: ColorFromHex('#f4dbd6'),
+        Flamingo: ColorFromHex('#f0c6c6'),
+        Pink: ColorFromHex('#f5bde6'),
+        Mauve: ColorFromHex('#c6a0f6'),
+        Red: ColorFromHex('#ed8796'),
+        Maroon: ColorFromHex('#ee99a0'),
+        Peach: ColorFromHex('#f5a97f'),
+        Yellow: ColorFromHex('#eed49f'),
+        Green: ColorFromHex('#a6da95'),
+        Teal: ColorFromHex('#8bd5ca'),
+        Sky: ColorFromHex('#91d7e3'),
+        Sapphire: ColorFromHex('#7dc4e4'),
+        Blue: ColorFromHex('#8aadf4'),
+        Lavender: ColorFromHex('#b7bdf8'),
+        Text: ColorFromHex('#cad3f5'),
+        Subtext1: ColorFromHex('#b8c0e0'),
+        Subtext0: ColorFromHex('#a5adcb'),
+        Overlay2: ColorFromHex('#939ab7'),
+        Overlay1: ColorFromHex('#8087a2'),
+        Overlay0: ColorFromHex('#6e738d'),
+        Surface2: ColorFromHex('#5b6078'),
+        Surface1: ColorFromHex('#494d64'),
+        Surface0: ColorFromHex('#363a4f'),
+        Base: ColorFromHex('#24273a'),
+        Mantle: ColorFromHex('#1e2030'),
+        Crust: ColorFromHex('#181926'),
+    },
+    CatppuccinMocha: {
+        Rosewater: ColorFromHex('#f5e0dc'),
+        Flamingo: ColorFromHex('#f2cdcd'),
+        Pink: ColorFromHex('#f5c2e7'),
+        Mauve: ColorFromHex('#cba6f7'),
+        Red: ColorFromHex('#f38ba8'),
+        Maroon: ColorFromHex('#eba0ac'),
+        Peach: ColorFromHex('#fab387'),
+        Yellow: ColorFromHex('#f9e2af'),
+        Green: ColorFromHex('#a6e3a1'),
+        Teal: ColorFromHex('#94e2d5'),
+        Sky: ColorFromHex('#89dceb'),
+        Sapphire: ColorFromHex('#74c7ec'),
+        Blue: ColorFromHex('#89b4fa'),
+        Lavender: ColorFromHex('#b4befe'),
+        Text: ColorFromHex('#cdd6f4'),
+        Subtext1: ColorFromHex('#bac2de'),
+        Subtext0: ColorFromHex('#a6adc8'),
+        Overlay2: ColorFromHex('#9399b2'),
+        Overlay1: ColorFromHex('#7f849c'),
+        Overlay0: ColorFromHex('#6c7086'),
+        Surface2: ColorFromHex('#585b70'),
+        Surface1: ColorFromHex('#45475a'),
+        Surface0: ColorFromHex('#313244'),
+        Base: ColorFromHex('#1e1e2e'),
+        Mantle: ColorFromHex('#181825'),
+        Crust: ColorFromHex('#11111b'),
+    },
+};
 
 local AnsiColorScheme(black, red, green, yellow, blue, magenta, cyan, white, bright_black, bright_red, bright_green, bright_yellow, bright_blue, bright_magenta, bright_cyan, bright_white, ext=null) = {
     black:: black,
@@ -160,138 +300,120 @@ local ExtendedTerminalColors(
     ExtendedTerminalColors: ExtendedTerminalColors,
     ColorFromHex: ColorFromHex,
     ColorWithAlpha: ColorWithAlpha,
-    # https://hexcolor.co
-    Colors: {
-        Black: ColorFromHex("#000000"),
-        BlueBell: ColorFromHex("#95a0c5"),
-        BlueMartini: ColorFromHex("#52B4D3"),
-        Cardinal: ColorFromHex("#c01c28"),
-        Carnation: ColorFromHex('#f66151'),
-        ForestGreen: ColorFromHex("#228B22"),
-        Ginger: ColorFromHex("#B06500"),
-        Ghost: ColorFromHex("#ccd1d9"),
-        GuardsmanRed: ColorFromHex("#D31100"),
-        CeruleanBlue: Color(0, 0.36, 0.73, 1),
-        NoblePlum: ColorFromHex("#871F78"),
-        RoofTerracotta: ColorFromHex("#a51d2d"),
-        SelectiveYellow: ColorFromHex("#ffb506"),
-        Viola: ColorFromHex("#cc87a9"),
-        White: ColorFromHex("#FFFFFF"),
-        YellowSea: ColorFromHex("#ffaf00"),
-    },
+    Colors: Palettes.Primary,
     PeacockColors: {
-        "Angular Red": ColorFromHex("#dd0531"),
-        "Azure Blue": ColorFromHex("#007fff"),
-        "JavaScript Yellow": ColorFromHex("#f9e64f"),
-        "Mandalorian Blue": ColorFromHex("#1857a4"),
-        "Node Green": ColorFromHex("#215732"),
-        "React Blue": ColorFromHex("#61dafb"),
-        "Something Different": ColorFromHex("#832561"),
-        "Svelte Orange": ColorFromHex("#ff3d00"),
-        "Vue Green": ColorFromHex("#42b883"),
+        'Angular Red': ColorFromHex('#dd0531'),
+        'Azure Blue': ColorFromHex('#007fff'),
+        'JavaScript Yellow': ColorFromHex('#f9e64f'),
+        'Mandalorian Blue': ColorFromHex('#1857a4'),
+        'Node Green': ColorFromHex('#215732'),
+        'React Blue': ColorFromHex('#61dafb'),
+        'Something Different': ColorFromHex('#832561'),
+        'Svelte Orange': ColorFromHex('#ff3d00'),
+        'Vue Green': ColorFromHex('#42b883'),
     },
     Schemes: {
         Campbell: AnsiColorScheme(
-            ColorFromHex("#0C0C0C"),
-            ColorFromHex("#C50F1F"),
-            ColorFromHex("#13A10E"),
-            ColorFromHex("#C19C00"),
-            ColorFromHex("#0037DA"),
-            ColorFromHex("#881798"),
-            ColorFromHex("#3A96DD"),
-            ColorFromHex("#CCCCCC"),
-            ColorFromHex("#767676"),
-            ColorFromHex("#E74856"),
-            ColorFromHex("#16C60C"),
-            ColorFromHex("#F9F1A5"),
-            ColorFromHex("#3B78FF"),
-            ColorFromHex("#B4009E"),
-            ColorFromHex("#61D6D6"),
-            ColorFromHex("#F2F2F2"),
+            ColorFromHex('#0C0C0C'),
+            ColorFromHex('#C50F1F'),
+            ColorFromHex('#13A10E'),
+            ColorFromHex('#C19C00'),
+            ColorFromHex('#0037DA'),
+            ColorFromHex('#881798'),
+            ColorFromHex('#3A96DD'),
+            ColorFromHex('#CCCCCC'),
+            ColorFromHex('#767676'),
+            ColorFromHex('#E74856'),
+            ColorFromHex('#16C60C'),
+            ColorFromHex('#F9F1A5'),
+            ColorFromHex('#3B78FF'),
+            ColorFromHex('#B4009E'),
+            ColorFromHex('#61D6D6'),
+            ColorFromHex('#F2F2F2'),
             ExtendedTerminalColors(
                 ColorFromHex('#CCCCCC'), // foregound
-                Black, // background
+                Palettes.Primary.Black, // background
                 null, // bold
                 null, // link
-                White, // selection_background
+                Palettes.Primary.White, // selection_background
                 null, // selection_foreground
                 null, // cursor_background
-                White, // cursor_foreground
+                Palettes.Primary.White, // cursor_foreground
                 null, // underline
                 null)), // tab
         CampbellPoweshell: AnsiColorScheme(
-            ColorFromHex("#0C0C0C"),
-            ColorFromHex("#C50F1F"),
-            ColorFromHex("#13A10E"),
-            ColorFromHex("#C19C00"),
-            ColorFromHex("#0037DA"),
-            ColorFromHex("#881798"),
-            ColorFromHex("#3A96DD"),
-            ColorFromHex("#CCCCCC"),
-            ColorFromHex("#767676"),
-            ColorFromHex("#E74856"),
-            ColorFromHex("#16C60C"),
-            ColorFromHex("#F9F1A5"),
-            ColorFromHex("#3B78FF"),
-            ColorFromHex("#B4009E"),
-            ColorFromHex("#61D6D6"),
-            ColorFromHex("#F2F2F2"),
+            ColorFromHex('#0C0C0C'),
+            ColorFromHex('#C50F1F'),
+            ColorFromHex('#13A10E'),
+            ColorFromHex('#C19C00'),
+            ColorFromHex('#0037DA'),
+            ColorFromHex('#881798'),
+            ColorFromHex('#3A96DD'),
+            ColorFromHex('#CCCCCC'),
+            ColorFromHex('#767676'),
+            ColorFromHex('#E74856'),
+            ColorFromHex('#16C60C'),
+            ColorFromHex('#F9F1A5'),
+            ColorFromHex('#3B78FF'),
+            ColorFromHex('#B4009E'),
+            ColorFromHex('#61D6D6'),
+            ColorFromHex('#F2F2F2'),
             ExtendedTerminalColors(
                 ColorFromHex('#CCCCCC'), // foregound
                 ColorFromHex('#012456'), // background
                 null, // bold
                 null, // link
-                White, // selection_background
+                Palettes.Primary.White, // selection_background
                 null, // selection_foreground
                 null, // cursor_background
-                White, // cursor_foreground
+                Palettes.Primary.White, // cursor_foreground
                 null, // underline
                 null)), // tab
         Vintage: AnsiColorScheme(
-            ColorFromHex("#000000"),
-            ColorFromHex("#800000"),
-            ColorFromHex("#008000"),
-            ColorFromHex("#808000"),
-            ColorFromHex("#000080"),
-            ColorFromHex("#800080"),
-            ColorFromHex("#008080"),
-            ColorFromHex("#C0C0C0"),
-            ColorFromHex("#808080"),
-            ColorFromHex("#FF0000"),
-            ColorFromHex("#00FF00"),
-            ColorFromHex("#FFFF00"),
-            ColorFromHex("#0000FF"),
-            ColorFromHex("#FF00FF"),
-            ColorFromHex("#00FFFF"),
-            ColorFromHex("#FFFFFF"),
+            Palettes.Primary.Black,
+            Palettes.Primary.Maroon,
+            Palettes.Primary.JapaneseLaurel,
+            Palettes.Primary.Olive,
+            Palettes.Primary.NavyBlue,
+            Palettes.Primary.FreshEggplant,
+            Palettes.Primary.Teal,
+            Palettes.Primary.Silver,
+            Palettes.Primary.Gray,
+            Palettes.Primary.Red,
+            Palettes.Primary.Green,
+            Palettes.Primary.Yellow,
+            Palettes.Primary.Blue,
+            Palettes.Primary.Magenta,
+            Palettes.Primary.Cyan,
+            Palettes.Primary.White,
             ExtendedTerminalColors(
-                ColorFromHex('#C0C0C0'),
-                Black,
+                Palettes.Primary.Silver,
+                Palettes.Primary.Black,
                 null,
                 null,
-                White,
+                Palettes.Primary.White,
                 null,
                 null,
-                White,
+                Palettes.Primary.White,
                 null,
                 null)),
         Frost: AnsiColorScheme(
-            ColorFromHex("#3C5712"),
-            ColorFromHex("#8D0C0C"),
-            ColorFromHex("#6AAE08"),
-            ColorFromHex("#991070"),
-            ColorFromHex("#17b2ff"),
-            ColorFromHex("#991070"),
-            ColorFromHex("#3C96A6"),
-            ColorFromHex("#6E386E"),
-            ColorFromHex("#749B36"),
-            ColorFromHex("#F49B36"),
-            ColorFromHex("#89AF50"),
-            ColorFromHex("#991070"),
-            ColorFromHex("#27B2F6"),
-            ColorFromHex("#F2A20A"),
-            ColorFromHex("#13A8C0"),
-            ColorFromHex("#741274")),
+            ColorFromHex('#3C5712'),
+            ColorFromHex('#8D0C0C'),
+            ColorFromHex('#6AAE08'),
+            ColorFromHex('#991070'),
+            ColorFromHex('#17b2ff'),
+            ColorFromHex('#991070'),
+            ColorFromHex('#3C96A6'),
+            ColorFromHex('#6E386E'),
+            ColorFromHex('#749B36'),
+            ColorFromHex('#F49B36'),
+            ColorFromHex('#89AF50'),
+            ColorFromHex('#991070'),
+            ColorFromHex('#27B2F6'),
+            ColorFromHex('#F2A20A'),
+            ColorFromHex('#13A8C0'),
+            ColorFromHex('#741274')),
         '3024 Day': AnsiColorScheme(
             ColorFromHex('#090300'),
             ColorFromHex('#db2d20'),
@@ -402,6 +524,119 @@ local ExtendedTerminalColors(
                 ColorFromHex('#00e8c6'), // selection_foreground
                 ColorFromHex('#ee5d43'), // cursor_background
                 ColorFromHex('#ffd29c'), // cursor_foreground
+                null, // underline
+                null)), // tab
+        // https://catppuccin.com/
+        CatppuccinFrappe: AnsiColorScheme(
+            Palettes.CatppuccinFrappe.Surface1, // black
+            Palettes.CatppuccinFrappe.Red, // red
+            Palettes.CatppuccinFrappe.Green, // green
+            Palettes.CatppuccinFrappe.Yellow, // yellow
+            Palettes.CatppuccinFrappe.Blue, // blue
+            Palettes.CatppuccinFrappe.Pink, // purple
+            Palettes.CatppuccinFrappe.Teal, // cyan
+            Palettes.CatppuccinFrappe.Subtext1, // white
+            Palettes.CatppuccinFrappe.Surface2, // bright_black
+            Palettes.CatppuccinFrappe.Red, // bright_red
+            Palettes.CatppuccinFrappe.Green, // bright_green
+            Palettes.CatppuccinFrappe.Yellow, // bright_yellow
+            Palettes.CatppuccinFrappe.Blue, // bright_blue
+            Palettes.CatppuccinFrappe.Pink, // bright_purple
+            Palettes.CatppuccinFrappe.Teal, // bright_cyan
+            Palettes.CatppuccinFrappe.Subtext0, // bright_white
+            ExtendedTerminalColors(
+                null, // foregound
+                Palettes.CatppuccinFrappe.Base, // background
+                null, // bold
+                Palettes.CatppuccinFrappe.Blue, // link
+                Palettes.CatppuccinFrappe.Teal, // selection_background
+                Palettes.CatppuccinFrappe.Text, // selection_foreground
+                Palettes.CatppuccinFrappe.Rosewater, // cursor_background
+                Palettes.CatppuccinFrappe.Crust, // cursor_foreground
+                null, // underline
+                null)), // tab
+        CatppuccinLatte: AnsiColorScheme(
+            Palettes.CatppuccinLatte.Subtext1, // black
+            Palettes.CatppuccinLatte.Red, // red
+            Palettes.CatppuccinLatte.Green, // green
+            Palettes.CatppuccinLatte.Yellow, // yellow
+            Palettes.CatppuccinLatte.Blue, // blue
+            Palettes.CatppuccinLatte.Pink, // purple
+            Palettes.CatppuccinLatte.Teal, // cyan
+            Palettes.CatppuccinLatte.Surface2, // white
+            Palettes.CatppuccinLatte.Subtext0, // bright_black
+            Palettes.CatppuccinLatte.Red, // bright_red
+            Palettes.CatppuccinLatte.Green, // bright_green
+            Palettes.CatppuccinLatte.Yellow, // bright_yellow
+            Palettes.CatppuccinLatte.Blue, // bright_blue
+            Palettes.CatppuccinLatte.Pink, // bright_purple
+            Palettes.CatppuccinLatte.Teal, // bright_cyan
+            Palettes.CatppuccinLatte.Surface1, // bright_white
+            ExtendedTerminalColors(
+                null, // foregound
+                Palettes.CatppuccinLatte.Base, // background
+                null, // bold
+                Palettes.CatppuccinLatte.Blue, // link
+                Palettes.CatppuccinLatte.Teal, // selection_background
+                Palettes.CatppuccinLatte.Text, // selection_foreground
+                Palettes.CatppuccinLatte.Rosewater, // cursor_background
+                Palettes.CatppuccinLatte.Base, // cursor_foreground
+                null, // underline
+                null)), // tab
+        CatppuccinMacchiato: AnsiColorScheme(
+            Palettes.CatppuccinMacchiato.Surface1, // black
+            Palettes.CatppuccinMacchiato.Red, // red
+            Palettes.CatppuccinMacchiato.Green, // green
+            Palettes.CatppuccinMacchiato.Yellow, // yellow
+            Palettes.CatppuccinMacchiato.Blue, // blue
+            Palettes.CatppuccinMacchiato.Pink, // purple
+            Palettes.CatppuccinMacchiato.Teal, // cyan
+            Palettes.CatppuccinMacchiato.Subtext1, // white
+            Palettes.CatppuccinMacchiato.Surface2, // bright_black
+            Palettes.CatppuccinMacchiato.Red, // bright_red
+            Palettes.CatppuccinMacchiato.Green, // bright_green
+            Palettes.CatppuccinMacchiato.Yellow, // bright_yellow
+            Palettes.CatppuccinMacchiato.Blue, // bright_blue
+            Palettes.CatppuccinMacchiato.Pink, // bright_purple
+            Palettes.CatppuccinMacchiato.Teal, // bright_cyan
+            Palettes.CatppuccinMacchiato.Subtext0, // bright_white
+            ExtendedTerminalColors(
+                null, // foregound
+                Palettes.CatppuccinMacchiato.Base, // background
+                null, // bold
+                Palettes.CatppuccinMacchiato.Blue, // link
+                Palettes.CatppuccinMacchiato.Teal, // selection_background
+                Palettes.CatppuccinMacchiato.Text, // selection_foreground
+                Palettes.CatppuccinMacchiato.Rosewater, // cursor_background
+                Palettes.CatppuccinMacchiato.Crust, // cursor_foreground
+                null, // underline
+                null)), // tab
+        CatppuccinMocha: AnsiColorScheme(
+            Palettes.CatppuccinMocha.Surface1, // black
+            Palettes.CatppuccinMocha.Red, // red
+            Palettes.CatppuccinMocha.Green, // green
+            Palettes.CatppuccinMocha.Yellow, // yellow
+            Palettes.CatppuccinMocha.Blue, // blue
+            Palettes.CatppuccinMocha.Pink, // purple
+            Palettes.CatppuccinMocha.Teal, // cyan
+            Palettes.CatppuccinMocha.Subtext1, // white
+            Palettes.CatppuccinMocha.Surface2, // bright_black
+            Palettes.CatppuccinMocha.Red, // bright_red
+            Palettes.CatppuccinMocha.Green, // bright_green
+            Palettes.CatppuccinMocha.Yellow, // bright_yellow
+            Palettes.CatppuccinMocha.Blue, // bright_blue
+            Palettes.CatppuccinMocha.Pink, // bright_purple
+            Palettes.CatppuccinMocha.Teal, // bright_cyan
+            Palettes.CatppuccinMocha.Subtext0, // bright_white
+            ExtendedTerminalColors(
+                null, // foregound
+                Palettes.CatppuccinMocha.Base, // background
+                null, // bold
+                Palettes.CatppuccinMocha.Blue, // link
+                Palettes.CatppuccinMocha.Teal, // selection_background
+                Palettes.CatppuccinMocha.Text, // selection_foreground
+                Palettes.CatppuccinMocha.Rosewater, // cursor_background
+                Palettes.CatppuccinMocha.Crust, // cursor_foreground
                 null, // underline
                 null)), // tab
         Cobalt2: AnsiColorScheme(
@@ -1067,41 +1302,41 @@ local ExtendedTerminalColors(
             ColorFromHex('#f1f1f0'),
             ExtendedTerminalColors(
                 ColorFromHex('#dbdbe8'), // foregound
-                Black, // background
+                Palettes.Primary.Black, // background
                 null, // bold
                 null, // link
-                White, // selection_background
+                Palettes.Primary.White, // selection_background
                 null, // selection_foreground
                 null, // cursor_background
-                White, // cursor_foreground
+                Palettes.Primary.White, // cursor_foreground
                 null, // underline
                 null)), // tab
         Tango: AnsiColorScheme(
-            ColorFromHex("#000000"),
-            ColorFromHex("#CC0000"),
-            ColorFromHex("#4E9A06"),
-            ColorFromHex("#C4A000"),
-            ColorFromHex("#3465A4"),
-            ColorFromHex("#75507B"),
-            ColorFromHex("#06989A"),
-            ColorFromHex("#D3D7CF"),
-            ColorFromHex("#555753"),
-            ColorFromHex("#EF2929"),
-            ColorFromHex("#8AE234"),
-            ColorFromHex("#FCE94F"),
-            ColorFromHex("#729FCF"),
-            ColorFromHex("#AD7FA8"),
-            ColorFromHex("#34E2E2"),
-            ColorFromHex("#EEEEEC"),
+            ColorFromHex('#000000'),
+            ColorFromHex('#CC0000'),
+            ColorFromHex('#4E9A06'),
+            ColorFromHex('#C4A000'),
+            ColorFromHex('#3465A4'),
+            ColorFromHex('#75507B'),
+            ColorFromHex('#06989A'),
+            ColorFromHex('#D3D7CF'),
+            ColorFromHex('#555753'),
+            ColorFromHex('#EF2929'),
+            ColorFromHex('#8AE234'),
+            ColorFromHex('#FCE94F'),
+            ColorFromHex('#729FCF'),
+            ColorFromHex('#AD7FA8'),
+            ColorFromHex('#34E2E2'),
+            ColorFromHex('#EEEEEC'),
             ExtendedTerminalColors(
-                Black, // foregound
+                Palettes.Primary.Black, // foregound
                 ColorFromHex('#D3D7CF'), // background
                 null, // bold
                 null, // link
-                White, // selection_background
+                Palettes.Primary.White, // selection_background
                 null, // selection_foreground
                 null, // cursor_background
-                Black, // cursor_foreground
+                Palettes.Primary.Black, // cursor_foreground
                 null, // underline
                 null)), // tab
         'Tango Adapted': AnsiColorScheme(

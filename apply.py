@@ -26,9 +26,10 @@ BASH_COMMAND_PREFIX = 'BASH_COMMAND: '
 # pylint: disable-next=too-many-instance-attributes
 class Host:
     hostname: str
+    config_dir: str
+    home: str
     branch: str | None = None
     kernel: str = 'linux'
-    config_dir: str = None
     file_maps: list[tuple[str, str]] | dict[str, str] = field(default_factory=list)
     directory_maps: list[tuple[str, str]] | dict[str, str] = field(default_factory=list)
     jsonnet_maps: list[tuple[str, str, str]] | dict[str, str] = field(default_factory=list)
@@ -66,7 +67,7 @@ class Host:
         return os.path.join(CWD, 'out', f'{self.hostname}-{suffix}')
 
     def get_remote_staging_dir(self, prefix_tilde=None) -> str:
-        return os.path.join('~', self.config_dir + '-staging')
+        return os.path.join(self.home, self.config_dir + '-staging')
 
     def get_inflated_macro(self, key, file_path) -> list[str]:
         return [v.replace('@@FILE_NAME', Path(file_path).stem.upper())
@@ -471,9 +472,8 @@ def push_remote_staging(host, verbose=False) -> list:
     ops.extend(host.make_ops([['mkdir', '-p', host.get_remote_staging_dir()]]))
     if verbose:
         ops.append(f'>> Copying staging directory to {host.hostname} ({host.get_remote_staging_dir()})')
-    dest_host_prefix = ''
-    if not host.is_localhost():
-        dest_host_prefix = f'{host.hostname}:'
+
+    dest_host_prefix = '' if host.is_localhost() else f'{host.hostname}:'
     # 2
     ops.append(['rsync', '-axv', '--numeric-ids', '--delete', '--progress', host.get_local_staging_dir() + '/', f'{dest_host_prefix}{host.get_remote_staging_dir()}'])
 
@@ -531,11 +531,11 @@ def stage_local(host, verbose=False) -> list[str]:
     finish_ops.append(f'>> Cleaning existing configuration files for {host.hostname}')
     dirs_to_remove = remove_children_from_set(set(host.directory_maps.values()).union({host.config_dir}))
     files_to_remove = [f for f in host.file_maps.values() if not any(f.startswith(d) for d in dirs_to_remove)]
-    finish_ops.extend(['rm', '-f', os.path.join('~', f)] for f in sorted(files_to_remove))
-    finish_ops.extend(['rm', '-rf', os.path.join('~', d)] for d in sorted(dirs_to_remove))
+    finish_ops.extend(['rm', '-f', os.path.join(host.home, f)] for f in sorted(files_to_remove))
+    finish_ops.extend(['rm', '-rf', os.path.join(host.home, d)] for d in sorted(dirs_to_remove))
 
-    finish_ops.extend(copy_files_local(host.get_remote_staging_dir(), host.file_maps.keys(), '~', host.file_maps.values()))
-    finish_ops.extend(copy_directories_local(host.get_remote_staging_dir(), host.directory_maps.keys(), '~', host.directory_maps.values(), True))
+    finish_ops.extend(copy_files_local(host.get_remote_staging_dir(), host.file_maps.keys(), host.home, host.file_maps.values()))
+    finish_ops.extend(copy_directories_local(host.get_remote_staging_dir(), host.directory_maps.keys(), host.home, host.directory_maps.values(), True))
     finish_ops.extend(make_install_plugins_bash_commands('Vim startup plugin(s)', config.vim_pack_plugin_start_repos, '$HOME'))
     finish_ops.extend(make_install_plugins_bash_commands('Vim optional plugin(s)', config.vim_pack_plugin_opt_repos, '$HOME'))
     finish_ops.extend(make_install_plugins_bash_commands('Zsh plugin(s)', config.zsh_plugin_repos, '$HOME'))
@@ -564,8 +564,8 @@ def pull_remote(host: Host) -> list[str]:
     ]))
 
     remote_ops = ['>> Unstaging directories and files']
-    remote_ops.extend(copy_directories_local('~', host.directory_maps.values(),  host.get_remote_staging_dir(), host.directory_maps.keys(), True))
-    remote_ops.extend(copy_files_local('~', host.file_maps.values(), host.get_remote_staging_dir(), host.file_maps.keys()))
+    remote_ops.extend(copy_directories_local(host.home, host.directory_maps.values(),  host.get_remote_staging_dir(), host.directory_maps.keys(), True))
+    remote_ops.extend(copy_files_local(host.home, host.file_maps.values(), host.get_remote_staging_dir(), host.file_maps.keys()))
     unfinish_script = os.path.join(snapshot_dir, 'unfinish.sh')
     ops.extend(make_finish_script(remote_ops, unfinish_script, verbose=False))
 
