@@ -2,6 +2,10 @@
 
 #pragma once
 
+# In some contexts .zprofile isn't sourced (e.g. when started inside the Python debug console.)
+# shellcheck disable=SC1090
+source ${ZDOTDIR:-$HOME}/.zprofile
+
 # Useful reference: https://scriptingosx.com/2019/07/moving-to-zsh-part-7-miscellanea/
 
 # autoload -Uz promptinit; promptinit
@@ -138,6 +142,13 @@ preexec_functions=($preexec_functions _set_cursor_beam)
 
 precmd_functions=($precmd_functions __update_prompt)
 
+function __print_git_worktree_prompt() {
+    if __git_is_in_worktree; then
+        local PINK_FLAMINGO_FG="%F{#ff5fff}"
+        echo -ne "%{$PINK_FLAMINGO_FG%}$(__print_git_worktree) "
+    fi
+}
+
 function __update_prompt() {
     _dotTrace "__update_prompt"
 
@@ -166,19 +177,27 @@ function __update_prompt() {
         case "${style}" in
         "Git")
             preamble="%{$fg[green]%}"
-            dynamic_part='$(__print_git_info)'
+
+            dynamic_part+='$(__print_git_worktree_prompt)'
+            dynamic_part+='$(__z_print_git_branch_color_hint)$(__print_git_branch)'
+            dynamic_part+="%{${reset_color}%} "
+            dynamic_part+='$(__print_git_pwd --no-branch)'
             ;;
         "Repo")
             preamble="%{$fg[yellow]%}"
-            dynamic_part='$(__print_repo_info)'
+
+            dynamic_part+="%{$fg[green]%}"
+            dynamic_part+='$(__print_repo_worktree) '
+
+            dynamic_part+="%{${reset_color}%}"
+            dynamic_part+='$(__cute_pwd)'
             ;;
         *)
             preamble="%{$reset_color%}"
-            dynamic_part=''
+            dynamic_part='$(__cute_pwd)'
         esac
 
         preamble+='$(__cute_time_prompt) $(__virtualenv_info " ")'
-        dynamic_part+='$(__cute_pwd)'
 
         local static=$(__generate_static_prompt_part)
         local suffix=' %(!.$ELEVATED_END_OF_PROMPT_ICON.$END_OF_PROMPT_ICON) '
@@ -204,63 +223,6 @@ function __update_prompt() {
         __cache_put "ACTIVE_DYNAMIC_PROMPT_STYLE" "${new_dynamic_style}"
     fi
     _dotTrace "__update_prompt - done"
-}
-
-function __print_git_branch_colored() {
-    local line=""
-    if __git_is_detached_head; then
-        line+="%{$fg[red]%}"
-    elif __git_is_nothing_to_commit; then
-        line+="%{$fg[green]%}"
-    else
-        line+="%{$fg[yellow]%}"
-    fi
-    if [[ "$1" == "--short" ]]; then
-        line+="$(__print_git_branch_short)"
-    else
-        line+="$(__print_git_branch)"
-    fi
-    line+="%{$reset_color%} "
-
-    echo -ne "${line}"
-}
-
-function __print_git_worktree_colored() {
-    if ! __git_is_in_worktree; then
-        echo -n ""
-        return 1
-    fi
-
-    local PINK_FLAMINGO_FG="%F{#ff5fff}"
-
-    echo -n "%{$PINK_FLAMINGO_FG%}$(__print_git_worktree) "
-}
-
-function __print_repo_worktree_colored() {
-    if ! __is_in_repo; then
-        echo -n ""
-        return 0
-    fi
-
-    echo -n "%{$fg[green]%}$(__print_repo_worktree)%{$reset_color%} "
-}
-
-function __print_git_info() {
-    if __is_in_git_repo; then
-        __print_git_worktree_colored
-        __print_git_branch_colored
-    fi
-}
-
-function __print_repo_info() {
-    __print_repo_worktree_colored
-    if __is_in_git_repo; then
-        if ! __git_is_detached_head; then
-            __print_git_branch_colored
-        else
-            __print_git_branch_colored --short
-        fi
-    fi
 }
 
 PROMPT="XXX"

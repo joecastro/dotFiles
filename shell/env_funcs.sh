@@ -59,6 +59,7 @@ declare -A EMOJI_ICON_MAP=(
     [MUSIC]=🎵
     [VIDEOS]=🎥
     [DOCUMENTS]=📄
+    [KEY]=🔑
     ) > /dev/null 2>&1
 
 declare -A NF_ICON_MAP=(
@@ -105,6 +106,7 @@ declare -A NF_ICON_MAP=(
     [MUSIC]=
     [VIDEOS]=
     [DOCUMENTS]=
+    [KEY]=
     ) > /dev/null 2>&1
 
 function __is_ssh_session() {
@@ -112,9 +114,14 @@ function __is_ssh_session() {
 }
 
 function __is_in_git_repo() {
+    local ret_for_git_dir=0
+    if [[ "$1" == "--git-dir" ]]; then
+        ret_for_git_dir=1
+    fi
+
     if error_message=$(git branch 2>&1); then
         if git rev-parse --is-inside-git-dir | grep "true" > /dev/null 2>&1; then
-            return 1
+            return ${ret_for_git_dir}
         fi
         return 0
     fi
@@ -126,17 +133,17 @@ function __is_in_git_repo() {
     return 1
 }
 
-function __is_in_git_dir() {
-    __is_in_git_repo
+function __git_is_in_git_dir() {
+    __is_in_git_repo --git-dir
     [[ "$?" == "1" ]]
 }
 
 function __git_is_detached_head() {
-    git status | grep "HEAD detached" > /dev/null 2>&1
+    git status 2> /dev/null | grep "HEAD detached" > /dev/null 2>&1
 }
 
 function __git_is_nothing_to_commit() {
-    git status | grep "nothing to commit" > /dev/null 2>&1
+    git status 2> /dev/null | grep "nothing to commit" > /dev/null 2>&1
 }
 
 function __git_is_in_worktree() {
@@ -150,7 +157,7 @@ function __git_is_in_worktree() {
 }
 
 function __print_git_branch() {
-    __is_in_git_repo
+    __is_in_git_repo --git-dir
     local git_repo_result=$?
     if [[ ${git_repo_result} == 2 ]]; then
         echo -n ""
@@ -192,12 +199,14 @@ function __print_git_branch() {
 }
 
 function __print_git_branch_short() {
-    if ! __is_in_git_repo; then
+    __is_in_git_repo --git-dir
+    local git_repo_result=$?
+    if [[ $git_repo_result == 2 ]]; then
         echo -n ""
         return 1
     fi
 
-    if __is_in_git_dir; then
+    if [[ $git_repo_result == 1 ]]; then
         echo -n "${ICON_MAP[COD_TOOLS]}"
         return 0
     fi
@@ -235,6 +244,41 @@ function __print_git_worktree() {
     active_worktree=$(git worktree list | grep "$(git rev-parse --show-toplevel)" | head -n1 | awk '{print $1;}')
 
     echo -n "${ICON_MAP[OCT_FILE_SUBMODULE]}${root_worktree##*/}:${active_worktree##*/}"
+}
+
+function __print_git_pwd() {
+    local use_pin_icon=1
+    if [[ "$1" == "--no-branch" ]]; then
+        use_pin_icon=0
+    fi
+
+    __is_in_git_repo --git-dir
+    local git_repo_result=$?
+    if [[ $git_repo_result == 2 ]]; then
+        echo -ne ""
+        return 1
+    fi
+
+    local anchor_icon="${ICON_MAP[COD_PINNED]}"
+    if [[ $use_pin_icon != 0 ]] || [[ $git_repo_result == 1 ]]; then
+        anchor_icon="$(__print_git_branch_short)"
+    fi
+
+    if __is_shell_zsh; then
+        anchor_icon="%{$(__z_print_git_branch_color_hint)%}${anchor_icon}%{${reset_color:?}%}"
+    fi
+
+    local anchored_path
+    if [[ $git_repo_result == 1 ]]; then
+        anchored_path=".git${PWD##*.git}"
+    else
+        # If we're in a git repo then show the current directory relative to the root of that repo.
+        # These commands wind up spitting out an extra slash, so backspace to remove it on the console.
+        anchored_path="$(echo -ne "$(git rev-parse --show-toplevel | xargs basename)/$(git rev-parse --show-prefix)")"
+        anchored_path="${anchored_path%/}"
+    fi
+
+    echo -ne "${anchor_icon} ${anchored_path}"
 }
 
 function __is_in_repo_root() {
@@ -536,6 +580,18 @@ function __print_abbreviated_path() {
     echo -n "${result}"
 }
 
+if __is_shell_zsh; then
+    function __z_print_git_branch_color_hint() {
+        if __git_is_nothing_to_commit; then
+            echo -ne "%{$fg[green]%}"
+        elif __git_is_detached_head; then
+            echo -ne "%{$fg[red]%}"
+        else
+            echo -ne "%{$fg[yellow]%}"
+        fi
+    }
+fi
+
 if ! __is_shell_old_bash; then
 
     function __cute_pwd_lookup() {
@@ -549,6 +605,7 @@ if ! __is_shell_old_bash; then
             ["${HOME}/Downloads"]=${ICON_MAP[DOWNLOAD]}
             ["${HOME}/Pictures"]=${ICON_MAP[PICTURES]}
             ["${HOME}/Music"]=${ICON_MAP[MUSIC]}
+            ["${HOME}/.ssh"]=${ICON_MAP[KEY]}
             ["/"]=${ICON_MAP[FAE_TREE]}
         )
 
@@ -589,30 +646,12 @@ if ! __is_shell_old_bash; then
             is_short=0
         fi
 
-        __is_in_git_repo
-        local git_repo_result=$?
-        if [[ $git_repo_result != 2 ]]; then
-            if [[ $is_short == 0 ]]; then
-                echo -n "${PWD##*/}"
-                return 0
-            fi
-            if [[ $git_repo_result == 0 ]]; then
-                # If we're in a git repo then show the current directory relative to the root of that repo.
-                # These commands wind up spitting out an extra slash, so backspace to remove it on the console.
-                # Because this messes with the shell's perception of where the cursor is, make the anchor icon
-                # appear like an escape sequence instead of a printed character.
-                local prefix="${ICON_MAP[COD_PINNED]} "
-                if __is_shell_zsh; then
-                    prefix="%{${ICON_MAP[COD_PINNED]} %}"
-                fi
-                echo -ne "${prefix}$(git rev-parse --show-toplevel | xargs basename)/$(git rev-parse --show-prefix)\b"
-            else
-                echo -n "${ICON_MAP[COD_TOOLS]} .git${PWD##*.git}"
-            fi
+        if [[ $is_short != 0 ]] && __is_in_git_repo; then
+            __print_git_pwd ""
             return 0
         fi
 
-        if [[ is_short -ne 0 ]]; then
+        if [[ $is_short != 0 ]]; then
             # Print the parent directory only if it has a special expansion.
             if [[ "${PWD}" != "/" ]] && __cute_pwd_lookup "$(dirname "${PWD}")"; then
                 echo -n "/"
@@ -660,7 +699,7 @@ function __cute_time_prompt() {
 typeset -a CUTE_HEADER_PARTS=()
 
 function __cute_shell_header() {
-    if ! [[ "$1" == "--force" ]]; then
+    if ! [[ "$1" != "--force" ]]; then
         if ! __is_shell_interactive; then
             return 0
         fi
@@ -746,10 +785,6 @@ function __do_vscode_shell_integration() {
             # shellcheck disable=SC1090
             source "$(code --locate-shell-integration-path zsh)"
         fi
-
-        # Also, in some contexts .zprofile isn't sourced when started inside the Python debug console.
-        # shellcheck disable=SC1090
-        source ~/.zprofile
     fi
 }
 
@@ -819,8 +854,11 @@ function toggle_konsole_semantic_integration() {
 function __update_konsole_profile() {
     _dotTrace "__update_konsole_profile"
 
+    local active_dynamic_prompt_style
+    active_dynamic_prompt_style=$(__cache_get "ACTIVE_DYNAMIC_PROMPT_STYLE")
+
     local arg=""
-    if [[ "$ACTIVE_DYNAMIC_PROMPT_STYLE" == "Repo" ]]; then
+    if [[ "$active_dynamic_prompt_style" == "Repo" ]]; then
         arg="Colors=Android Colors"
     else
         arg="Colors=$(hostname) Colors"
