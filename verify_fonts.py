@@ -7,30 +7,47 @@ import sys
 RESET_COLOR = '\033[0m'
 BG_COLOR_BORDER = '\033[48;5;8m'
 
+EMOJI_TESTSET = sorted([
+    '😀', '😁', '😂', '😃', '😅', '😆', '😉', '😊', '😋', '😎', '😍', '😘', '😗', '😙', '😚', '🙂',
+    '🤩', '🥳', '😇', '🤠', '🤡', '🤥', '🤫', '🤭', '🧐', '🤓', '😈', '👿', '👹', '👺', '💀', '👻',
+    '👽', '👾', '🤖', '💩', '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿', '😾', '🙈', '🙉', '🙊',
+    '💋', '💌', '💘', '💝', '💖', '💗', '💓', '💞', '💕', '💟', '💔', '🧡', '💛', '💚', '💙', '💜',
+    '🤎', '🖤', '🤍', '💯', '💢', '💥', '💫', '💦', '💨', '💣', '💬', '💭',
+    '💤', '🤗', '🤔', '😐', '😑', '😶', '🙄', '😏', '😣', '😥', '😮', '🤐', '😯', '😪', '😫', '😴',
+    '😌', '😛', '😜', '😝', '🤤', '😒', '😓', '😔', '😕', '🙃', '🤑', '😲', '🙁', '😖', '😞', '😟',
+    '😤', '😢', '😭', '😦', '😧', '😨', '😩', '🤯', '😬', '😰', '😱', '😳', '🤪', '😵', '😡', '😠',
+    '🤬', '😷', '🤒', '🤕', '🤢', '🤮', '🤧'
+], key=ord)
+
+NF_EXAMPLAR_TESTSET = ['', '', '', '', '', '󰀲', '', '', '', '', '󱂵', '']
+NF_CHESS_TESTSET = ['♚', '♛', '♜', '♝', '♞', '♟', '♔', '♕', '♖', '♗', '♘', '♙']
+
+CELL_WIDTH = 6
+HALF_BAR = '═' * (int)(CELL_WIDTH / 2)
 
 def print_top_line(length):
-    top_line_start = f'{BG_COLOR_BORDER}╔═══'
-    top_line_middle = "═══╦═══"
-    top_line_end = f'═══╗{RESET_COLOR}'
+    top_line_start = f'{BG_COLOR_BORDER}╔{HALF_BAR}'
+    top_line_middle = f'{HALF_BAR}╦{HALF_BAR}'
+    top_line_end = f'{HALF_BAR}╗{RESET_COLOR}'
 
     print(top_line_start + (top_line_middle * (length - 1)) + top_line_end)
 
 
 def print_bottom_line(length):
-    bottom_line_start = f'{BG_COLOR_BORDER}╚═══'
-    bottom_line_middle = '═══╩═══'
-    bottom_line_end = f'═══╝{RESET_COLOR}'
+    bottom_line_start = f'{BG_COLOR_BORDER}╚{HALF_BAR}'
+    bottom_line_middle = f'{HALF_BAR}╩{HALF_BAR}'
+    bottom_line_end = f'{HALF_BAR}╝{RESET_COLOR}'
 
     print(bottom_line_start + (bottom_line_middle * (length - 1)) + bottom_line_end)
 
 
 def print_middle_line(length, next_line_length):
-    line_start = f'{BG_COLOR_BORDER}╠═══'
-    line_middle = '═══╬═══'
-    line_end = f'═══╣{RESET_COLOR}'
+    line_start = f'{BG_COLOR_BORDER}╠{HALF_BAR}'
+    line_middle = f'{HALF_BAR}╬{HALF_BAR}'
+    line_end = f'{HALF_BAR}╣{RESET_COLOR}'
 
-    bottom_line_middle = '═══╩═══'
-    bottom_line_end = f'═══╝{RESET_COLOR}'
+    bottom_line_middle = f'{HALF_BAR}╩{HALF_BAR}'
+    bottom_line_end = f'{HALF_BAR}╝{RESET_COLOR}'
 
     if next_line_length == length:
         print(line_start + (line_middle * (length - 1)) + line_end)
@@ -50,8 +67,15 @@ def print_codes_line(code_color, char_color, chunk, line_length):
     all_codes = vertical_bar
     all_chars = vertical_bar
     for (code, char) in header_line:
-        all_codes += f'{code_color}{" " * (5 - len(code))}{underline}{code}{RESET_COLOR}{code_color} {vertical_bar}'
-        all_chars += f'{char_color}  {char}   {vertical_bar}'
+        leftpad_code = (int)((CELL_WIDTH - len(code)) / 2)
+        rightpad_code = CELL_WIDTH - len(code) - leftpad_code
+        # Emoji characters print with variable width in different fonts,
+        # but generally it works to treat them as double-wide.
+        char_width = 2 if char in EMOJI_TESTSET else 1
+        leftpad_char = (int)((CELL_WIDTH - char_width) / 2)
+        rightpad_char = CELL_WIDTH - char_width - leftpad_char
+        all_codes += f'{code_color}{" " * (leftpad_code)}{underline}{code}{RESET_COLOR}{code_color}{" " * rightpad_code}{vertical_bar}'
+        all_chars += f'{char_color}{" " * leftpad_char}{char}{" " * rightpad_char}{vertical_bar}'
 
     print(f'{all_codes}\n{all_chars}')
 
@@ -106,27 +130,34 @@ def list_to_ranges(lst):
     return ranges
 
 
+def convert_symbols_to_ranges(symbols):
+    filtered_symbols = [c for c in symbols if len(c) == 1]
+    if len(filtered_symbols) != len(symbols):
+        print(f'Warning: {len(symbols) - len(filtered_symbols)} symbols were filtered out')
+        print(f'Filtered out symbols: {", ".join([c for c in symbols if len(c) != 1])}')
+    return list(sum([(ord(c), ord(c)+1) for c in filtered_symbols], ()))
+
+
 def main():
-    zsh_used_nerdfont_icons = ['', '', '', '', '', '󰀲', '', '', '', '', '󱂵', '']
-    zsh_used_nerdfont_icons.sort()
-    zsh_used_nerdfont_icon_ranges = list(sum([(ord(c), ord(c)+1) for c in zsh_used_nerdfont_icons], ()))
     categories = {
         # 'ASCII control codes': [0, 32, 127, 128],
         'ASCII': [32, 127],
-        'Nerd Fonts - Pomicons': [0xe000, 0xe00e],
-        'Nerd Fonts - Powerline': [0xe0a0, 0xe0a3, 0xe0b0, 0xe0b4],
-        'Nerd Fonts - Powerline Extra': [0xe0a3, 0xe0a4, 0xe0b4, 0xe0c9, 0xe0cc, 0xe0d3, 0xe0d4, 0xe0d5],
+        'Emoji': convert_symbols_to_ranges(EMOJI_TESTSET),
+        'Nerd Fonts - Pomicons': [0xe000, 0xe00a],
+        'Nerd Fonts - Powerline + Extras': [0xe0a0, 0xE0A4, 0xE0B0, 0xE0C0, 0xE0C0, 0xE0C9, 0xE0CC, 0xE0D0, 0xE0D0, 0xE0D3, 0xE0D4, 0xe0d5, 0xE0D6, 0xE0D8],
         'Nerd Fonts - Symbols original': [0xe5fa, 0xe62c],
-        'Nerd Fonts - Devicons': [0xe700, 0xe7c6],
+        # 198 icons
+        'Nerd Fonts - Devicons': [0xe700, (0xe700 + 198)],
         'Nerd Fonts - Font awesome': [0xf000, 0xf2e1],
         'Nerd Fonts - Font awesome extension': [0xe200, 0xe2aa],
         'Nerd Fonts - Octicons': [0xf400, 0xf4a9, 0x2665, 0x2666, 0x26A1, 0x26A2, 0xf27c, 0xf27d],
         'Nerd Fonts - Font Logos': [0xf300, 0xf330],
         'Nerd Fonts - Font Power Symbols': [0x23fb, 0x23ff, 0x2b58, 0x2b59],
-        'Nerd Fonts - Material Design Icons (first few)': [0xf0001, 0xf0011],
-        'Nerd Fonts - Weather Icons': [0xe300, 0xe3ec],
-        'Nerd Fonts - Chess Icons': [0xe29c, 0xe29d, 0xe25f, 0xe264],
-        'Nerd Fonts - ZSH Prompt Icons': zsh_used_nerdfont_icon_ranges
+        'Nerd Fonts - Material Design Icons (first few)': [0xf0001, 0xf0031],
+        # 228 icons
+        'Nerd Fonts - Weather Icons': [0xe300, (0xe300 + 228)],
+        'Nerd Fonts - Chess Icons': [0xed5f, 0xed67, 0xe29c, 0xe29d, 0xe25f, 0xe264, 0xf0857, 0xf085d],
+        'Nerd Fonts - ZSH Prompt Icons': convert_symbols_to_ranges(NF_EXAMPLAR_TESTSET)
     }
 
     for name, range_list in categories.items():

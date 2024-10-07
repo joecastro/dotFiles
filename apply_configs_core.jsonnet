@@ -13,6 +13,7 @@ local jsonnet_maps = [
     # env_vars needs to be in the home directory for bootstrapping zsh
     ['shell/env_vars.jsonnet', 'gen/env_vars.sh', '.env_vars.sh'],
     ['konsole/konsolerc.jsonnet', 'gen/konsolerc.ini', '.config/konsolerc'],
+    ['konsole/konsole_color_funcs.jsonnet', 'gen/konsole_color_funcs.sh', config_dir + '/konsole_color_funcs.sh'],
     ['shell/iterm2_color_funcs.jsonnet', 'gen/iterm2_color_funcs.sh', config_dir + '/iterm2_color_funcs.sh'],
 ];
 

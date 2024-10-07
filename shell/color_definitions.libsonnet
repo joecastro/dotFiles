@@ -42,17 +42,24 @@ local Palettes = {
         Black: ColorFromHex('#000000'),
         NavyBlue: ColorFromHex('#000080'),
         Blue: ColorFromHex('#0000FF'),
+        AzureRadiance: ColorFromHex('#007FFF'),
         JapaneseLaurel: ColorFromHex('#008000'),
         Teal: ColorFromHex('#008080'),
-        CeruleanBlue: ColorFromHex('2a52be'),
         Green: ColorFromHex('#00FF00'),
         Cyan: ColorFromHex('#00FFFF'),
+        PrussianBlue: ColorFromHex('#012456'),
+        FunBlue: ColorFromHex('#1857a4'),
+        Everglade: ColorFromHex('#215732'),
         ForestGreen: ColorFromHex('#228B22'),
+        CeruleanBlue: ColorFromHex('#2a52be'),
+        OceanGreenPearl: ColorFromHex('#42b883'),
         BlueMartini: ColorFromHex('#52B4D3'),
+        Malibu: ColorFromHex('#61dafb'),
         Maroon: ColorFromHex('#800000'),
-        Olive: ColorFromHex('#808000'),
         FreshEggplant: ColorFromHex('#800080'),
+        Olive: ColorFromHex('#808000'),
         Gray: ColorFromHex('#808080'),
+        MidnightPearl: ColorFromHex('#832561'),
         NoblePlum: ColorFromHex('#871F78'),
         BlueBell: ColorFromHex('#95a0c5'),
         RoofTerracotta: ColorFromHex('#a51d2d'),
@@ -62,11 +69,14 @@ local Palettes = {
         Viola: ColorFromHex('#cc87a9'),
         Ghost: ColorFromHex('#ccd1d9'),
         GuardsmanRed: ColorFromHex('#D31100'),
+        RedRibbon: ColorFromHex('#DD0531'),
         Carnation: ColorFromHex('#f66151'),
+        EnergyYellow: ColorFromHex('#f9e64f'),
+        Vermilion: ColorFromHex('#ff3d00'),
         SelectiveYellow: ColorFromHex('#ffb506'),
-        YellowSea: ColorFromHex('#ffaf00'),
-        Magenta: ColorFromHex('#FF00FF'),
         Red: ColorFromHex('#FF0000'),
+        Magenta: ColorFromHex('#FF00FF'),
+        YellowSea: ColorFromHex('#ffaf00'),
         Yellow: ColorFromHex('#FFFF00'),
         White: ColorFromHex('#FFFFFF'),
     },
@@ -302,15 +312,15 @@ local ExtendedTerminalColors(
     ColorWithAlpha: ColorWithAlpha,
     Colors: Palettes.Primary,
     PeacockColors: {
-        'Angular Red': ColorFromHex('#dd0531'),
-        'Azure Blue': ColorFromHex('#007fff'),
-        'JavaScript Yellow': ColorFromHex('#f9e64f'),
-        'Mandalorian Blue': ColorFromHex('#1857a4'),
-        'Node Green': ColorFromHex('#215732'),
-        'React Blue': ColorFromHex('#61dafb'),
-        'Something Different': ColorFromHex('#832561'),
-        'Svelte Orange': ColorFromHex('#ff3d00'),
-        'Vue Green': ColorFromHex('#42b883'),
+        'Angular Red': Palettes.Primary.RedRibbon,
+        'Azure Blue': Palettes.Primary.AzureRadiance,
+        'JavaScript Yellow': Palettes.Primary.EnergyYellow,
+        'Mandalorian Blue': Palettes.Primary.FunBlue,
+        'Node Green': Palettes.Primary.Everglade,
+        'React Blue': Palettes.Primary.Malibu,
+        'Something Different': Palettes.Primary.MidnightPearl,
+        'Svelte Orange': Palettes.Primary.Vermilion,
+        'Vue Green': Palettes.Primary.OceanGreenPearl,
     },
     Schemes: {
         Campbell: AnsiColorScheme(
@@ -341,34 +351,11 @@ local ExtendedTerminalColors(
                 Palettes.Primary.White, // cursor_foreground
                 null, // underline
                 null)), // tab
-        CampbellPoweshell: AnsiColorScheme(
-            ColorFromHex('#0C0C0C'),
-            ColorFromHex('#C50F1F'),
-            ColorFromHex('#13A10E'),
-            ColorFromHex('#C19C00'),
-            ColorFromHex('#0037DA'),
-            ColorFromHex('#881798'),
-            ColorFromHex('#3A96DD'),
-            ColorFromHex('#CCCCCC'),
-            ColorFromHex('#767676'),
-            ColorFromHex('#E74856'),
-            ColorFromHex('#16C60C'),
-            ColorFromHex('#F9F1A5'),
-            ColorFromHex('#3B78FF'),
-            ColorFromHex('#B4009E'),
-            ColorFromHex('#61D6D6'),
-            ColorFromHex('#F2F2F2'),
-            ExtendedTerminalColors(
-                ColorFromHex('#CCCCCC'), // foregound
-                ColorFromHex('#012456'), // background
-                null, // bold
-                null, // link
-                Palettes.Primary.White, // selection_background
-                null, // selection_foreground
-                null, // cursor_background
-                Palettes.Primary.White, // cursor_foreground
-                null, // underline
-                null)), // tab
+        CampbellPoweshell: $.Schemes.Campbell + {
+            terminal_colors+: {
+                background: Palettes.Primary.PrussianBlue,
+            },
+        },
         Vintage: AnsiColorScheme(
             Palettes.Primary.Black,
             Palettes.Primary.Maroon,
