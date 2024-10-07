@@ -66,7 +66,7 @@ class Host:
     def get_local_staging_dir(self, suffix='dot') -> str:
         return os.path.join(CWD, 'out', f'{self.hostname}-{suffix}')
 
-    def get_remote_staging_dir(self, prefix_tilde=None) -> str:
+    def get_remote_staging_dir(self) -> str:
         return os.path.join(self.home, self.config_dir + '-staging')
 
     def get_inflated_macro(self, key, file_path) -> list[str]:
@@ -222,12 +222,12 @@ def make_install_plugins_bash_commands(plugin_type: str, repo_list: list[str], i
         bash_commands = [
             f'if [ -d "{target_path}" ]; then',
             f'    cd "{target_path}"',
-            f'    git pull',
-            f'    cd - > /dev/null',
-            f'else',
+            '    git pull',
+            '    cd - > /dev/null',
+            'else',
             f'    mkdir -p "{os.path.dirname(target_path)}"',
             f'    git clone "{repo}" "{target_path}"',
-            f'fi'
+            'fi'
         ]
         ops.extend([BASH_COMMAND_PREFIX + line for line in bash_commands])
 
@@ -621,7 +621,7 @@ def push_iterm2_prefs() -> None:
     Requires iTerm2 to not be running or else it will overwrite the output.
     '''
 
-    ''' Associate the plist for iTerm2 with the dotFiles. '''
+    # Associate the plist for iTerm2 with the dotFiles.
     iterm2_config_root = Path.joinpath(Path.home(), config.get_localhost().config_dir, 'iterm2')
     run_ops([
         # Specify the preferences directory
@@ -707,7 +707,6 @@ def main(args) -> int:
     if '--dry-run' in args:
         print_only = True
         args.remove('--dry-run')
-    shallow = False
     if '--working-dir' in args:
         index = args.index('--working-dir')
         working_dir = args[index + 1]
