@@ -20,17 +20,16 @@ declare -A EMOJI_ICON_MAP=(
     [LINUX_PENGUIN]=🐧
     [GIT]=🐙
     [GITHUB]=🐈
-    [GOOGLE]="{G}"
-    [VIM]="{vim}"
+    [GOOGLE]=🔍
+    [VIM]=🦄
     [ANDROID_HEAD]=🤖
     [ANDROID_BODY]=🤖
     [PYTHON]=🐍
-    [GIT_BRANCH]=️"(b)"
-    [GIT_COMMIT]="(c)"
+    [GIT_BRANCH]=🌿
+    [GIT_COMMIT]=🌱
     [HOME_FOLDER]="📁‍🏠"
     [COD_FILE_SUBMODULE]=📂
     [TMUX]=🤵
-    [VS_CODE]=♾️
     [COD_HOME]=🏠
     [COD_PINNED]=📌
     [COD_TOOLS]=🛠️
@@ -38,7 +37,7 @@ declare -A EMOJI_ICON_MAP=(
     [COD_PACKAGE]=📦
     [COD_SAVE]=💾
     [FAE_TREE]=🌲
-    [MD_SUBMARINE]="{sub}"
+    [MD_SUBMARINE]=🚢
     [MD_GREATER_THAN]=">"
     [MD_CHEVRON_DOUBLE_RIGHT]=">>"
     [MD_MICROSOFT_VISUAL_STUDIO_CODE]=♾️
@@ -53,13 +52,14 @@ declare -A EMOJI_ICON_MAP=(
     [CLOUD]=🌥️
     [DEBIAN]=🌀
     [UBUNTU]=👫
-    [DOWNLOAD]=📥
+[DOWNLOAD]=📥
     [DESKTOP]=🖥️
     [PICTURES]=🖼️
     [MUSIC]=🎵
     [VIDEOS]=🎥
     [DOCUMENTS]=📄
     [KEY]=🔑
+    [LEGO]=🪀
     ) > /dev/null 2>&1
 
 declare -A NF_ICON_MAP=(
@@ -77,7 +77,6 @@ declare -A NF_ICON_MAP=(
     [HOME_FOLDER]=󱂵
     [COD_FILE_SUBMODULE]=
     [TMUX]=
-    [VS_CODE]=󰨞
     [COD_HOME]=
     [COD_PINNED]=
     [COD_TOOLS]=
@@ -107,6 +106,7 @@ declare -A NF_ICON_MAP=(
     [VIDEOS]=
     [DOCUMENTS]=
     [KEY]=
+    [LEGO]=
     ) > /dev/null 2>&1
 
 function __is_ssh_session() {
@@ -167,21 +167,10 @@ function __print_git_branch() {
         return 0
     fi
 
-    local COMMIT_TEMPLATE_STRING
-    local COMMIT_MOD_TEMPLATE_STRING
-    local BRANCH_TEMPLATE_STRING
-    local BRANCH_MOD_TEMPLATE_STRING
-    if [[ ${EXPECT_NERD_FONTS} == 0 ]]; then
-        COMMIT_TEMPLATE_STRING="${ICON_MAP[GIT_COMMIT]}%s"
-        COMMIT_MOD_TEMPLATE_STRING="${ICON_MAP[GIT_COMMIT]}%s*"
-        BRANCH_TEMPLATE_STRING="${ICON_MAP[GIT_BRANCH]}%s"
-        BRANCH_MOD_TEMPLATE_STRING="${ICON_MAP[GIT_BRANCH]}%s*"
-    else
-        COMMIT_TEMPLATE_STRING="%s"
-        COMMIT_MOD_TEMPLATE_STRING="{%s *}"
-        BRANCH_TEMPLATE_STRING="(%s)"
-        BRANCH_MOD_TEMPLATE_STRING="{%s *}"
-    fi
+    local COMMIT_TEMPLATE_STRING="${ICON_MAP[GIT_COMMIT]}%s"
+    local COMMIT_MOD_TEMPLATE_STRING="${ICON_MAP[GIT_COMMIT]}%s*"
+    local BRANCH_TEMPLATE_STRING="${ICON_MAP[GIT_BRANCH]}%s"
+    local BRANCH_MOD_TEMPLATE_STRING="${ICON_MAP[GIT_BRANCH]}%s*"
 
     if __git_is_detached_head; then
         if __git_is_nothing_to_commit; then
@@ -236,14 +225,14 @@ function __print_git_worktree() {
     local root_worktree active_worktree submodule_worktree
     submodule_worktree=$(git rev-parse --show-superproject-working-tree)
     if [[ "${submodule_worktree}" != "" ]]; then
-        echo -n "${ICON_MAP[COD_FILE_SUBMODULE]}${submodule_worktree##*/}"
+        echo -n "${ICON_MAP[LEGO]}${submodule_worktree##*/}"
         return 0
     fi
 
     root_worktree=$(git worktree list | head -n1 | awk '{print $1;}')
     active_worktree=$(git worktree list | grep "$(git rev-parse --show-toplevel)" | head -n1 | awk '{print $1;}')
 
-    echo -n "${ICON_MAP[OCT_FILE_SUBMODULE]}${root_worktree##*/}:${active_worktree##*/}"
+    echo -n "${ICON_MAP[LEGO]}${root_worktree##*/}:${active_worktree##*/}"
 }
 
 function __print_git_pwd() {
@@ -583,11 +572,11 @@ function __print_abbreviated_path() {
 if __is_shell_zsh; then
     function __z_print_git_branch_color_hint() {
         if __git_is_nothing_to_commit; then
-            echo -ne "%{$fg[green]%}"
+            echo -ne "%{${fg[green]:-}%}"
         elif __git_is_detached_head; then
-            echo -ne "%{$fg[red]%}"
+            echo -ne "%{${fg[red]}:-%}"
         else
-            echo -ne "%{$fg[yellow]%}"
+            echo -ne "%{${fg[yellow]:0}%}"
         fi
     }
 fi
@@ -875,6 +864,8 @@ function __update_konsole_profile() {
 }
 
 function __do_konsole_shell_integration() {
+    source "${DOTFILES_CONFIG_ROOT}/konsole_color_funcs.sh"
+
     if __is_shell_zsh; then
         toggle_konsole_semantic_integration 1
 
