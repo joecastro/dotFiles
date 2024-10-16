@@ -179,17 +179,19 @@ function __update_prompt() {
             preamble="%{$fg[green]%}"
 
             dynamic_part+='$(__print_git_worktree_prompt)'
-            dynamic_part+='$(__z_print_git_branch_color_hint)$(__print_git_branch)'
-            dynamic_part+="%{${reset_color}%} "
+            dynamic_part+='$(__echo_colored "$(__git_branch_color_hint)" "$(__print_git_branch)") '
             dynamic_part+='$(__print_git_pwd --no-branch)'
             ;;
         "Repo")
             preamble="%{$fg[yellow]%}"
 
-            dynamic_part+="%{$fg[green]%}"
             dynamic_part+='$(__print_repo_worktree) '
+            dynamic_part+='$(__cute_pwd)'
+            ;;
+        "Piper")
+            preamble="%{$fg[blue]%}"
 
-            dynamic_part+="%{${reset_color}%}"
+            dynamic_part+='$(__print_citc_workspace) '
             dynamic_part+='$(__cute_pwd)'
             ;;
         *)
@@ -207,10 +209,14 @@ function __update_prompt() {
 
     _dotTrace "__update_prompt - calculating new style"
     local new_dynamic_style
-    if __is_in_repo; then
+    if (( ${+UNSMART_PROMPT} )); then
+        new_dynamic_style="None"
+    elif __is_in_repo; then
         new_dynamic_style="Repo"
     elif __is_in_git_repo; then
         new_dynamic_style="Git"
+    elif __has_citc && __is_in_citc; then
+        new_dynamic_style="Piper"
     else
         new_dynamic_style="None"
     fi
@@ -266,7 +272,7 @@ case "$(__z_effective_distribution)" in
     ;;
 "OSX")
     # echo "OSX zshrc load complete"
-    if command -v brew > /dev/null; then
+    if __has_homebrew; then
         gnubin_path="$(brew --prefix)/opt/coreutils/libexec/gnubin"
         if [ -d "${gnubin_path}" ]; then
             path=("${gnubin_path}" $path)

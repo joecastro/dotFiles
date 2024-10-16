@@ -42,8 +42,32 @@ function repo_current_project() {
 
 function repo_current_project_branch() {
     local current_project
-    current_project=$(repo branch .) || return $?
-    echo "${current_project%%|*}" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'
+    current_project=$(repo branch . 2>/dev/null) || return $?
+    if [[ -z "${current_project}" ]]; then
+        return 1
+    fi
+
+    current_project="${current_project#\*p }"
+    current_project="${current_project#\*P }"
+    current_project="${current_project#\*}"
+    current_project="${current_project%%|*}"
+    current_project="${current_project//[[:space:]]/}"
+
+    echo -n "${current_project}"
+}
+
+function repo_current_project_branch_status() {
+    local current_project
+    current_project=$(repo branch . 2>/dev/null) || return $?
+    if [[ -z "${current_project}" ]]; then
+        return 1
+    fi
+    if [[ "${current_project}" == \*p* ]]; then
+        __echo_colored "yellow" "${ICON_MAP[ARROW_UP_THICK]}"
+    fi
+    if [[ "${current_project}" == \*P* ]]; then
+        __echo_colored "green" "${ICON_MAP[ARROW_UP_THICK]}"
+    fi
 }
 
 function repo_current_project_upstream() {
@@ -184,3 +208,39 @@ if [ -n "${ANDROID_HOME}" ]; then
     PATH="${PATH}:${ANDROID_HOME}/tools/bin"
     PATH="${PATH}:${ANDROID_HOME}/platform-tools"
 fi
+
+# shortcuts for common commands - These should be replicated into the asimo extension.
+
+function asimo_flash() {
+    if ! __is_in_repo; then
+        echo "error: Not in Android repo tree"
+        return 1
+    fi
+
+    pushd "${CWD_REPO_ROOT}" || return 1
+    ./vendor/google/tools/flashall
+    popd || return 1
+}
+
+function asimo_build() {
+    if ! __is_in_repo; then
+        echo "error: Not in Android repo tree"
+        return 1
+    fi
+
+    pushd "${CWD_REPO_ROOT}" || return 1
+    m -j8
+    popd || return 1
+}
+
+function asimo_sync() {
+    if ! __is_in_repo; then
+        echo "error: Not in Android repo tree"
+        return 1
+    fi
+
+    pushd "${CWD_REPO_ROOT}" || return 1
+    repo sync -j8
+    popd || return 1
+}
+

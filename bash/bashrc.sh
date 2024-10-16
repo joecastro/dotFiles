@@ -67,29 +67,49 @@ On_White='\e[47m'       # White
 # Check the window size after each command and update the values of lines and columns
 shopt -s checkwinsize
 
-# Use "**" in pathname expansion will match files in subdirectories - Needs Bash 4+
-shopt -s globstar >/dev/null 2>&1
-
-# Disable extdebug because it causes issues with iTerm shell integration
-shopt -u extdebug
-
-# Use a different color for displaying the host name when we're logged into SSH
-if __is_ssh_session; then
-    HostColor=$Yellow
-    if __is_in_tmux; then
-        HostNameDisplay=""
-    else
-        HostNameDisplay=%M
-    fi
-else
-    HostColor=$Brown
-    HostNameDisplay=%m
+if ! __is_shell_old_bash; then
+    # Use "**" in pathname expansion will match files in subdirectories - Needs Bash 4+
+    shopt -s globstar
 fi
+
+if __is_iterm2_terminal; then
+    # Disable extdebug because it causes issues with iTerm shell integration
+    shopt -u extdebug
+fi
+
+function __calculate_host_color() {
+    local prompt_host_color="$Brown"
+
+    if [[ -n "${HOST_COLOR}" ]]; then
+        # Convert hex color code to RGB
+        local r g b
+        r=$(printf '%d' 0x"${HOST_COLOR:1:2}")
+        g=$(printf '%d' 0x"${HOST_COLOR:3:2}")
+        b=$(printf '%d' 0x"${HOST_COLOR:5:2}")
+
+        # Convert RGB to ANSI escape sequence
+        prompt_host_color="\033[38;2;${r};${g};${b}m"
+    fi
+
+    echo "$prompt_host_color"
+}
+
+function __calculate_host_name() {
+    local prompt_host_name="\h"
+
+    if __is_in_tmux; then
+        prompt_host_name=""
+    elif ! __is_ssh_session && [[ -n "${LOCALHOST_PREFERRED_DISPLAY}" ]]; then
+        prompt_host_name="${LOCALHOST_PREFERRED_DISPLAY}"
+    fi
+
+    echo "$prompt_host_name"
+}
 
 # disable the default virtualenv prompt change
 # export VIRTUAL_ENV_DISABLE_PROMPT=1
 
-PS1=\\[$White\\]$(__cute_time_prompt)\\[$Color_Off\\]' '\\[$BrightGreen\\]'\u'\\[$HostColor\\]'@\h'\\[$Color_Off\\]' $(__cute_pwd) % '
+PS1=\\[$White\\]$(__cute_time_prompt)\\[$Color_Off\\]' '\\[$BrightGreen\\]'\u'\\[$Yellow\\]'@'\\[$(__calculate_host_color)\\]$(__calculate_host_name)\\[$Color_Off\\]' $(__cute_pwd) % '
 export PS1
 
 __do_iterm2_shell_integration

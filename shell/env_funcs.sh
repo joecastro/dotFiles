@@ -7,7 +7,7 @@
 source "${DOTFILES_CONFIG_ROOT}/completion/git-prompt.sh"
 
 function _dotTrace() {
-    if (( ${+TRACE_DOTFILES} )); then
+    if [[ -n "${TRACE_DOTFILES}" ]]; then
         echo "TRACE $(date +%T): $*"
     fi
 }
@@ -60,6 +60,9 @@ declare -A EMOJI_ICON_MAP=(
     [DOCUMENTS]=📄
     [KEY]=🔑
     [LEGO]=🪀
+    [ARROW_UP]=⬆️
+    [ARROW_UP_THICK]=⬆️
+    [REVIEW]=📝
     ) > /dev/null 2>&1
 
 declare -A NF_ICON_MAP=(
@@ -107,6 +110,9 @@ declare -A NF_ICON_MAP=(
     [DOCUMENTS]=
     [KEY]=
     [LEGO]=
+    [ARROW_UP]=
+    [ARROW_UP_THICK]=󰁞
+    [REVIEW]=
     ) > /dev/null 2>&1
 
 function __is_ssh_session() {
@@ -142,6 +148,13 @@ function __git_is_detached_head() {
     git status 2> /dev/null | grep "HEAD detached" > /dev/null 2>&1
 }
 
+function __git_is_head_on_branch() {
+    local head_commit matching_branch
+    head_commit=$(git rev-parse --short HEAD)
+    matching_branch=$(git show-ref --head | grep "$head_commit" | grep -o 'refs/remotes/[^ ]*' | head -n 1)
+    [[ -n "$matching_branch" ]]
+}
+
 function __git_is_nothing_to_commit() {
     git status 2> /dev/null | grep "nothing to commit" > /dev/null 2>&1
 }
@@ -156,6 +169,32 @@ function __git_is_in_worktree() {
     [[ "${root_worktree}" != "${active_worktree}" ]]
 }
 
+function __git_print_commit_sha() {
+    if ! __is_in_git_repo; then
+        echo -n ""
+        return 1
+    fi
+
+    git rev-parse --short HEAD
+}
+
+function __git_print_branch_name() {
+    if ! __is_in_git_repo; then
+        echo -n ""
+        return 1
+    fi
+
+    local branch_name
+    branch_name=$(git rev-parse --abbrev-ref HEAD)
+    if [[ "${branch_name}" == "HEAD" ]]; then
+        echo -n ""
+        return 1
+    fi
+
+    echo -n "${branch_name}"
+
+}
+
 function __print_git_branch() {
     __is_in_git_repo --git-dir
     local git_repo_result=$?
@@ -167,24 +206,20 @@ function __print_git_branch() {
         return 0
     fi
 
-    local COMMIT_TEMPLATE_STRING="${ICON_MAP[GIT_COMMIT]}%s"
-    local COMMIT_MOD_TEMPLATE_STRING="${ICON_MAP[GIT_COMMIT]}%s*"
-    local BRANCH_TEMPLATE_STRING="${ICON_MAP[GIT_BRANCH]}%s"
-    local BRANCH_MOD_TEMPLATE_STRING="${ICON_MAP[GIT_BRANCH]}%s*"
-
+    local branch_display=""
     if __git_is_detached_head; then
-        if __git_is_nothing_to_commit; then
-            echo -ne "$(__git_ps1 "${COMMIT_TEMPLATE_STRING}")"
-        else
-            echo -ne "$(__git_ps1 "${COMMIT_MOD_TEMPLATE_STRING}")"
-        fi
+        branch_display+="${ICON_MAP[GIT_COMMIT]}"
+        branch_display+="$(__git_print_commit_sha)"
     else
-        if __git_is_nothing_to_commit; then
-            echo -ne "$(__git_ps1 "${BRANCH_TEMPLATE_STRING}")"
-        else
-            echo -ne "$(__git_ps1 "${BRANCH_MOD_TEMPLATE_STRING}")"
-        fi
+        branch_display+="${ICON_MAP[GIT_BRANCH]}"
+        branch_display+="$(__git_print_branch_name)"
     fi
+
+    if ! __git_is_nothing_to_commit; then
+        branch_display+="*"
+    fi
+
+    echo -ne "${branch_display}"
 }
 
 function __print_git_branch_short() {
@@ -200,14 +235,17 @@ function __print_git_branch_short() {
         return 0
     fi
 
-    local head_commit matching_branch
-    head_commit=$(git rev-parse --short HEAD)
-    matching_branch=$(git show-ref --head | grep "$head_commit" | grep -o 'refs/remotes/[^ ]*' | head -n 1)
-    if [ -n "$matching_branch" ]; then
+    if ! __git_is_detached_head; then
+        echo -n "${ICON_MAP[GIT_BRANCH]}"
+        return 0
+    fi
+
+    if __git_is_head_on_branch; then
         echo -n "${ICON_MAP[GIT_BRANCH]}"
     else
         echo -n "${ICON_MAP[GIT_COMMIT]}"
     fi
+
     return 0
 }
 
@@ -253,9 +291,9 @@ function __print_git_pwd() {
         anchor_icon="$(__print_git_branch_short)"
     fi
 
-    if __is_shell_zsh; then
-        anchor_icon="%{$(__z_print_git_branch_color_hint)%}${anchor_icon}%{${reset_color:?}%}"
-    fi
+    local color_hint
+    color_hint=$(__git_branch_color_hint)
+    anchor_icon=$(__echo_colored "${color_hint}" "${anchor_icon}")
 
     local anchored_path
     if [[ $git_repo_result == 1 ]]; then
@@ -344,12 +382,17 @@ function __print_repo_worktree() {
     fi
     line+="${manifest_branch}"
 
+    __echo_colored "green" "${line}"
+
     local current_project
     if current_project=$(repo_current_project); then
-        line+=":$(__print_abbreviated_path "${current_project}")"
+        local current_branch
+        if current_branch=$(repo_current_project_branch); then
+            __echo -n ":$(repo_current_project_branch_status)${current_branch}"
+        else
+            __echo_colored "green" ":$(__print_abbreviated_path "${current_project}")"
+        fi
     fi
-
-    echo -n "${line}"
 }
 
 function __is_shell_interactive() {
@@ -433,6 +476,14 @@ function __is_shell_old_bash() {
 
 function __is_shell_zsh() {
     [[ -n "$ZSH_VERSION" ]]
+}
+
+function __has_homebrew() {
+    command -v brew > /dev/null
+}
+
+function __has_citc() {
+    command -v citctools > /dev/null
 }
 
 function __cache_available() {
@@ -554,6 +605,104 @@ else
     fi
 fi
 
+if __is_shell_zsh; then
+
+    function __is_text_colored() {
+        local text="$1"
+        [[ "$text" == *"%{"* && "$text" == *"%}"* ]]
+    }
+
+    function __echo_colored() {
+        local color_name="$1"
+        shift
+        local text="$*"
+        local style=""
+
+        # Check for optional style parameters
+        if [[ "$color_name" == "bold" || "$color_name" == "bright" ]]; then
+            style="$color_name"
+            color_name="$1"
+            shift
+            text="$*"
+        fi
+
+        local color_code
+        # Apply style if specified
+        if [[ "$style" == "bold" ]]; then
+            # shellcheck disable=SC2154
+            color_code="%{${fg_bold[${color_name}]}%}"
+        elif [[ "$style" == "bright" ]]; then
+            # shellcheck disable=SC2154
+            color_code="%{${fg_bright[${color_name}]}%}"
+        else
+            # shellcheck disable=SC2154
+            color_code="%{${fg[${color_name}]}%}"
+        fi
+
+        if __is_text_colored "$text"; then
+            echo -ne "${text}"
+            echo "E: Trying to colorize colored text: ${text}" >&2
+            return 0
+        fi
+
+        # shellcheck disable=SC2154
+        echo -ne "%{${color_code}%}${text}%{${reset_color}%}"
+    }
+
+else
+
+    function __is_text_colored() {
+        local text="$1"
+
+        [[ "$text" == *"\e["* && "$text" == *"m"* ]]
+    }
+
+    function __echo_colored() {
+        local color_name="$1"
+        shift
+        local text="$*"
+        local style=""
+
+        # Check for optional style parameters
+        if [[ "$color_name" == "bold" || "$color_name" == "bright" ]]; then
+            style="$color_name"
+            color_name="$1"
+            shift
+            text="$*"
+        fi
+
+        declare -A color_map=(
+            ["black"]="0"
+            ["red"]="1"
+            ["green"]="2"
+            ["yellow"]="3"
+            ["blue"]="4"
+            ["magenta"]="5"
+            ["cyan"]="6"
+            ["white"]="7"
+        )
+
+        # Default to white if color not found
+        local color_code="3${color_map[$color_name]:-7}"
+
+        # Apply style if specified
+        if [[ "$style" == "bold" ]]; then
+            color_code="1;${color_code}"
+        elif [[ "$style" == "bright" ]]; then
+            color_code="9${color_map[$color_name]:-7}"
+        fi
+
+        if __is_text_colored "$text"; then
+            echo -ne "${text}"
+            echo "E: Trying to colorize colored text: ${text}" >&2
+            return 0
+        fi
+
+        echo -ne "\e[${color_code}m${text}\e[0m"
+    }
+
+fi
+
 # Shared cuteness
 
 function __print_abbreviated_path() {
@@ -569,17 +718,15 @@ function __print_abbreviated_path() {
     echo -n "${result}"
 }
 
-if __is_shell_zsh; then
-    function __z_print_git_branch_color_hint() {
-        if __git_is_nothing_to_commit; then
-            echo -ne "%{${fg[green]:-}%}"
-        elif __git_is_detached_head; then
-            echo -ne "%{${fg[red]}:-%}"
-        else
-            echo -ne "%{${fg[yellow]:0}%}"
-        fi
-    }
-fi
+function __git_branch_color_hint() {
+    if __git_is_nothing_to_commit; then
+        echo -ne "green"
+    elif __git_is_detached_head; then
+        echo -ne "red"
+    else
+        echo -ne "yellow"
+    fi
+}
 
 if ! __is_shell_old_bash; then
 
@@ -703,7 +850,7 @@ function __cute_shell_header() {
 }
 
 if __is_shell_bash; then
-    CUTE_HEADER_PARTS+=("${SHELL}" "${BASH_VERSION}")
+    CUTE_HEADER_PARTS+=("$(which "$0")" "${BASH_VERSION}")
 fi
 if __is_shell_zsh; then
     CUTE_HEADER_PARTS+=("$(zsh --version)")
@@ -785,6 +932,7 @@ function __konsole_integration_precmd() {
     if [[ "$_prompt_executing" != "0" ]]; then
         _PROMPT_SAVE_PS1="$PS1"
         _PROMPT_SAVE_PS2="$PS2"
+        # shellcheck disable=SC2025
         PS1=$'%{\e]133;P;k=i\a%}'$PS1$'%{\e]133;B\a\e]122;> \a%}'
         PS2=$'%{\e]133;P;k=s\a%}'$PS2$'%{\e]133;B\a%}'
     fi
