@@ -388,7 +388,7 @@ function __print_repo_worktree() {
     if current_project=$(repo_current_project); then
         local current_branch
         if current_branch=$(repo_current_project_branch); then
-            __echo -n ":$(repo_current_project_branch_status)${current_branch}"
+            echo -n ":$(repo_current_project_branch_status)${current_branch}"
         else
             __echo_colored "green" ":$(__print_abbreviated_path "${current_project}")"
         fi
