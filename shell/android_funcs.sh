@@ -7,7 +7,19 @@ function repo_find() {
         echo "${CWD_REPO_ROOT}"
         return 0
     fi
-    find . -maxdepth 4 -type d -name '.repo' -print -quit | sed 's#/\.repo$##' | head -n1
+
+    if [[ -n "${ANDROID_REPO_ROOT}" ]]; then
+        echo "${ANDROID_REPO_ROOT}"
+        return 0
+    fi
+
+    local repo_root
+    repo_root=$(find . -maxdepth 4 -type d -name '.repo' -print -quit | sed 's#/\.repo$##' | head -n1)
+    if [[ -z "${repo_root}" ]]; then
+        echo "error: Unable to find repo root tree."
+        return 1;
+    fi
+    echo "${repo_root}"
 }
 
 alias repoGo='pushd "$(repo_find)"'

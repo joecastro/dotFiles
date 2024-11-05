@@ -149,9 +149,7 @@ function __git_is_detached_head() {
 }
 
 function __git_is_head_on_branch() {
-    local head_commit matching_branch
-    head_commit=$(git rev-parse --short HEAD)
-    matching_branch=$(git show-ref --head | grep "$head_commit" | grep -o 'refs/remotes/[^ ]*' | head -n 1)
+    matching_branch=$(git show-ref --head | grep "$(__git_print_commit_sha)" | grep -o 'refs/remotes/[^ ]*' | head -n 1)
     [[ -n "$matching_branch" ]]
 }
 
@@ -185,14 +183,12 @@ function __git_print_branch_name() {
     fi
 
     local branch_name
-    branch_name=$(git rev-parse --abbrev-ref HEAD)
-    if [[ "${branch_name}" == "HEAD" ]]; then
-        echo -n ""
+    if ! branch_name=$(git symbolic-ref --short HEAD 2> /dev/null); then
+        echo -n "HEAD"
         return 1
     fi
 
     echo -n "${branch_name}"
-
 }
 
 function __print_git_branch() {
