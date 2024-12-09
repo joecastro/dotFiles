@@ -15,6 +15,7 @@ import re
 import shutil
 import subprocess
 import sys
+import argparse
 
 HOME = str(Path.home())
 CWD = '.'
@@ -703,76 +704,87 @@ def parse_hosts_from_args(host_args) -> list:
 
 def main(args) -> int:
     ''' Apply dotFiles operations '''
-    print_only = False
-    if '--dry-run' in args:
-        print_only = True
-        args.remove('--dry-run')
-    if '--working-dir' in args:
-        index = args.index('--working-dir')
-        working_dir = args[index + 1]
-        args.remove('--working-dir')
-        args.remove(working_dir)
-        os.chdir(working_dir)
-    verbose=False
-    if '--verbose' in args:
-        verbose = True
-        args.remove('--verbose')
-    if '-v' in args:
-        verbose = True
-        args.remove('-v')
-    quiet=False
-    if '--quiet' in args:
-        quiet = True
-        args.remove('--quiet')
-    if '-q' in args:
-        quiet = True
-        args.remove('-q')
+    parser = argparse.ArgumentParser(description='Apply dotFiles operations')
+    parser.add_argument('option', nargs=1, help='Operation to perform')
+    parser.add_argument('--hosts', nargs='+', help='Hosts to apply the operation to')
+    host_group = parser.add_mutually_exclusive_group()
+    host_group.add_argument('--all', action='store_true', help='Apply to all hosts')
+    host_group.add_argument('--local', action='store_true', help='Apply to the local host')
+    parser.add_argument('--dry-run', action='store_true', help='Print operations without executing them')
+    parser.add_argument('--working-dir', help='Set the working directory')
+    parser.add_argument('--verbose', '-v', action='store_true', help='Enable verbose output')
+    parser.add_argument('--quiet', '-q', action='store_true', help='Suppress output')
 
-    option = args[0]
-    host_args = args[1:]
+    args = parser.parse_args()
 
+    print_only = args.dry_run
+    if args.working_dir:
+        os.chdir(args.working_dir)
+    verbose = args.verbose
+    quiet = args.quiet
+
+    option = args.option[0]
+    host_args_local = args.local
+    host_args_all = args.all
     if option.endswith('-local'):
         option = option[:len(option)-len('-local')]
-        host_args = ['--local']
+        host_args_local = True
     elif option.endswith('-all'):
         option = option[:len(option)-len('-all')]
-        host_args = ['--all']
+        host_args_all = True
 
-    if option in ['--push', '--pull', '--stage', '--push-only']:
-        hosts = parse_hosts_from_args(host_args)
-        if len(hosts) == 0:
-            raise ValueError(f'No hosts found in "{host_args}"')
+    if host_args_local and host_args_all:
+        raise ValueError('Cannot specify both --local and --all')
+
+    if host_args_local:
+        if args.hosts:
+            raise ValueError('Cannot specify --local and hosts')
+        hosts = [config.get_localhost()]
+    elif host_args_all:
+        if args.hosts:
+            raise ValueError('Cannot specify --all and hosts')
+        hosts = config.hosts
+    elif args.hosts:
+        hosts = [h for h in config.hosts if h.hostname in args.hosts]
+    else:
+        hosts = []
+
+    if option in ['push', 'pull', 'stage', 'push-only'] and len(hosts) == 0:
+        if not args.hosts:
+            raise ValueError('No hosts specified')
+        else:
+            raise ValueError(f'No hosts found in "{args.hosts}"')
 
     ops = []
     match option:
-        case '--compare-iterm2-prefs':
+        case 'compare-iterm2-prefs':
             ops.append(compare_iterm2_prefs)
-        case '--compare-user-settings':
+        case 'compare-user-settings':
             ops.append(partial(compare_user_settings, host=config.get_localhost()))
-        case '--update-workspace-extensions':
+        case 'update-workspace-extensions':
             ops.append(update_workspace_extensions)
-        case '--generate-workspace':
+        case 'generate-workspace':
             ops.append(generate_derived_workspace)
-        case '--snapshot-iterm2-prefs':
+        case 'snapshot-iterm2-prefs':
             ops.append(snapshot_iterm2_prefs_json)
-        case '--push-iterm2-prefs':
+        case 'push-iterm2-prefs':
             ops.append(push_iterm2_prefs)
-        case '--push-gnome-settings':
+        case 'push-gnome-settings':
             ops.extend(push_gnome_settings())
-        case '--bootstrap-windows':
+        case 'bootstrap-windows':
             ops.extend(bootstrap_windows())
-        case '--install-sublime-plugins':
+        case 'install-sublime-plugins':
             ops.extend(push_sublimetext_windows_plugins())
-        case '--push':
+        case 'push':
             ops.extend(chain.from_iterable([stage_local(host, verbose=verbose) for host in hosts]))
             ops.extend(chain.from_iterable([push_remote_staging(host, verbose=verbose) for host in hosts]))
             if any(host.is_localhost() and host.kernel == 'darwin' for host in hosts):
                 ops.append(push_iterm2_prefs)
-        case '--stage':
+        case 'stage':
             ops.extend(chain.from_iterable([stage_local(host, verbose=verbose) for host in hosts]))
-        case '--push-only':
+        case 'push-only':
             ops.extend(chain.from_iterable([push_remote_staging(host, verbose=verbose) for host in hosts]))
-        case '--pull':
+        case 'pull':
             if len(hosts) != 1:
                 raise ValueError('Cannot pull from multiple hosts')
             ops.extend(pull_remote(hosts[0]))
