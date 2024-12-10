@@ -2,8 +2,11 @@
 
 #pragma once
 
-test -e ~/.env_vars.sh && source ~/.env_vars.sh
-test -e ~/.cargo/env && source ~/.cargo/env
+#pragma validate-dotfiles
+
+source ~/.env_vars.sh
+
+[[ -f ~/.cargo/env ]] && source ~/.cargo/env
 
 EXPECT_NERD_FONTS="${EXPECT_NERD_FONTS:-0}"
 # BE_LOUD_ABOUT_SLOW_COMMANDS=0
@@ -38,7 +41,7 @@ function __embedded_terminal_info() {
 typeset -A DISTRIBUTION_ID_FUNCS=( \
     [WSL]="__is_on_wsl" \
     [OSX]="__is_on_osx" \
-    [Windows]="__is_on_windows" )
+    [WINDOWS]="__is_on_windows" )
 
 function __z_effective_distribution() {
     for distro func in ${(kv)DISTRIBUTION_ID_FUNCS}; do
@@ -82,7 +85,8 @@ function __virtualenv_info() {
     return ${has_virtualenv}
 }
 
-[[ -f "${DOTFILES_CONFIG_ROOT}/google_funcs.zsh" ]] && source "${DOTFILES_CONFIG_ROOT}/google_funcs.zsh"
+[[ -f "${DOTFILES_CONFIG_ROOT}/google_funcs.sh" ]] && source "${DOTFILES_CONFIG_ROOT}/google_funcs.sh"
+source "${DOTFILES_CONFIG_ROOT}/osx_funcs.sh"
 source "${DOTFILES_CONFIG_ROOT}/android_funcs.sh" # Android shell utility functions
 source "${DOTFILES_CONFIG_ROOT}/util_funcs.sh"
 

@@ -3,7 +3,9 @@
 
 #pragma once
 
-# shellcheck source=/dev/null
+#pragma validate-dotfiles
+
+# shellcheck source=SCRIPTDIR/profile.sh
 source ~/.profile
 
 # If not running interactively, don't do anything

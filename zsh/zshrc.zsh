@@ -2,6 +2,8 @@
 
 #pragma once
 
+#pragma validate-dotfiles
+
 # In some contexts .zprofile isn't sourced (e.g. when started inside the Python debug console.)
 # shellcheck disable=SC1090
 source ${ZDOTDIR:-$HOME}/.zprofile
@@ -130,10 +132,6 @@ zle -N zle-line-init
 
 # Finish all the autoloads before sourcing. Some scripts presume compinit and no more zle's
 source "${HOME}/.config/zshext/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
-
-if __is_on_osx; then
-    source "${DOTFILES_CONFIG_ROOT}/osx_funcs.zsh"
-fi
 
 chpwd_functions=($chpwd_functions __update_prompt __auto_apply_venv_on_chpwd)
 
@@ -265,7 +263,7 @@ __do_eza_aliases
 
 # echo "Welcome to $(__z_effective_distribution)!"
 case "$(__z_effective_distribution)" in
-"GLinux")
+"GLINUX")
     # echo "GLinux zshrc load complete"
     __on_glinux_zshrc_load_complete
 
@@ -275,7 +273,7 @@ case "$(__z_effective_distribution)" in
     if __has_homebrew; then
         gnubin_path="$(brew --prefix)/opt/coreutils/libexec/gnubin"
         if [ -d "${gnubin_path}" ]; then
-            path=("${gnubin_path}" $path)
+            path=("${gnubin_path}" "${path[@]}")
         fi
         unset gnubin_path
     fi

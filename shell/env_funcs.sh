@@ -891,10 +891,23 @@ function __cute_shell_header() {
 }
 
 if __is_shell_bash; then
-    CUTE_HEADER_PARTS+=("$(which "$0")" "${BASH_VERSION}")
+    if [[ "$(which "$0")" == "/bin/bash" ]] || [[ "$(which "$0")" == "/usr/bin/bash" ]]; then
+        CUTE_HEADER_PARTS+=("bash")
+    else
+        CUTE_HEADER_PARTS+=("$0")
+    fi
+
+    CUTE_HEADER_PARTS+=("${BASH_VERSINFO[0]}.${BASH_VERSINFO[1]}.${BASH_VERSINFO[2]}")
 fi
+
 if __is_shell_zsh; then
-    CUTE_HEADER_PARTS+=("$(zsh --version)")
+    if [[ "${SHELL}" == "/bin/zsh" ]] || [[ "${SHELL}" == "/usr/bin/zsh" ]]; then
+        CUTE_HEADER_PARTS+=("zsh")
+    else
+        CUTE_HEADER_PARTS+=("${SHELL}")
+    fi
+
+    CUTE_HEADER_PARTS+=("${ZSH_VERSION}")
 fi
 
 CUTE_HEADER_PARTS+=("$(uname -smn)")
@@ -949,7 +962,7 @@ function __do_iterm2_shell_integration() {
         return 1
     fi
 
-    # shellcheck source=/dev/null
+    # shellcheck source=SCRIPTDIR/iterm2_funcs.sh
     [[ -f "${DOTFILES_CONFIG_ROOT}/iterm2_funcs.sh" ]] && source "${DOTFILES_CONFIG_ROOT}/iterm2_funcs.sh"
 }
 

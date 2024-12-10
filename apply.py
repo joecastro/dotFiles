@@ -419,15 +419,16 @@ def install_vscode_extensions(host, verbose=False) -> list:
             return ['>> No vscode extensions to install']
         return []
 
+    ops = []
+
     if extensions_to_install:
-        ops = [
-            f'>> Installing {len(extensions_to_install)} vscode extensions',
-            ['ssh', host.hostname, '; '.join([f'code --install-extension {ext}' for ext in extensions_to_install])]]
+        ops.append(f'>> Installing {len(extensions_to_install)} vscode extensions')
+        ops.extend(['ssh', host.hostname, '; '.join([f'code --install-extension {ext}' for ext in extensions_to_install])])
 
     if extensions_to_remove:
-        ops = [
-            f'>> Removing {len(extensions_to_remove)} vscode extensions',
-            ['ssh', host.hostname, '; '.join([f'code --uninstall-extension {ext}' for ext in extensions_to_remove])]]
+        ops.append(f'>> Removing {len(extensions_to_remove)} vscode extensions')
+        ops.extend(['ssh', host.hostname, '; '.join([f'code --uninstall-extension {ext}' for ext in extensions_to_remove])])
+
     return ops
 
 
@@ -459,6 +460,17 @@ def make_finish_script(command_ops, script_path: str, verbose) -> list:
     if verbose:
         ops.append(f'Generated finish script at {script_path}')
     ops.append(['chmod', 'u+x', script_path])
+
+    return ops
+
+
+def clean_remote_dotfiles(host) -> list:
+    ops = [f'>> Cleaning existing configuration files for {host.hostname}']
+
+    dirs_to_remove = remove_children_from_set(set(host.directory_maps.values()).union({host.config_dir}))
+    files_to_remove = [f for f in host.file_maps.values() if not any(f.startswith(d) for d in dirs_to_remove)]
+    ops.extend(host.make_ops(['rm', '-f', os.path.join(host.home, f)] for f in sorted(files_to_remove)))
+    ops.extend(host.make_ops(['rm', '-rf', os.path.join(host.home, d)] for d in sorted(dirs_to_remove)))
 
     return ops
 
@@ -749,7 +761,7 @@ def main(args) -> int:
     else:
         hosts = []
 
-    if option in ['push', 'pull', 'stage', 'push-only'] and len(hosts) == 0:
+    if option in ['push', 'pull', 'stage', 'push-only', 'clean'] and len(hosts) == 0:
         if not args.hosts:
             raise ValueError('No hosts specified')
         else:
@@ -788,6 +800,8 @@ def main(args) -> int:
             if len(hosts) != 1:
                 raise ValueError('Cannot pull from multiple hosts')
             ops.extend(pull_remote(hosts[0]))
+        case 'clean':
+            ops.extend(chain.from_iterable([clean_remote_dotfiles(host) for host in hosts]))
         case _:
             print('<unknown arg>')
             return 1

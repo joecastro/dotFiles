@@ -1,9 +1,13 @@
-#!/bin/zsh
+#!/bin/bash
 
 #pragma once
 
+#pragma validate-dotfiles
+
+__is_on_osx || return
+
 function battery_charge {
-    echo -n $(python3 "${DOTFILES_CONFIG_ROOT}"/batcharge.py)
+    echo -n "$(python3 "${DOTFILES_CONFIG_ROOT}"/batcharge.py)"
 }
 
 function chjava() {

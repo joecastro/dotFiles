@@ -2,6 +2,8 @@
 
 #pragma once
 
+#pragma validate-dotfiles
+
 # shellcheck source=/dev/null
 source ~/.env_vars.sh
 
