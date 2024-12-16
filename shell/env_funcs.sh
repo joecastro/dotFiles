@@ -3,6 +3,7 @@
 #pragma once
 
 # Defines __git_ps1
+
 # shellcheck source=/dev/null
 source "${DOTFILES_CONFIG_ROOT}/completion/git-prompt.sh"
 
@@ -205,11 +206,12 @@ function __print_git_branch() {
     local branch_display=""
     if __git_is_detached_head; then
         branch_display+="${ICON_MAP[GIT_COMMIT]}"
-        branch_display+="$(__git_print_commit_sha)"
+        #branch_display+="$(__git_print_commit_sha)"
     else
         branch_display+="${ICON_MAP[GIT_BRANCH]}"
-        branch_display+="$(__git_print_branch_name)"
+        #branch_display+="$(__git_print_branch_name)"
     fi
+    branch_display+="$(__git_ps1 "%s")"
 
     if ! __git_is_nothing_to_commit; then
         branch_display+="*"
