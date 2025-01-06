@@ -7,7 +7,7 @@ local PeacockColor(name, color) = {
 };
 
 local editorSettings = {
-    "editor.fontFamily": "Cascadia Code NF, Consolas",
+    "editor.fontFamily": "Cascadia Code NF, CaskaydiaCove NF, Consolas",
     "editor.fontLigatures": true,
     "editor.formatOnType": true,
     "editor.renderWhitespace": "all",
@@ -20,7 +20,7 @@ local terminalSettings = {
     "terminal.integrated.cursorStyle": "line",
     "terminal.integrated.defaultProfile.osx": "zsh",
     "terminal.integrated.enableImages": true,
-    "terminal.integrated.fontFamily": "Cascadia Code NF, Consolas",
+    "terminal.integrated.fontFamily": "Cascadia Code NF, CaskaydiaCove NF, Consolas",
     "terminal.integrated.profiles.linux": {
         "bash": {
             "icon": "terminal-bash",

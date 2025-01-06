@@ -45,7 +45,10 @@ class Host:
         if self.hostname == 'localhost':
             self.hostname = platform.uname().node
         if self.hostname == platform.uname().node:
-            self.kernel = platform.uname().system.lower()
+            if platform.uname().release.endswith('WSL2'):
+                self.kernel = 'NT'
+            else:
+                self.kernel = platform.uname().system.lower()
         self.file_maps = dict(self.file_maps)
         self.file_maps |= {item2:item3 for (_, item2, item3) in self.jsonnet_maps}
         self.prestaged_files.update([item2 for (_, item2, _) in self.jsonnet_maps])

@@ -2,6 +2,7 @@ local ext_vars = {
     home: std.extVar('home'),
     cwd: std.extVar('cwd'),
     is_osx: std.extVar('kernel') == 'darwin',
+    is_windows: std.extVar('kernel') == 'NT',
     is_localhost: std.extVar('is_localhost') == 'true',
     hostname: std.extVar('hostname')
 };
@@ -19,6 +20,10 @@ local jsonnet_maps = [
 
 local jsonnet_localhost_mac_maps = [
     ['vscode/user_settings.jsonnet', 'gen/vscode_user_settings.json', 'Library/Application Support/Code/User/settings.json']
+];
+
+local jsonnet_localhost_windows_maps = [
+    ['vscode/user_settings.jsonnet', 'gen/vscode_user_settings.json', 'AppData/Roaming/Code/User/settings.json']
 ];
 
 local jsonnet_multi_maps = [
@@ -171,11 +176,14 @@ local Host(hostname, home, icon, color, primary_wallpaper, android_wallpaper) = 
 
     is_localhost:: $.hostname == ext_vars.hostname && ext_vars.is_localhost,
     is_osx:: $.is_localhost && ext_vars.is_osx,
+    is_windows:: $.is_localhost && ext_vars.is_windows,
 
     config_dir: config_dir,
     curl_maps: curl_maps,
     jsonnet_maps: jsonnet_maps +
-        if $.is_osx then jsonnet_localhost_mac_maps else [],
+        if $.is_osx then jsonnet_localhost_mac_maps
+        else if $.is_windows then jsonnet_localhost_windows_maps
+        else [],
     jsonnet_multi_maps: jsonnet_multi_maps,
     directory_maps: directory_maps,
     macros: macros,

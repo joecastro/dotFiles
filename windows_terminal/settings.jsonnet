@@ -36,6 +36,7 @@ local Font(face) = {
 
 local fonts = {
     CascadiaCode: Font("Cascadia Code NF"),
+    CaskaydiaCove: Font("CaskaydiaCove NF"),
     LucidaConsole: Font("Lucida Console"),
 };
 
