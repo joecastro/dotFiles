@@ -788,13 +788,14 @@ if ! __is_shell_old_bash; then
             ["/"]=${ICON_MAP[FAE_TREE]}
         )
 
-        if __is_on_wsl; then
-            KNOWN_DIRS["${WIN_USERPROFILE}"]=${ICON_MAP[WINDOWS]}
-        fi
-
         # These should only match if they're exact.
         if [[ -v KNOWN_DIRS[$ACTIVE_DIR] ]]; then
             echo -n "${KNOWN_DIRS[$ACTIVE_DIR]}"
+            return 0
+        fi
+
+        if __is_on_wsl && [ "${ACTIVE_DIR}" == "${WIN_USERPROFILE}" ]; then
+            echo -n "${ICON_MAP[WINDOWS]}"
             return 0
         fi
 
@@ -893,7 +894,9 @@ function __cute_shell_header() {
 }
 
 if __is_shell_bash; then
-    if [[ "$(which "$0")" == "/bin/bash" ]] || [[ "$(which "$0")" == "/usr/bin/bash" ]]; then
+    if [[ "$0" == "-bash" ]]; then
+        CUTE_HEADER_PARTS+=("bash")
+    elif [[ "$(which "$0")" == "/bin/bash" ]] || [[ "$(which "$0")" == "/usr/bin/bash" ]]; then
         CUTE_HEADER_PARTS+=("bash")
     else
         CUTE_HEADER_PARTS+=("$0")

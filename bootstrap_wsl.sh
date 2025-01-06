@@ -42,3 +42,6 @@ sudo apt update
 
 sudo apt install -y \
     eza
+
+sudo apt install -y \
+    zsh
