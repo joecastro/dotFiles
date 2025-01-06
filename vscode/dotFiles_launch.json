@@ -9,7 +9,7 @@
             "program": "${workspaceFolder}/apply.py",
             "console": "integratedTerminal",
             "args": [
-                "--generate-workspace"
+                "generate-workspace"
             ]
         },
         {
@@ -19,7 +19,7 @@
             "program": "${workspaceFolder}/apply.py",
             "console": "integratedTerminal",
             "args": [
-                "--stage-all"
+                "stage-all"
             ]
         },
         {
@@ -29,7 +29,7 @@
             "program": "${workspaceFolder}/apply.py",
             "console": "integratedTerminal",
             "args": [
-                "--push-all"
+                "push-all"
             ]
         },
         {
@@ -39,7 +39,7 @@
             "program": "${workspaceFolder}/apply.py",
             "console": "integratedTerminal",
             "args": [
-                "--push",
+                "push",
                 "joec1.c.googlers.com"
             ]
         },
@@ -50,7 +50,7 @@
             "program": "${workspaceFolder}/apply.py",
             "console": "integratedTerminal",
             "args": [
-                "--pull",
+                "pull",
                 "joec1.c.googlers.com"
             ]
         },
@@ -60,7 +60,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/apply.py",
             "console": "integratedTerminal",
-            "args": [ "--update-workspace-extensions" ]
+            "args": [ "update-workspace-extensions" ]
         },
         {
             "name": "Push to local dotFiles",
@@ -68,7 +68,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/apply.py",
             "console": "integratedTerminal",
-            "args": ["--push", "--local"]
+            "args": ["push", "--local"]
         },
         {
             "name": "Push iTerm2 Settings",
@@ -76,7 +76,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/apply.py",
             "console": "integratedTerminal",
-            "args": ["--push-iterm2-prefs"]
+            "args": ["push-iterm2-prefs"]
         },
         {
             "name": "Snapshot iTerm2 Settings",
@@ -84,7 +84,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/apply.py",
             "console": "integratedTerminal",
-            "args": ["--snapshot-iterm2-prefs-json"]
+            "args": ["snapshot-iterm2-prefs-json"]
         },
         {
             "name": "Compare iTerm2 Settings",
@@ -92,7 +92,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/apply.py",
             "console": "integratedTerminal",
-            "args": ["--compare-iterm2-prefs"]
+            "args": ["compare-iterm2-prefs"]
         },
         {
             "name": "Compare VSCode User Settings",
@@ -100,7 +100,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/apply.py",
             "console": "integratedTerminal",
-            "args": ["--compare-user-settings"]
+            "args": ["compare-user-settings"]
         },
         {
             "name": "Bootstrap Windows Environment",
@@ -109,7 +109,7 @@
             "program": "${workspaceFolder}/apply.py",
             "console": "integratedTerminal",
             "args": [
-                "--bootstrap-windows"
+                "bootstrap-windows"
             ]
         },
         {
