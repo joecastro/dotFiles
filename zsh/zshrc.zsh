@@ -147,6 +147,12 @@ function __print_git_worktree_prompt() {
     fi
 }
 
+function __print_last_command_status_prompt() {
+    if [[ "$?" -ne 0 ]]; then
+        echo -n "%{$fg[red]%}!"
+    fi
+}
+
 function __update_prompt() {
     _dotTrace "__update_prompt"
 
@@ -169,31 +175,33 @@ function __update_prompt() {
     }
 
     function __generate_prompt() {
-        local preamble=''
+        # Prefix an indicator when the last command failed.
+        local preamble='$(__print_last_command_status_prompt)'
         local dynamic_part=''
         local style="$1"
+
         case "${style}" in
         "Git")
-            preamble="%{$fg[green]%}"
+            preamble+="%{$fg[green]%}"
 
             dynamic_part+='$(__print_git_worktree_prompt)'
             dynamic_part+='$(__echo_colored "$(__git_branch_color_hint)" "$(__print_git_branch)") '
             dynamic_part+='$(__print_git_pwd --no-branch)'
             ;;
         "Repo")
-            preamble="%{$fg[yellow]%}"
+            preamble+="%{$fg[yellow]%}"
 
             dynamic_part+='$(__print_repo_worktree) '
             dynamic_part+='$(__cute_pwd)'
             ;;
         "Piper")
-            preamble="%{$fg[blue]%}"
+            preamble+="%{$fg[blue]%}"
 
             dynamic_part+='$(__print_citc_workspace) '
             dynamic_part+='$(__cute_pwd)'
             ;;
         *)
-            preamble="%{$reset_color%}"
+            preamble+="%{$reset_color%}"
             dynamic_part='$(__cute_pwd)'
         esac
 

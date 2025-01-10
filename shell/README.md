@@ -4,7 +4,7 @@ Schemes are accumulated from a few sources.
 
 Including:
 
-* https://github.com/mbadolato/iTerm2-Color-Schemes
+* <https://github.com/mbadolato/iTerm2-Color-Schemes>
 
 colordefs.jsonnet:
 

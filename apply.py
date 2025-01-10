@@ -513,18 +513,25 @@ def process_macros_for_staged_files(host, file) -> None:
             f.writelines(line + '\n' for line in modified_content)
 
 
-def stage_local(host, verbose=False) -> list[str]:
+def stage_local(host, verbose=False, use_cache=False) -> list[str]:
     ops = [f'Staging dotFiles for {host.hostname} in {host.get_local_staging_dir()}']
 
-    ops.append(['rm', '-rf', host.get_local_staging_dir()])
+    if not use_cache:
+        ops.append(['rm', '-rf', host.get_local_staging_dir()])
 
     files_to_stage = [file for file in host.file_maps.keys() if file not in host.prestaged_files]
     directories_to_stage = [dir for dir in host.directory_maps.keys() if dir not in host.prestaged_directories]
-    ops.append('>> Precaching curl files')
-    ops.extend(preprocess_curl_files(host, host.get_local_staging_dir(), verbose=verbose))
-    ops.append('>> Preprocessing jsonnet files')
-    ops.extend(preprocess_jsonnet_files(host, CWD, host.get_local_staging_dir(), verbose=verbose))
-    ops.extend(preprocess_jsonnet_directories(host, CWD, host.get_local_staging_dir(), verbose=verbose))
+    # These don't change often and take a relatively long time.
+    # When I'm just iterating on bash and zsh startup files this is more efficient.
+    if use_cache:
+        ops.append('>> Using cache for jsonnet and curl files')
+    else:
+        ops.append('>> Precaching curl files')
+        ops.extend(preprocess_curl_files(host, host.get_local_staging_dir(), verbose=verbose))
+        ops.append('>> Preprocessing jsonnet files')
+        ops.extend(preprocess_jsonnet_files(host, CWD, host.get_local_staging_dir(), verbose=verbose))
+        ops.extend(preprocess_jsonnet_directories(host, CWD, host.get_local_staging_dir(), verbose=verbose))
+
     # Copy directories first. Any files that may be explicitly copied can overwrite these.
     ops.append('>> Staging directories and files')
     ops.extend(copy_directories_local(CWD, directories_to_stage, host.get_local_staging_dir(), directories_to_stage, False))
@@ -723,6 +730,7 @@ def main(args) -> int:
     host_group.add_argument('--all', action='store_true', help='Apply to all hosts')
     host_group.add_argument('--local', action='store_true', help='Apply to the local host')
     parser.add_argument('--dry-run', action='store_true', help='Print operations without executing them')
+    parser.add_argument('--use-cache', action='store_true', help='Use previously generated jsonnet output and curled files when staging')
     parser.add_argument('--working-dir', help='Set the working directory')
     parser.add_argument('--verbose', '-v', action='store_true', help='Enable verbose output')
     parser.add_argument('--quiet', '-q', action='store_true', help='Suppress output')
@@ -733,6 +741,7 @@ def main(args) -> int:
     if args.working_dir:
         os.chdir(args.working_dir)
     verbose = args.verbose
+    use_cache = args.use_cache
     quiet = args.quiet
 
     option = args.option[0]
@@ -788,7 +797,7 @@ def main(args) -> int:
         case 'install-sublime-plugins':
             ops.extend(push_sublimetext_windows_plugins())
         case 'push':
-            ops.extend(chain.from_iterable([stage_local(host, verbose=verbose) for host in hosts]))
+            ops.extend(chain.from_iterable([stage_local(host, verbose=verbose, use_cache=use_cache) for host in hosts]))
             ops.extend(chain.from_iterable([push_remote_staging(host, verbose=verbose) for host in hosts]))
             if any(host.is_localhost() and host.kernel == 'darwin' for host in hosts):
                 ops.append(push_iterm2_prefs)
