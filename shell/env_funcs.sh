@@ -7,6 +7,14 @@
 # shellcheck source=/dev/null
 source "${DOTFILES_CONFIG_ROOT}/completion/git-prompt.sh"
 
+if [[ ":$PATH:" != *":${DOTFILES_CONFIG_ROOT}/bin:"* ]]; then
+    PATH="${DOTFILES_CONFIG_ROOT}/bin:${PATH}"
+fi
+
+if [[ ":$PATH:" != *":${HOME}/.local/bin:"* ]]; then
+    PATH="${HOME}/.local/bin:${PATH}"
+fi
+
 function _dotTrace() {
     if [[ -n "${TRACE_DOTFILES}" ]]; then
         echo "TRACE $(date +%T): $*"
@@ -53,7 +61,7 @@ declare -A EMOJI_ICON_MAP=(
     [CLOUD]=🌥️
     [DEBIAN]=🌀
     [UBUNTU]=👫
-[DOWNLOAD]=📥
+    [DOWNLOAD]=📥
     [DESKTOP]=🖥️
     [PICTURES]=🖼️
     [MUSIC]=🎵
@@ -460,6 +468,10 @@ function __is_konsole_terminal() {
     [[ -n "${KONSOLE_VERSION}" ]]
 }
 
+function __is_ghostty_terminal() {
+    [[ "${TERM}" == "xterm-ghostty" ]]
+}
+
 function __is_tool_window() {
     [[ -n "${TOOL_WINDOW}" ]];
 }
@@ -648,6 +660,11 @@ else
     fi
 fi
 
+function __is_style_name() {
+    local style="$1"
+    [[ "$style" == "bold" || "$style" == "bright" ]]
+}
+
 if __is_shell_zsh; then
 
     function __is_text_colored() {
@@ -658,28 +675,28 @@ if __is_shell_zsh; then
     function __echo_colored() {
         local color_name="$1"
         shift
-        local text="$*"
         local style=""
 
         # Check for optional style parameters
-        if [[ "$color_name" == "bold" || "$color_name" == "bright" ]]; then
+        if __is_style_name "$color_name"; then
             style="$color_name"
             color_name="$1"
             shift
-            text="$*"
         fi
+
+        local text="$*"
 
         local color_code
         # Apply style if specified
         if [[ "$style" == "bold" ]]; then
             # shellcheck disable=SC2154
-            color_code="%{${fg_bold[${color_name}]}%}"
+            color_code="${fg_bold[${color_name}]}"
         elif [[ "$style" == "bright" ]]; then
             # shellcheck disable=SC2154
-            color_code="%{${fg_bright[${color_name}]}%}"
+            color_code="${fg_bright[${color_name}]}"
         else
             # shellcheck disable=SC2154
-            color_code="%{${fg[${color_name}]}%}"
+            color_code="${fg[${color_name}]}"
         fi
 
         if __is_text_colored "$text"; then
@@ -706,7 +723,7 @@ else
         local style=""
 
         # Check for optional style parameters
-        if [[ "$color_name" == "bold" || "$color_name" == "bright" ]]; then
+        if __is_style_name "$color_name"; then
             style="$color_name"
             color_name="$1"
             shift
@@ -876,6 +893,10 @@ function __cute_time_prompt() {
     esac
 }
 
+function __cute_host() {
+    uname -n
+}
+
 typeset -a CUTE_HEADER_PARTS=()
 
 function __cute_shell_header() {
@@ -915,7 +936,9 @@ if __is_shell_zsh; then
     CUTE_HEADER_PARTS+=("${ZSH_VERSION}")
 fi
 
-CUTE_HEADER_PARTS+=("$(uname -smn)")
+CUTE_HEADER_PARTS+=("$(uname -s)")
+CUTE_HEADER_PARTS+=("$(__cute_host)")
+CUTE_HEADER_PARTS+=("$(uname -m)")
 
 if __is_shell_old_bash; then
     CUTE_HEADER_PARTS+=("!! Bash ${BASH_VERSINFO[0]} is old o_O !!")
@@ -929,7 +952,18 @@ fi
 
 function ssh() {
     __cache_clear "KONSOLE_PROFILE"
+    # TODO: This really should be pushed as part of dotFiles staging
+    # to a remote host.
+    if [[ $# -eq 1 ]] && __is_ghostty_terminal; then
+        infocmp -x | ssh "$1" -- tic -x - > /dev/null 2>&1
+    fi
+
     command ssh "$@"
+}
+
+function screen() {
+    echo "Don't use screen"
+    return 1
 }
 
 function __do_eza_aliases() {
