@@ -2,20 +2,20 @@
 
 # pylint: disable=too-many-arguments, missing-module-docstring, missing-function-docstring, missing-class-docstring, line-too-long
 
-from datetime import datetime
-from dataclasses import dataclass, field
-from functools import partial
-from itertools import chain
+import argparse
 import json
 import os
-from pathlib import Path
 import platform
 import plistlib
 import re
 import shutil
 import subprocess
 import sys
-import argparse
+from dataclasses import dataclass, field
+from datetime import datetime
+from functools import partial
+from itertools import chain
+from pathlib import Path
 
 HOME = str(Path.home())
 CWD = '.'
@@ -23,6 +23,7 @@ OUT_DIR_ROOT = os.path.join(CWD, 'out')
 GIT_PLUGINS_DIR = os.path.join(OUT_DIR_ROOT, 'plugins')
 
 BASH_COMMAND_PREFIX = 'BASH_COMMAND: '
+
 @dataclass
 # pylint: disable-next=too-many-instance-attributes
 class Host:
@@ -37,6 +38,7 @@ class Host:
     jsonnet_multi_maps: list[tuple[str, str, str]] | dict[str, str] = field(default_factory=list)
     curl_maps: list[tuple[str, str, str]] | dict[str, str] = field(default_factory=list)
     macros: dict[str, list[str]] = field(default_factory=dict)
+    post_install_commands: list[str] = field(default_factory=list)
 
     prestaged_files: set[str] = field(default_factory=set)
     prestaged_directories: set[str] = field(default_factory=set)
@@ -57,6 +59,10 @@ class Host:
         self.file_maps |= {item2:item3 for (_, item2, item3) in self.curl_maps}
         self.prestaged_files.update([item2 for (_, item2, _) in self.curl_maps])
         self.curl_maps = {item1:item2 for (item1, item2, _) in self.curl_maps}
+
+        values_to_coerce = [k for k, v in self.file_maps.items() if v.endswith('/')]
+        for key in values_to_coerce:
+            self.file_maps[key] = os.path.join(self.file_maps[key], os.path.basename(key))
 
     def __repr__(self) -> str:
         return self.hostname
@@ -212,6 +218,16 @@ def get_plugin_relative_target_path(repo: str) -> str:
     target_prefix = directory_prefixes[target_prefix]
 
     return os.path.join(target_prefix, target_suffix)
+
+
+def make_post_install_commands(host: Host) -> list[str]:
+    if len(host.post_install_commands) == 0:
+        return []
+
+    ops = ['>> Running post-install commands']
+    ops.extend([BASH_COMMAND_PREFIX + cmd for cmd in host.post_install_commands])
+
+    return ops
 
 
 def make_install_plugins_bash_commands(plugin_type: str, repo_list: list[str], install_root: str) -> list[str]:
@@ -436,24 +452,16 @@ def make_finish_script(command_ops, script_path: str, verbose) -> list:
 
     def do_write():
         with open(script_path, 'w', encoding='utf-8') as f:
-            f.write('#!/bin/bash\n')
-            f.write('\n')
-            f.write('set -e\n')
-            f.write('\n')
+            f.write('#!/bin/bash\n\n')
+            f.write('set -e\n\n')
             if verbose:
-                f.write('set -x\n')
-                f.write('\n')
+                f.write('set -x\n\n')
             for op in command_ops:
                 if isinstance(op, str):
-                    if op.startswith(BASH_COMMAND_PREFIX):
-                        op = op[len(BASH_COMMAND_PREFIX):]
-                        for line in op.split('\n'):
-                            if line:
-                                f.write(f'{line}\n')
-                    else:
-                        f.write('echo "' + op + '"\n')
+                    op = op[len(BASH_COMMAND_PREFIX):] if op.startswith(BASH_COMMAND_PREFIX) else f'echo "{op}"'
                 else:
-                    f.write(' '.join([o.replace(' ', '\\ ') for o in op]) + '\n')
+                    op = ' '.join([o.replace(' ', '\\ ') for o in op])
+                f.write(op + '\n')
 
     ops = [partial(do_write)]
 
@@ -548,6 +556,7 @@ def stage_local(host, verbose=False, use_cache=False) -> list[str]:
 
     finish_ops = []
 
+    finish_ops.append(BASH_COMMAND_PREFIX + 'DOTFILES_CONFIG_ROOT="${HOME}/' + host.config_dir + '"')
     finish_ops.append(f'>> Cleaning existing configuration files for {host.hostname}')
     dirs_to_remove = remove_children_from_set(set(host.directory_maps.values()).union({host.config_dir}))
     files_to_remove = [f for f in host.file_maps.values() if not any(f.startswith(d) for d in dirs_to_remove)]
@@ -559,6 +568,7 @@ def stage_local(host, verbose=False, use_cache=False) -> list[str]:
     finish_ops.extend(make_install_plugins_bash_commands('Vim startup plugin(s)', config.vim_pack_plugin_start_repos, '$HOME'))
     finish_ops.extend(make_install_plugins_bash_commands('Vim optional plugin(s)', config.vim_pack_plugin_opt_repos, '$HOME'))
     finish_ops.extend(make_install_plugins_bash_commands('Zsh plugin(s)', config.zsh_plugin_repos, '$HOME'))
+    finish_ops.extend(make_post_install_commands(host))
 
     # Skip this for now because of the extra SSH calls it triggers.
     # finish_ops.append(f'>> Pushing vscode extensions to {host.hostname}')

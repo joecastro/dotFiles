@@ -952,12 +952,6 @@ fi
 
 function ssh() {
     __cache_clear "KONSOLE_PROFILE"
-    # TODO: This really should be pushed as part of dotFiles staging
-    # to a remote host.
-    if [[ $# -eq 1 ]] && __is_ghostty_terminal; then
-        infocmp -x | ssh "$1" -- tic -x - > /dev/null 2>&1
-    fi
-
     command ssh "$@"
 }
 

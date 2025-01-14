@@ -13,8 +13,8 @@ local jsonnet_maps = [
     # env_vars needs to be in the home directory for bootstrapping zsh
     ['shell/env_vars.jsonnet', 'gen/env_vars.sh', '.env_vars.sh'],
     ['konsole/konsolerc.jsonnet', 'gen/konsolerc.ini', '.config/konsolerc'],
-    ['konsole/konsole_color_funcs.jsonnet', 'gen/konsole_color_funcs.sh', config_dir + '/konsole_color_funcs.sh'],
-    ['shell/iterm2_color_funcs.jsonnet', 'gen/iterm2_color_funcs.sh', config_dir + '/iterm2_color_funcs.sh'],
+    ['konsole/konsole_color_funcs.jsonnet', 'gen/konsole_color_funcs.sh', config_dir + '/'],
+    ['shell/iterm2_color_funcs.jsonnet', 'gen/iterm2_color_funcs.sh', config_dir + '/'],
 ];
 
 local jsonnet_localhost_mac_maps = [
@@ -27,12 +27,12 @@ local jsonnet_multi_maps = [
 ];
 
 local curl_maps = [
-    ['https://raw.githubusercontent.com/git/git/master/contrib/completion/git-prompt.sh', 'curl/git-prompt.sh', config_dir + '/completion/git-prompt.sh'],
-    ['https://raw.githubusercontent.com/git/git/master/contrib/completion/git-completion.bash', 'curl/git-completion.bash', config_dir + '/completion/git-completion.bash'],
+    ['https://raw.githubusercontent.com/git/git/master/contrib/completion/git-prompt.sh', 'curl/git-prompt.sh', config_dir + '/completion/'],
+    ['https://raw.githubusercontent.com/git/git/master/contrib/completion/git-completion.bash', 'curl/git-completion.bash', config_dir + '/completion/'],
     ['https://raw.githubusercontent.com/git/git/master/contrib/completion/git-completion.zsh', 'curl/git-completion.zsh', config_dir + '/zfuncs/_git'],
-    ['https://iterm2.com/shell_integration/zsh', 'curl/iterm2_shell_integration.zsh', config_dir + '/iterm2_shell_integration.zsh'],
-    ['https://iterm2.com/shell_integration/bash', 'curl/iterm2_shell_integration.bash', config_dir + '/iterm2_shell_integration.bash'],
-    ['https://raw.githubusercontent.com/eza-community/eza/main/completions/zsh/_eza', 'curl/_eza', config_dir + '/zfuncs/_eza'],
+    ['https://iterm2.com/shell_integration/zsh', 'curl/iterm2_shell_integration.zsh', config_dir + '/'],
+    ['https://iterm2.com/shell_integration/bash', 'curl/iterm2_shell_integration.bash', config_dir + '/'],
+    ['https://raw.githubusercontent.com/eza-community/eza/main/completions/zsh/_eza', 'curl/_eza', config_dir + '/zfuncs/'],
     ['https://raw.githubusercontent.com/mafredri/zsh-async/v1.8.6/async.zsh', 'curl/async.zsh', config_dir + '/zfuncs/async'],
 ];
 
@@ -40,18 +40,19 @@ local file_maps = [
     ['bash/profile.sh', '.profile'],
     ['bash/bashrc.sh', '.bashrc'],
     ['ghostty/ghostty_config.properties', '.config/ghostty/config'],
-    ['shell/env_funcs.sh', config_dir + '/env_funcs.sh'],
-    ['shell/iterm2_funcs.sh', config_dir + '/iterm2_funcs.sh'],
-    ['shell/osx_funcs.sh', config_dir + '/osx_funcs.sh'],
-    ['shell/util_funcs.sh', config_dir + '/util_funcs.sh'],
-    ['shell/android_funcs.sh', config_dir + '/android_funcs.sh'],
+    ['ghostty/xterm-ghostty.terminfo', config_dir + '/'],
+    ['shell/env_funcs.sh', config_dir + '/'],
+    ['shell/iterm2_funcs.sh', config_dir + '/'],
+    ['shell/osx_funcs.sh', config_dir + '/'],
+    ['shell/util_funcs.sh', config_dir + '/'],
+    ['shell/android_funcs.sh', config_dir + '/'],
     ['zsh/zshrc.zsh', '.zshrc'],
     ['zsh/zprofile.zsh', '.zprofile'],
     ['zsh/zshenv.zsh', '.zshenv'],
-    ['zsh/batcharge.py', config_dir + "/batcharge.py"],
+    ['zsh/batcharge.py', config_dir + '/'],
     ['vim/vimrc.vim', '.vimrc'],
     ['tmux/tmux.conf', '.tmux.conf'],
-    ['tmux/vscode-tmux.conf', config_dir + '/vscode-tmux.conf'],
+    ['tmux/vscode-tmux.conf', config_dir + '/'],
 ];
 
 local directory_maps = [
@@ -107,6 +108,10 @@ local macros = {
         '[[ -e ~/.env_vars.sh ]] || return',
     ],
 };
+
+local remote_post_install_commands = [
+    'tic -x $DOTFILES_CONFIG_ROOT/xterm-ghostty.terminfo',
+];
 
 // Colors for less binary
 // Source: https://github.com/Valloric/dotfiles/blob/master/less/LESS_TERMCAP
@@ -180,6 +185,7 @@ local Host(hostname, home, icon, color, primary_wallpaper, android_wallpaper) = 
     jsonnet_multi_maps: jsonnet_multi_maps,
     directory_maps: directory_maps,
     macros: macros,
+    post_install_commands: if $.is_localhost then [] else remote_post_install_commands,
 
     file_maps: file_maps +
         if primary_wallpaper != null then [[primary_wallpaper.local_path, primary_wallpaper.target_path($)]] else [] +
