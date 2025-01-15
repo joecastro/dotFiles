@@ -14,6 +14,9 @@ __is_shell_interactive || return
 # shellcheck source=/dev/null
 source "${DOTFILES_CONFIG_ROOT}/completion/git-completion.bash"
 
+# Enable vi mode
+set -o vi
+
 # Various PS1 aliases
 
 Time12h="\T"
