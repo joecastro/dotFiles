@@ -793,23 +793,44 @@ if ! __is_shell_old_bash; then
     function __cute_pwd_lookup() {
         local ACTIVE_DIR=$1
 
-        declare -A KNOWN_DIRS=(
-            ["${HOME}"]=${ICON_MAP[COD_HOME]}
-            ["${HOME}/Desktop"]=${ICON_MAP[DESKTOP]}
-            ["${HOME}/Documents"]=${ICON_MAP[DOCUMENTS]}
-            ["${HOME}/Videos"]=${ICON_MAP[VIDEOS]}
-            ["${HOME}/Downloads"]=${ICON_MAP[DOWNLOAD]}
-            ["${HOME}/Pictures"]=${ICON_MAP[PICTURES]}
-            ["${HOME}/Music"]=${ICON_MAP[MUSIC]}
-            ["${HOME}/.ssh"]=${ICON_MAP[KEY]}
-            ["/"]=${ICON_MAP[FAE_TREE]}
-        )
-
-        # These should only match if they're exact.
-        if [[ -v KNOWN_DIRS[$ACTIVE_DIR] ]]; then
-            echo -n "${KNOWN_DIRS[$ACTIVE_DIR]}"
+        case "${ACTIVE_DIR}" in
+        "${HOME}")
+            echo -n "${ICON_MAP[COD_HOME]}"
             return 0
-        fi
+            ;;
+        "${HOME}/Desktop")
+            echo -n "${ICON_MAP[DESKTOP]}"
+            return 0
+            ;;
+        "${HOME}/Documents")
+            echo -n "${ICON_MAP[DOCUMENTS]}"
+            return 0
+            ;;
+        "${HOME}/Videos")
+            echo -n "${ICON_MAP[VIDEOS]}"
+            return 0
+            ;;
+        "${HOME}/Downloads")
+            echo -n "${ICON_MAP[DOWNLOAD]}"
+            return 0
+            ;;
+        "${HOME}/Pictures")
+            echo -n "${ICON_MAP[PICTURES]}"
+            return 0
+            ;;
+        "${HOME}/Music")
+            echo -n "${ICON_MAP[MUSIC]}"
+            return 0
+            ;;
+        "${HOME}/.ssh")
+            echo -n "${ICON_MAP[KEY]}"
+            return 0
+            ;;
+        "/")
+            echo -n "${ICON_MAP[FAE_TREE]}"
+            return 0
+            ;;
+        esac
 
         if __is_on_wsl && [ "${ACTIVE_DIR}" == "${WIN_USERPROFILE}" ]; then
             echo -n "${ICON_MAP[WINDOWS]}"
@@ -821,18 +842,28 @@ if ! __is_shell_old_bash; then
             return 0
         fi
 
-        declare -A KNOWN_FOLDER_NAMES=(
-            ["src"]=${ICON_MAP[COD_SAVE]}
-            ["source"]=${ICON_MAP[COD_SAVE]}
-            ["github"]=${ICON_MAP[GITHUB]}
-            ["cloud"]=${ICON_MAP[CLOUD]}
-            ["$USER"]=${ICON_MAP[ACCOUNT]}
-        )
-
-        if [[ -v KNOWN_FOLDER_NAMES[${ACTIVE_DIR##*/}] ]]; then
-            echo -n "${KNOWN_FOLDER_NAMES[${ACTIVE_DIR##*/}]}"
+        case "${ACTIVE_DIR##*/}" in
+        "src")
+            echo -n "${ICON_MAP[COD_SAVE]}"
             return 0
-        fi
+            ;;
+        "source")
+            echo -n "${ICON_MAP[COD_SAVE]}"
+            return 0
+            ;;
+        "github")
+            echo -n "${ICON_MAP[GITHUB]}"
+            return 0
+            ;;
+        "cloud")
+            echo -n "${ICON_MAP[CLOUD]}"
+            return 0
+            ;;
+        "$USER")
+            echo -n "${ICON_MAP[ACCOUNT]}"
+            return 0
+            ;;
+        esac
 
         return 1
     }
@@ -915,7 +946,7 @@ function __cute_shell_header() {
 }
 
 if __is_shell_bash; then
-    if [[ "$0" == "-bash" ]]; then
+    if [[ "$0" == "-bash" ]] || [[ "$0" == "-/bin/bash" ]]; then
         CUTE_HEADER_PARTS+=("bash")
     elif [[ "$(which "$0")" == "/bin/bash" ]] || [[ "$(which "$0")" == "/usr/bin/bash" ]]; then
         CUTE_HEADER_PARTS+=("bash")
