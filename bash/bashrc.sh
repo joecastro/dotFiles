@@ -125,4 +125,8 @@ if declare -f chjava &>/dev/null; then
     chjava 22
 fi
 
+if declare -f __is_on_glinux &>/dev/null && __is_on_glinux; then
+    __on_glinux_bashrc_load_complete
+fi
+
 __cute_shell_header
