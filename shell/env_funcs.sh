@@ -17,7 +17,15 @@ fi
 
 function _dotTrace() {
     if [[ -n "${TRACE_DOTFILES}" ]]; then
-        echo "TRACE $(date +%T): $*"
+        echo "TRACE $(date +%T.%3N): $*" >&2
+    fi
+}
+
+function toggle_trace_dotfiles() {
+    if [[ -n "${TRACE_DOTFILES}" ]]; then
+        unset TRACE_DOTFILES
+    else
+        export TRACE_DOTFILES=1
     fi
 }
 
@@ -321,72 +329,77 @@ function __is_in_repo_root() {
     [[ -f "${candidate_dir}/.repo/repo/main.py" ]]
 }
 
-function __is_in_repo() {
-    local current_dir
-    current_dir=$(readlink -f "$PWD")
-    if [[ -n "${CWD_REPO_ROOT}" && "$current_dir" == "$CWD_REPO_ROOT"* ]]; then
-        _dotTrace "__is_in_repo Already in repo root"
-        return 0
-    fi
-    _dotTrace "__is_in_repo Checking for repo root"
+function __find_repo_root() {
+    local current_dir="$1"
     while [[ "$current_dir" != "/" ]]; do
         if __is_in_repo_root "$current_dir"; then
-            _dotTrace "__is_in_repo Found repo root"
-            if [[ "$(repo --show-toplevel)" != "${current_dir}" ]]; then
-                echo "BADBAD: ${current_dir}"
-            fi
-
-            if [[ "$current_dir" != "$CWD_REPO_ROOT" ]]; then
-                local cached_parts
-                if cached_parts=$(__cache_get "REPO_INFO_${current_dir}"); then
-                    IFS='%' read -r CWD_REPO_ROOT CWD_REPO_MANIFEST_BRANCH CWD_REPO_DEFAULT_REMOTE <<< "$cached_parts"
-                    export CWD_REPO_ROOT
-                    export CWD_REPO_MANIFEST_BRANCH
-                    export CWD_REPO_DEFAULT_REMOTE
-                    _dotTrace "__is_in_repo Using cached repo environment variables"
-                    return 0
-                fi
-
-                CWD_REPO_ROOT="${current_dir}"
-                export CWD_REPO_ROOT
-                CWD_REPO_MANIFEST_BRANCH=$(repo info -o --outer-manifest -l | grep -i "Manifest branch" | sed 's/^Manifest branch: //')
-                export CWD_REPO_MANIFEST_BRANCH
-                if command -v xmllint &> /dev/null; then
-                    CWD_REPO_DEFAULT_REMOTE=$(xmllint --xpath '//manifest/default/@remote' "${current_dir}/.repo/manifests/default.xml" | sed -n 's/.*remote="\([^"]*\)".*/\1/p')
-                else
-                    CWD_REPO_DEFAULT_REMOTE="unknown"
-                fi
-                export CWD_REPO_DEFAULT_REMOTE
-
-                __cache_put "REPO_INFO_${current_dir}" "${CWD_REPO_ROOT}%${CWD_REPO_MANIFEST_BRANCH}%${CWD_REPO_DEFAULT_REMOTE}" 3000
-            fi
-            _dotTrace "__is_in_repo Updated repo environment variables"
+            echo -n "$current_dir"
             return 0
         fi
         current_dir="$(dirname "$current_dir")"
     done
-    _dotTrace "__is_in_repo Not in repo root"
-    unset CWD_REPO_ROOT
-    unset CWD_REPO_MANIFEST_BRANCH
-    unset CWD_REPO_DEFAULT_REMOTE
     return 1
 }
 
+function __is_in_repo() {
+    local current_dir
+    current_dir=$(readlink -f "$PWD")
+    if [[ -n "${CWD_REPO_ROOT}" && "$current_dir" == "$CWD_REPO_ROOT"* ]]; then
+        return 0
+    fi
+
+    if ! CWD_REPO_ROOT=$(__find_repo_root "$current_dir"); then
+        unset CWD_REPO_ROOT
+        unset CWD_REPO_MANIFEST_BRANCH
+        unset CWD_REPO_DEFAULT_REMOTE
+        return 1
+    fi
+
+    local cached_parts
+    if cached_parts=$(__cache_get "REPO_INFO_${CWD_REPO_ROOT}"); then
+        IFS='%' read -r CWD_REPO_MANIFEST_BRANCH CWD_REPO_DEFAULT_REMOTE <<< "$cached_parts"
+        export CWD_REPO_ROOT
+        export CWD_REPO_MANIFEST_BRANCH
+        export CWD_REPO_DEFAULT_REMOTE
+        _dotTrace "__is_in_repo - using cached repo environment variables"
+        return 0
+    fi
+
+    _dotTrace "__is_in_repo - updating repo environment variables"
+
+    if command -v xmllint &> /dev/null; then
+        local xpath_response
+        xpath_response=$(xmllint --xpath '//manifest/default' "${current_dir}/.repo/manifests/default.xml")
+        CWD_REPO_MANIFEST_BRANCH=$(echo "${xpath_response}" | sed -n 's/.*revision="\([^"]*\)".*/\1/p')
+        CWD_REPO_DEFAULT_REMOTE=$(echo "${xpath_response}" | sed -n 's/.*remote="\([^"]*\)".*/\1/p')
+    else
+        CWD_REPO_MANIFEST_BRANCH=$(repo info -o --outer-manifest -l | grep -i "Manifest branch" | sed 's/^Manifest branch: //')
+        CWD_REPO_DEFAULT_REMOTE="unknown"
+    fi
+
+    __cache_put "REPO_INFO_${CWD_REPO_ROOT}" "${CWD_REPO_MANIFEST_BRANCH}%${CWD_REPO_DEFAULT_REMOTE}" 3000
+    _dotTrace "__is_in_repo - updated repo environment variables"
+
+    export CWD_REPO_ROOT
+    export CWD_REPO_MANIFEST_BRANCH
+    export CWD_REPO_DEFAULT_REMOTE
+
+    return 0
+}
+
 function __print_repo_worktree() {
+    _dotTrace "__print_repo_worktree"
     if ! __is_in_repo; then
         echo -n ""
         return 0
     fi
 
-    local manifest_branch=${CWD_REPO_MANIFEST_BRANCH}
-    local default_remote=${CWD_REPO_DEFAULT_REMOTE}
-
     local line="${ICON_MAP[ANDROID_BODY]}"
 
-    if [[ "${default_remote}" != "goog" ]]; then
-        line+="${default_remote}/"
+    if [[ "${CWD_REPO_DEFAULT_REMOTE}" != "goog" ]]; then
+        line+="${CWD_REPO_DEFAULT_REMOTE}/"
     fi
-    line+="${manifest_branch}"
+    line+="${CWD_REPO_MANIFEST_BRANCH}"
 
     __echo_colored "green" "${line}"
 
@@ -399,6 +412,7 @@ function __print_repo_worktree() {
             __echo_colored "green" ":$(__print_abbreviated_path "${current_project}")"
         fi
     fi
+    _dotTrace "__print_repo_worktree - done"
 }
 
 function __is_shell_interactive() {
@@ -545,8 +559,8 @@ if __is_shell_zsh; then
             fi
         fi
 
-        if [[ -n "${Z_CACHE["${key}"]}" ]]; then
-            echo -n "${Z_CACHE["${key}"]}"
+        if [[ -n "${Z_CACHE[${key}]}" ]]; then
+            echo -n "${Z_CACHE[${key}]}"
             return 0
         fi
 
@@ -869,6 +883,7 @@ if ! __is_shell_old_bash; then
     }
 
     function __cute_pwd() {
+        _dotTrace "__cute_pwd $1"
         local is_short=1
         if [[ "$1" == "--short" ]]; then
             is_short=0
@@ -876,6 +891,7 @@ if ! __is_shell_old_bash; then
 
         if [[ $is_short != 0 ]] && __is_in_git_repo; then
             __print_git_pwd ""
+            _dotTrace "__cute_pwd - in git repo - done"
             return 0
         fi
 
@@ -890,6 +906,7 @@ if ! __is_shell_old_bash; then
             echo -n "${PWD##*/}"
         fi
 
+        _dotTrace "__cute_pwd - done"
         return 0
     }
 else
