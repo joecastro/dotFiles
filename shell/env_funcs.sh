@@ -1036,6 +1036,9 @@ function __do_iterm2_shell_integration() {
         # shellcheck source=/dev/null
         [[ -f "${DOTFILES_CONFIG_ROOT}/iterm2_shell_integration.zsh" ]] && source "${DOTFILES_CONFIG_ROOT}/iterm2_shell_integration.zsh"
     elif __is_shell_bash; then
+        # Disable extdebug because it causes issues with iTerm shell integration
+        shopt -u extdebug
+
         # shellcheck source=/dev/null
         [[ -f "${DOTFILES_CONFIG_ROOT}/iterm2_shell_integration.bash" ]] && source "${DOTFILES_CONFIG_ROOT}/iterm2_shell_integration.bash"
     else

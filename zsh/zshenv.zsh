@@ -60,7 +60,15 @@ function __z_effective_distribution() {
 typeset -a TMUX_VIRTUALENV_ID=("__is_in_tmux" "ICON_MAP[TMUX]" "white"])
 typeset -a VIM_VIRTUALENV_ID=("(( \${+VIMRUNTIME} ))" "ICON_MAP[VIM]" "green")
 typeset -a PYTHON_VIRTUALENV_ID=("(( \${+VIRTUAL_ENV} ))" "ICON_MAP[PYTHON]" "blue")
-typeset -a VIRTUALENV_ID_FUNCS=(TMUX_VIRTUALENV_ID VIM_VIRTUALENV_ID PYTHON_VIRTUALENV_ID)
+typeset -a WSL_WINDOWS_VIRTUALENV_ID=("__is_on_wsl && __is_in_windows_drive" "ICON_MAP[WINDOWS]" "blue")
+typeset -a WSL_LINUX_VIRTUALENV_ID=("__is_on_wsl && ! __is_in_windows_drive" "ICON_MAP[LINUX_PENGUIN]" "blue")
+
+typeset -a VIRTUALENV_ID_FUNCS=( \
+    TMUX_VIRTUALENV_ID \
+    VIM_VIRTUALENV_ID \
+    PYTHON_VIRTUALENV_ID \
+    WSL_WINDOWS_VIRTUALENV_ID \
+    WSL_LINUX_VIRTUALENV_ID)
 
 function __virtualenv_info() {
     local suffix="${1:-}"

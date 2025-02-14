@@ -5,7 +5,7 @@
 #pragma validate-dotfiles
 
 # In some contexts .zprofile isn't sourced (e.g. when started inside the Python debug console.)
-# shellcheck disable=SC1090
+# shellcheck source=SCRIPTDIR/zsh/zprofile.zsh
 source ${ZDOTDIR:-$HOME}/.zprofile
 
 # Useful reference: https://scriptingosx.com/2019/07/moving-to-zsh-part-7-miscellanea/
@@ -327,10 +327,6 @@ case "$(__z_effective_distribution)" in
     export WIN_SYSTEM_ROOT="/mnt/${WIN_SYSTEM_DRIVE:0:1:l}"
     export WIN_USERNAME=$(powershell.exe '$env:UserName')
     export WIN_USERPROFILE=$(echo $(wslpath $(powershell.exe '$env:UserProfile')) | sed $'s/\r//')
-
-    typeset -a WSL_WINDOWS_VIRTUALENV_ID=("__is_on_wsl && __is_in_windows_drive" "ICON_MAP[WINDOWS]" "blue")
-    typeset -a WSL_LINUX_VIRTUALENV_ID=("__is_on_wsl && ! __is_in_windows_drive" "ICON_MAP[LINUX_PENGUIN]" "blue")
-    VIRTUALENV_ID_FUNCS+=(WSL_WINDOWS_VIRTUALENV_ID WSL_LINUX_VIRTUALENV_ID)
 
     # export WIN_USERPROFILE=$(wslpath $(powershell.exe '$env:UserProfile'))
 

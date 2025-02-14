@@ -39,6 +39,7 @@ local curl_maps = [
 local file_maps = [
     ['bash/profile.sh', '.profile'],
     ['bash/bashrc.sh', '.bashrc'],
+    ['bash/inputrc.sh', '.inputrc'],
     ['ghostty/ghostty_config.properties', '.config/ghostty/config'],
     ['ghostty/xterm-ghostty.terminfo', config_dir + '/'],
     ['shell/env_funcs.sh', config_dir + '/'],

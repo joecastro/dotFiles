@@ -14,9 +14,6 @@ __is_shell_interactive || return
 # shellcheck source=/dev/null
 source "${DOTFILES_CONFIG_ROOT}/completion/git-completion.bash"
 
-# Enable vi mode
-set -o vi
-
 # Various PS1 aliases
 
 Time12h="\T"
@@ -77,11 +74,6 @@ if ! __is_shell_old_bash; then
     shopt -s globstar
 fi
 
-if __is_iterm2_terminal; then
-    # Disable extdebug because it causes issues with iTerm shell integration
-    shopt -u extdebug
-fi
-
 function __calculate_host_color() {
     local prompt_host_color="$Brown"
 
@@ -118,7 +110,8 @@ PS1=\\[$White\\]$(__cute_time_prompt)\\[$Color_Off\\]' '\\[$BrightGreen\\]'\u'\\
 export PS1
 
 __do_iterm2_shell_integration
-
+__do_vscode_shell_integration
+__do_konsole_shell_integration
 __do_eza_aliases
 
 if declare -f chjava &>/dev/null; then
