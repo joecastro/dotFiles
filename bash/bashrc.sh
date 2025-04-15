@@ -74,6 +74,41 @@ if ! __is_shell_old_bash; then
     shopt -s globstar
 fi
 
+# History file
+HISTFILE="${HOME}/.bash_history"
+HISTSIZE=2000
+HISTFILESIZE=5000
+
+shopt -s histappend  # append rather than overwrite history
+
+# disable the default virtualenv prompt change
+export VIRTUAL_ENV_DISABLE_PROMPT=1
+
+# Extended history-like options
+export HISTCONTROL=ignoredups:erasedups  # Ignore duplicates
+export HISTIGNORE="ls:cd:cd -:pwd:exit:date:* --help"  # Ignore common noise
+
+set -o vi
+
+function __set_cursor_shape() {
+  if [[ $READLINE_LINE ]]; then
+    echo -ne '\e[5 q'  # Beam
+  else
+    echo -ne '\e[1 q'  # Block
+  fi
+}
+
+bind '"\e[A": history-search-backward'
+bind '"\e[B": history-search-forward'
+bind '"\C-r": reverse-search-history'
+bind '"\C-u": unix-line-discard'
+bind '"\C-w": kill-line'
+
+function __remove_nonprintable_regions() {
+    local input="$1"
+    echo "$input" | sed -E 's/\\\[[^]]*\\\]//g'
+}
+
 function __calculate_host_color() {
     local prompt_host_color="$Brown"
 
@@ -103,10 +138,23 @@ function __calculate_host_name() {
     echo "$prompt_host_name"
 }
 
-# disable the default virtualenv prompt change
-# export VIRTUAL_ENV_DISABLE_PROMPT=1
+function __cute_prompt_command() {
+    local END_OF_PROMPT_ICON='%'
+    local ELEVATED_END_OF_PROMPT_ICON='#'
 
-PS1=\\[$White\\]$(__cute_time_prompt)\\[$Color_Off\\]' '\\[$BrightGreen\\]'\u'\\[$Yellow\\]'@'\\[$(__calculate_host_color)\\]$(__calculate_host_name)\\[$Color_Off\\]' $(__cute_pwd) % '
+    PS1=\\[$White\\]$(__cute_time_prompt)\\[$Color_Off\\]' '\\[$BrightGreen\\]'\u'\\[$Yellow\\]'@'\\[$(__calculate_host_color)\\]$(__calculate_host_name)\\[$Color_Off\\]' '$(__cute_pwd)''
+    if [[ $EUID -eq 0 ]]; then
+        PS1+=" ${ELEVATED_END_OF_PROMPT_ICON} "
+    else
+        PS1+=" ${END_OF_PROMPT_ICON} "
+    fi
+
+    __set_cursor_shape
+}
+
+PS1=""
+PROMPT_COMMAND=__cute_prompt_command
+export PROMPT_COMMAND
 export PS1
 
 __do_iterm2_shell_integration
