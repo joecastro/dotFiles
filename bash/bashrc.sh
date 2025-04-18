@@ -1,21 +1,19 @@
-#! /bin/bash
-#shellcheck disable=SC2034
+#!/bin/bash
+# shellcheck disable=SC2034
 
 #pragma once
-
 #pragma validate-dotfiles
 
 # shellcheck source=SCRIPTDIR/profile.sh
 source ~/.profile
 
-# If not running interactively, don't do anything
+# Exit if not running interactively
 __is_shell_interactive || return
 
 # shellcheck source=/dev/null
 source "${DOTFILES_CONFIG_ROOT}/completion/git-completion.bash"
 
-# Various PS1 aliases
-
+# PS1 components
 Time12h="\T"
 Time12a="\@"
 PathShort="\w"
@@ -23,8 +21,8 @@ PathFull="\W"
 NewLine="\n"
 Jobs="\j"
 
-# Reset
-Color_Off='\e[0m'
+# Colors
+Color_Off='\e[0m'  # Reset
 
 # Normal Colors
 Black='\e[0;30m'
@@ -44,60 +42,56 @@ BrightCyan='\e[1;36m'
 LightGray='\e[0;37m'
 White='\e[1;37m'
 
-IBlack="\033[0;90m"       # Black
+# Bold Colors
+BBlack='\e[1;30m'
+BRed='\e[1;31m'
+BGreen='\e[1;32m'
+BYellow='\e[1;33m'
+BBlue='\e[1;34m'
+BPurple='\e[1;35m'
+BCyan='\e[1;36m'
+BWhite='\e[1;37m'
 
-# Bold
-BBlack='\e[1;30m'       # Black
-BRed='\e[1;31m'         # Red
-BGreen='\e[1;32m'       # Green
-BYellow='\e[1;33m'      # Yellow
-BBlue='\e[1;34m'        # Blue
-BPurple='\e[1;35m'      # Purple
-BCyan='\e[1;36m'        # Cyan
-BWhite='\e[1;37m'       # White
+# Background Colors
+On_Black='\e[40m'
+On_Red='\e[41m'
+On_Green='\e[42m'
+On_Yellow='\e[43m'
+On_Blue='\e[44m'
+On_Purple='\e[45m'
+On_Cyan='\e[46m'
+On_White='\e[47m'
 
-# Background
-On_Black='\e[40m'       # Black
-On_Red='\e[41m'         # Red
-On_Green='\e[42m'       # Green
-On_Yellow='\e[43m'      # Yellow
-On_Blue='\e[44m'        # Blue
-On_Purple='\e[45m'      # Purple
-On_Cyan='\e[46m'        # Cyan
-On_White='\e[47m'       # White
-
-# Check the window size after each command and update the values of lines and columns
-shopt -s checkwinsize
-
+# Shell options
+shopt -s checkwinsize  # Update terminal size after each command
 if ! __is_shell_old_bash; then
-    # Use "**" in pathname expansion will match files in subdirectories - Needs Bash 4+
-    shopt -s globstar
+    shopt -s globstar  # Enable recursive globbing (**)
 fi
 
-# History file
+# History settings
 HISTFILE="${HOME}/.bash_history"
 HISTSIZE=2000
 HISTFILESIZE=5000
+shopt -s histappend  # Append to history instead of overwriting
+export HISTCONTROL=ignoredups:erasedups  # Ignore duplicate commands
+export HISTIGNORE="ls:cd:cd -:pwd:exit:date:* --help"  # Ignore common commands
 
-shopt -s histappend  # append rather than overwrite history
-
-# disable the default virtualenv prompt change
+# Disable virtualenv prompt change
 export VIRTUAL_ENV_DISABLE_PROMPT=1
 
-# Extended history-like options
-export HISTCONTROL=ignoredups:erasedups  # Ignore duplicates
-export HISTIGNORE="ls:cd:cd -:pwd:exit:date:* --help"  # Ignore common noise
-
+# Set vi mode for command-line editing
 set -o vi
 
+# Cursor shape adjustment
 function __set_cursor_shape() {
-  if [[ $READLINE_LINE ]]; then
-    echo -ne '\e[5 q'  # Beam
-  else
-    echo -ne '\e[1 q'  # Block
-  fi
+    if [[ $READLINE_LINE ]]; then
+        echo -ne '\e[5 q'  # Beam
+    else
+        echo -ne '\e[1 q'  # Block
+    fi
 }
 
+# Key bindings
 bind '"\e[A": history-search-backward'
 bind '"\e[B": history-search-forward'
 bind '"\C-r": reverse-search-history'
@@ -126,6 +120,7 @@ function __calculate_host_color() {
     echo "$prompt_host_color"
 }
 
+# Calculate host name
 function __calculate_host_name() {
     local prompt_host_name="\h"
 
@@ -139,10 +134,22 @@ function __calculate_host_name() {
 }
 
 function __cute_prompt_command() {
+    local last_command_status=$?
+
     local END_OF_PROMPT_ICON='%'
     local ELEVATED_END_OF_PROMPT_ICON='#'
 
-    PS1=\\[$White\\]$(__cute_time_prompt)\\[$Color_Off\\]' '\\[$BrightGreen\\]'\u'\\[$Yellow\\]'@'\\[$(__calculate_host_color)\\]$(__calculate_host_name)\\[$Color_Off\\]' '$(__cute_pwd)''
+    local time_part
+    time_part=$(__cute_time_prompt)
+    PS1=''
+    if [[ $last_command_status -ne 0 ]]; then
+        PS1+="\\[${On_Red}\\]"
+    fi
+
+    PS1+="\\[${White}\\]${time_part}\\[${Color_Off}\\] "
+    PS1+="\\[${BrightGreen}\\]\u\\[${Yellow}\\]@"
+    PS1+="\\[$(__calculate_host_color)\\]$(__calculate_host_name)\\[${Color_Off}\\] "
+    PS1+="$(__cute_pwd)"
     if [[ $EUID -eq 0 ]]; then
         PS1+=" ${ELEVATED_END_OF_PROMPT_ICON} "
     else
