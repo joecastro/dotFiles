@@ -153,6 +153,83 @@ function __print_last_command_status_prompt() {
     fi
 }
 
+function __generate_static_prompt_part() {
+    local PromptHostColor="$fg[yellow]"
+    local PromptHostName="%m"
+
+    if (( ${+HOST_COLOR} )); then
+        PromptHostColor="%F{${HOST_COLOR}}"
+    fi
+
+    if __is_in_tmux; then
+        PromptHostName=""
+    elif ! __is_ssh_session && [[ -n ${LOCALHOST_PREFERRED_DISPLAY} ]]; then
+        PromptHostName=${LOCALHOST_PREFERRED_DISPLAY}
+    fi
+
+    # All optional segments have spaces embedded in the output suffix if non-empty.
+    echo -n '%{$fg[green]%}$USER%{$fg[yellow]%}@%B%{'${PromptHostColor}'%}'${PromptHostName}'%{$reset_color%} '
+}
+
+function __generate_preamble_color() {
+    local style="$1"
+    case "${style}" in
+    "Git")
+        echo -n "%{$fg[green]%}"
+        ;;
+    "Repo")
+        echo -n "%{$fg[yellow]%}"
+        ;;
+    "Piper")
+        echo -n "%{$fg[blue]%}"
+        ;;
+    *)
+        echo -n "%{$reset_color%}"
+    esac
+}
+
+function __generate_dynamic_prompt_part() {
+    local dynamic_part=''
+    local style="$1"
+
+    case "${style}" in
+    "Git")
+        dynamic_part+='$(__print_git_worktree_prompt)'
+        dynamic_part+='$(__echo_colored "$(__git_branch_color_hint)" "$(__print_git_branch)") '
+        dynamic_part+='$(__print_git_pwd --no-branch)'
+        ;;
+    "Repo")
+        dynamic_part+='$(__print_repo_worktree) '
+        dynamic_part+='$(__cute_pwd)'
+        ;;
+    "Piper")
+        dynamic_part+='$(__print_citc_workspace) '
+        dynamic_part+='$(__cute_pwd)'
+        ;;
+    *)
+        dynamic_part='$(__cute_pwd)'
+    esac
+
+    echo -n "${dynamic_part}"
+}
+
+function __generate_prompt() {
+    # Prefix an indicator when the last command failed.
+    local preamble='$(__print_last_command_status_prompt)'
+    preamble+="$(__generate_preamble_color $1)"
+    preamble+='$(__cute_time_prompt) $(__virtualenv_info " ")'
+
+    local static=$(__generate_static_prompt_part)
+    local suffix
+    if [[ ${EUID} -eq 0 ]]; then
+        suffix=" ${ELEVATED_END_OF_PROMPT_ICON} "
+    else
+        suffix=" ${END_OF_PROMPT_ICON} "
+    fi
+
+    echo -n "${preamble}${static}$(__generate_dynamic_prompt_part "$1")${suffix}"
+}
+
 function __update_prompt() {
     _dotTrace "__update_prompt"
 
@@ -161,78 +238,6 @@ function __update_prompt() {
         return
     fi
     __cache_put UPDATE_PROMPT_PWD "${PWD}"
-
-    function __generate_static_prompt_part() {
-        local PromptHostColor="$fg[yellow]"
-        local PromptHostName="%m"
-
-        if (( ${+HOST_COLOR} )); then
-            PromptHostColor="%F{${HOST_COLOR}}"
-        fi
-
-        if __is_in_tmux; then
-            PromptHostName=""
-        elif ! __is_ssh_session && [[ -n ${LOCALHOST_PREFERRED_DISPLAY} ]]; then
-            PromptHostName=${LOCALHOST_PREFERRED_DISPLAY}
-        fi
-
-        # All optional segments have spaces embedded in the output suffix if non-empty.
-        echo -n '%{$fg[green]%}$USER%{$fg[yellow]%}@%B%{'${PromptHostColor}'%}'${PromptHostName}'%{$reset_color%} '
-    }
-
-    function __generate_preamble_color() {
-        local style="$1"
-        case "${style}" in
-        "Git")
-            echo -n "%{$fg[green]%}"
-            ;;
-        "Repo")
-            echo -n "%{$fg[yellow]%}"
-            ;;
-        "Piper")
-            echo -n "%{$fg[blue]%}"
-            ;;
-        *)
-            echo -n "%{$reset_color%}"
-        esac
-    }
-
-    function __generate_dynamic_prompt_part() {
-        local dynamic_part=''
-        local style="$1"
-
-        case "${style}" in
-        "Git")
-            dynamic_part+="$(__print_git_worktree_prompt)"
-            dynamic_part+="$(__echo_colored "$(__git_branch_color_hint)" "$(__print_git_branch)") "
-            dynamic_part+="$(__print_git_pwd --no-branch)"
-            ;;
-        "Repo")
-            dynamic_part+="$(__print_repo_worktree) "
-            dynamic_part+="$(__cute_pwd)"
-            ;;
-        "Piper")
-            dynamic_part+="$(__print_citc_workspace) "
-            dynamic_part+="$(__cute_pwd)"
-            ;;
-        *)
-            dynamic_part="$(__cute_pwd)"
-        esac
-
-        echo -n "${dynamic_part}"
-    }
-
-    function __generate_prompt() {
-        # Prefix an indicator when the last command failed.
-        local preamble='$(__print_last_command_status_prompt)'
-        preamble+="$(__generate_preamble_color $1)"
-        preamble+='$(__cute_time_prompt) $(__virtualenv_info " ")'
-
-        local static=$(__generate_static_prompt_part)
-        local suffix=' %(!.$ELEVATED_END_OF_PROMPT_ICON.$END_OF_PROMPT_ICON) '
-
-        echo -n "${preamble}${static}"'${PROMPT_PWD}'"${suffix}"
-    }
 
     _dotTrace "__update_prompt - calculating new style (${PWD})"
     local new_dynamic_style
@@ -253,21 +258,14 @@ function __update_prompt() {
     if [[ "${active_dynamic_prompt_style}" != "${new_dynamic_style}" ]]; then
         _dotTrace "__update_prompt - updating prompt to ${new_dynamic_style}"
         PROMPT="$(__generate_prompt ${new_dynamic_style})"
+        RPROMPT=''
         __cache_put "ACTIVE_DYNAMIC_PROMPT_STYLE" "${new_dynamic_style}"
     fi
-
-    _dotTrace "__update_prompt - updating PROMPT_PWD"
-    PROMPT_PWD=$(__generate_dynamic_prompt_part ${new_dynamic_style})
-
-    _dotTrace "__update_prompt - done"
 }
 
-PROMPT_PWD=""
-export PROMPT_PWD
-
 PROMPT="XXX"
+RPROMPT="YYY"
 __update_prompt
-RPROMPT=''
 # RPOMPT+='%* '
 
 if ! __is_tool_window && ! __z_is_embedded_terminal; then

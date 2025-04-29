@@ -62,14 +62,14 @@ function list_colors() {
 
     # Normal colors
     for color in {0..7}; do
-        printf "\e[38;5;${color}m ${color}"
+        printf "\e[38;5;%sm %s" "${color}" "${color}"
     done
 
     printf "\e[0m ||"
 
     # Bright colors
     for color in {8..15}; do
-        printf "\e[38;5;${color}m ${color}"
+        printf "\e[38;5;%sm %s" "${color}" "${color}"
     done
 
     printf "\n"
@@ -81,7 +81,7 @@ function list_colors() {
     for x in {0..0}; do # {0..8}
         for i in {30..37}; do
             for a in {40..47}; do
-                printf "\e[${x};${i};${a}m\\\e[${x};${i};${a}m\e[0m "
+                printf "\e[%s;%s;%sm\\\e[%s;%s;%sm\e[0m " "${x}" "${i}" "${a}" "${x}" "${i}" "${a}"
             done
             printf "\n"
         done
@@ -89,15 +89,15 @@ function list_colors() {
     printf "\n"
 
     local column_index=0
-    local background_loop_color=016
+    local background_loop_color=16
     for color in {016..255}; do
-        printf "\e[38;5;${color}m ${color}"
+        printf "\e[38;5;%sm %s" "${color}" "${color}"
         column_index=$((column_index + 1))
         if [ "$column_index" -eq "$COLUMN_WIDTH" ]; then
             printf "  \e[38;5;15m"
             while [ "$background_loop_color" -le "$color" ]; do
                 # Colored background, white text, color value
-                printf "\e[48;5;${background_loop_color}m   "
+                printf "\e[48;5;%sm   " "${background_loop_color}"
                 background_loop_color=$((background_loop_color + 1))
             done
 
@@ -118,7 +118,7 @@ if __is_shell_zsh; then
 
     alias source_dotfiles='clear_pragmas; source ~/.zshenv; source ~/.zprofile; source ~/.zshrc'
 elif __is_shell_bash; then
-    alias source_dotfiles='echo "Maybe later...'
+    alias source_dotfiles='echo "Maybe later..."'
 fi
 
 if __is_shell_zsh; then
@@ -142,7 +142,7 @@ else
         local parts
 
         # Read the value of the color variable
-        color_value=$(eval echo \$$color_var)
+        color_value=$(eval echo \$"$color_var")
 
         # Split the color variable into parts
         IFS=':' read -r -a parts <<< "$color_value"
