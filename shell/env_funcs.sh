@@ -846,8 +846,8 @@ if ! __is_shell_old_bash; then
             ;;
         esac
 
-        if __is_on_wsl && [ "${ACTIVE_DIR}" == "${WIN_USERPROFILE}" ]; then
-            echo -n "${ICON_MAP[WINDOWS]}"
+        if __is_on_wsl && test "${ACTIVE_DIR}" = "${WIN_USERPROFILE}"; then
+            echo -n "${ICON_MAP[HOME_FOLDER]}"
             return 0
         fi
 

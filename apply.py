@@ -182,6 +182,8 @@ def update_workspace_extensions() -> None:
 
     completed_proc = subprocess.run(['code', '--list-extensions'], check=True, capture_output=True, text=True)
     installed_extensions = completed_proc.stdout.splitlines()
+    if installed_extensions[0].startswith('Extensions installed on WSL'):
+        raise ValueError('Running this way is not supported. Use the WSL terminal.')
 
     extensions_node = {
         'recommendations': sorted(installed_extensions, key=str.lower)
@@ -557,7 +559,7 @@ def stage_local(host: Host, verbose: bool = False, use_cache: bool = False) -> l
     finish_ops.extend(copy_files_local(host.get_remote_staging_dir(), host.file_maps.keys(), '${HOME}', host.file_maps.values()))
     finish_ops.extend(copy_directories_local(host.get_remote_staging_dir(), host.directory_maps.keys(), '${HOME}', host.directory_maps.values(), True))
     finish_ops.extend(make_install_plugins_bash_commands('Vim startup plugin(s)', config.vim_pack_plugin_start_repos, '${HOME}'))
-    finish_ops.extend(make_install_plugins_bash_commands('Vim optional plugin(s)', config.vim_pack_plugin_opt_repos, '${HOME}'))
+    finish_ops.extend(make_install_plugins_bash_commands('Vim operational plugin(s)', config.vim_pack_plugin_opt_repos, '${HOME}'))
     finish_ops.extend(make_install_plugins_bash_commands('Zsh plugin(s)', config.zsh_plugin_repos, '${HOME}'))
     finish_ops.extend(make_post_install_commands(host))
 
@@ -722,8 +724,34 @@ def parse_hosts_from_args(host_args: list[str]) -> list[Host]:
 
 def main(args: list[str]) -> int:
     """Apply dotFiles operations."""
+    host_operations = [
+        'clean',
+        'pull',
+        'push',
+        'push-only',
+        'stage'
+    ]
+    workspace_operations = [
+        'bootstrap-windows',
+        'compare-iterm2-prefs',
+        'compare-user-settings',
+        'generate-workspace',
+        'install-sublime-plugins',
+        'push-gnome-settings',
+        'push-iterm2-prefs',
+        'snapshot-iterm2-prefs',
+        'update-workspace-extensions'
+    ]
+
     parser = argparse.ArgumentParser(description='Apply dotFiles operations')
-    parser.add_argument('option', help='Operation to perform')
+    parser.add_argument(
+        'operation',
+        help='Operation to perform',
+        choices=sorted(host_operations
+            + workspace_operations
+            + [f'{op}-local' for op in host_operations]
+            + [f'{op}-all' for op in host_operations])
+    )
     parser.add_argument('--hosts', nargs='+', help='Hosts to apply the operation to')
     host_group = parser.add_mutually_exclusive_group()
     host_group.add_argument('--all', action='store_true', help='Apply to all hosts')
@@ -739,12 +767,12 @@ def main(args: list[str]) -> int:
     if parsed_args.working_dir:
         os.chdir(parsed_args.working_dir)
 
-    option = parsed_args.option
-    if option.endswith('-local'):
-        option = option.removesuffix('-local')
+    operation_arg = parsed_args.operation
+    if operation_arg.endswith('-local'):
+        operation_arg = operation_arg.removesuffix('-local')
         parsed_args.local = True
-    elif option.endswith('-all'):
-        option = option.removesuffix('-all')
+    elif operation_arg.endswith('-all'):
+        operation_arg = operation_arg.removesuffix('-all')
         parsed_args.all = True
 
     if parsed_args.local and parsed_args.all:
@@ -762,44 +790,44 @@ def main(args: list[str]) -> int:
     elif parsed_args.hosts:
         hosts = parse_hosts_from_args(parsed_args.hosts)
 
-    if option in ['push', 'pull', 'stage', 'push-only', 'clean'] and not hosts:
+    if operation_arg in host_operations and not hosts:
         raise ValueError('No hosts specified')
 
     ops = []
-    match option:
+    match operation_arg:
+        case 'bootstrap-windows':
+            ops.extend(bootstrap_windows())
+        case 'clean':
+            ops.extend(chain.from_iterable(clean_remote_dotfiles(host) for host in hosts))
         case 'compare-iterm2-prefs':
             ops.append(compare_iterm2_prefs)
         case 'compare-user-settings':
             ops.append(partial(compare_user_settings, host=config.get_localhost()))
-        case 'update-workspace-extensions':
-            ops.append(update_workspace_extensions)
         case 'generate-workspace':
             ops.append(generate_derived_workspace)
-        case 'snapshot-iterm2-prefs':
-            ops.append(snapshot_iterm2_prefs_json)
-        case 'push-iterm2-prefs':
-            ops.append(push_iterm2_prefs)
-        case 'push-gnome-settings':
-            ops.extend(push_gnome_settings())
-        case 'bootstrap-windows':
-            ops.extend(bootstrap_windows())
         case 'install-sublime-plugins':
             ops.extend(push_sublimetext_windows_plugins())
+        case 'pull':
+            if len(hosts) != 1:
+                raise ValueError('Cannot pull from multiple hosts')
+            ops.extend(pull_remote(hosts[0]))
         case 'push':
             ops.extend(chain.from_iterable(stage_local(host, verbose=parsed_args.verbose, use_cache=parsed_args.use_cache) for host in hosts))
             ops.extend(chain.from_iterable(push_remote_staging(host) for host in hosts))
             if any(host.is_localhost() and host.kernel == 'darwin' for host in hosts):
                 ops.append(push_iterm2_prefs)
-        case 'stage':
-            ops.extend(chain.from_iterable(stage_local(host, verbose=parsed_args.verbose) for host in hosts))
+        case 'push-gnome-settings':
+            ops.extend(push_gnome_settings())
+        case 'push-iterm2-prefs':
+            ops.append(push_iterm2_prefs)
         case 'push-only':
             ops.extend(chain.from_iterable(push_remote_staging(host) for host in hosts))
-        case 'pull':
-            if len(hosts) != 1:
-                raise ValueError('Cannot pull from multiple hosts')
-            ops.extend(pull_remote(hosts[0]))
-        case 'clean':
-            ops.extend(chain.from_iterable(clean_remote_dotfiles(host) for host in hosts))
+        case 'snapshot-iterm2-prefs':
+            ops.append(snapshot_iterm2_prefs_json)
+        case 'stage':
+            ops.extend(chain.from_iterable(stage_local(host, verbose=parsed_args.verbose) for host in hosts))
+        case 'update-workspace-extensions':
+            ops.append(update_workspace_extensions)
         case _:
             print('<unknown arg>')
             return 1
