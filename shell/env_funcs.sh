@@ -30,7 +30,7 @@ function toggle_trace_dotfiles() {
 }
 
 # Suppress warnings on bash 3
-declare -A ICON_MAP=([NOTHING]="") > /dev/null 2>&1
+declare -A ICON_MAP=([NOTHING]="X") > /dev/null 2>&1
 
 declare -A EMOJI_ICON_MAP=(
     [WINDOWS]=🪟
@@ -80,6 +80,7 @@ declare -A EMOJI_ICON_MAP=(
     [ARROW_UP]=⬆️
     [ARROW_UP_THICK]=⬆️
     [REVIEW]=📝
+    [TOOLS]=🛠️
     ) > /dev/null 2>&1
 
 declare -A NF_ICON_MAP=(
@@ -130,6 +131,7 @@ declare -A NF_ICON_MAP=(
     [ARROW_UP]=
     [ARROW_UP_THICK]=󰁞
     [REVIEW]=
+    [TOOLS]=
     ) > /dev/null 2>&1
 
 function __is_ssh_session() {
@@ -621,6 +623,9 @@ source /dev/stdin <<'EOF'
 
     function __refresh_icon_map() {
         local USE_NERD_FONTS="$1"
+
+        unset ICON_MAP[NOTHING]
+
         # emojipedia.org
         #Nerdfonts - https://www.nerdfonts.com/cheat-sheet
         if [[ "${USE_NERD_FONTS}" == "0" ]]; then
@@ -659,6 +664,9 @@ else
     else
         function __refresh_icon_map() {
             local USE_NERD_FONTS="$1"
+
+            unset "ICON_MAP[NOTHING]"
+
             # emojipedia.org
             #Nerdfonts - https://www.nerdfonts.com/cheat-sheet
             if [[ "${USE_NERD_FONTS}" == "0" ]]; then
@@ -673,6 +681,14 @@ else
         }
     fi
 fi
+
+function __is_icon_map_initialized() {
+    [[ -z "${ICON_MAP[NOTHING]}" ]]
+}
+
+# Don't use ICON_MAP before this point.
+__refresh_icon_map "${EXPECT_NERD_FONTS:-0}"
+export ICON_MAP
 
 function __is_style_name() {
     local style="$1"
@@ -985,15 +1001,27 @@ if __is_shell_zsh; then
 fi
 
 CUTE_HEADER_PARTS+=("$(uname -s)")
-CUTE_HEADER_PARTS+=("$(__cute_host)")
-CUTE_HEADER_PARTS+=("$(uname -m)")
 
 if __is_shell_old_bash; then
-    CUTE_HEADER_PARTS+=("!! Bash ${BASH_VERSINFO[0]} is old o_O !!")
-fi
+    CUTE_HEADER_PARTS+=("$(__cute_host)")
+    CUTE_HEADER_PARTS+=("$(uname -m)")
 
-if __is_tool_window; then
-    CUTE_HEADER_PARTS+=("tool")
+    CUTE_HEADER_PARTS+=("!! Bash ${BASH_VERSINFO[0]} is old o_O !!")
+else
+    if ! __is_icon_map_initialized; then
+        echo "Error: ICON_MAP is not initialized." >&2
+    fi
+
+    if __is_on_wsl; then
+        CUTE_HEADER_PARTS+=("${ICON_MAP[WINDOWS]}")
+    fi
+
+    CUTE_HEADER_PARTS+=("$(__cute_host)")
+    CUTE_HEADER_PARTS+=("$(uname -m)")
+
+    if __is_tool_window; then
+        CUTE_HEADER_PARTS+=("${ICON_MAP[TOOLS]}")
+    fi
 fi
 
 # Shared setup helpers for bash and zsh.
@@ -1012,7 +1040,12 @@ function __do_eza_aliases() {
     # if eza is installed prefer that to ls
     # options aren't the same, but I also need it less often...
     if ! command -v eza &> /dev/null; then
-        echo "## Using native ls because missing eza"
+        local eza_warning="!! eza not found !!"
+        # shellcheck disable=SC2076
+        if [[ ! " ${CUTE_HEADER_PARTS[*]} " =~ " ${eza_warning} " ]]; then
+            CUTE_HEADER_PARTS+=("${eza_warning}")
+        fi
+        # echo "## Using native ls because missing eza"
         # by default, show slashes, follow symbolic links, colorize
         alias ls='ls -FHG'
     else
@@ -1052,7 +1085,11 @@ function __do_iterm2_shell_integration() {
 
 function __do_vscode_shell_integration() {
     if __is_on_osx && ! __is_ssh_session && ! command -v code &> /dev/null; then
-        echo "## CLI for VSCode is unavailable. Check https://code.visualstudio.com/docs/setup/mac"
+        local vscode_warning="!! VSCode CLI unavailable. Check https://code.visualstudio.com/docs/setup/mac !!"
+        # shellcheck disable=SC2076
+        if [[ ! " ${CUTE_HEADER_PARTS[*]} " =~ " ${vscode_warning} " ]]; then
+            CUTE_HEADER_PARTS+=("${vscode_warning}")
+        fi
     fi
 
     if ! __is_vscode_terminal; then
@@ -1163,6 +1200,3 @@ function __do_konsole_shell_integration() {
         precmd_functions+=(__update_konsole_profile)
     fi
 }
-
-__refresh_icon_map "${EXPECT_NERD_FONTS:-0}"
-export ICON_MAP
