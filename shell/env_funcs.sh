@@ -624,7 +624,7 @@ source /dev/stdin <<'EOF'
     function __refresh_icon_map() {
         local USE_NERD_FONTS="$1"
 
-        unset ICON_MAP[NOTHING]
+        unset "ICON_MAP[NOTHING]"
 
         # emojipedia.org
         #Nerdfonts - https://www.nerdfonts.com/cheat-sheet
