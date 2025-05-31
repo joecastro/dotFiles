@@ -553,11 +553,17 @@ def stage_local(host: Host, verbose: bool = False, use_cache: bool = False) -> l
 
     dirs_to_remove = remove_children_from_set(set(host.directory_maps.values()).union({host.config_dir}))
     files_to_remove = [f for f in host.file_maps.values() if not any(f.startswith(d) for d in dirs_to_remove)]
-    finish_ops.extend([['rm', '-f', f'${{HOME}}/{f}'] for f in sorted(files_to_remove)])
-    finish_ops.extend([['rm', '-rf', f'${{HOME}}/{d}'] for d in sorted(dirs_to_remove)])
+    finish_ops.extend([['rm', '-f', f'"${{HOME}}/{f}"'] for f in sorted(files_to_remove)])
+    finish_ops.extend([['rm', '-rf', f'"${{HOME}}/{d}"'] for d in sorted(dirs_to_remove)])
 
-    finish_ops.extend(copy_files_local(host.get_remote_staging_dir(), host.file_maps.keys(), '${HOME}', host.file_maps.values()))
-    finish_ops.extend(copy_directories_local(host.get_remote_staging_dir(), host.directory_maps.keys(), '${HOME}', host.directory_maps.values(), True))
+    def quote_path_parts(cp_cmd: list[str]):
+        if cp_cmd[0] == 'cp':
+            cp_cmd[-1] = '"' + cp_cmd[-1] + '"' if ' ' in cp_cmd[-1] else cp_cmd[-1]
+            cp_cmd[-2] = '"' + cp_cmd[-2] + '"' if ' ' in cp_cmd[-2] else cp_cmd[-2]
+        return cp_cmd
+
+    finish_ops.extend([quote_path_parts(cp_cmd) for cp_cmd in copy_files_local(host.get_remote_staging_dir(), host.file_maps.keys(), '${HOME}', host.file_maps.values())])
+    finish_ops.extend([quote_path_parts(cp_cmd) for cp_cmd in copy_directories_local(host.get_remote_staging_dir(), host.directory_maps.keys(), '${HOME}', host.directory_maps.values(), True)])
     finish_ops.extend(make_install_plugins_bash_commands('Vim startup plugin(s)', config.vim_pack_plugin_start_repos, '${HOME}'))
     finish_ops.extend(make_install_plugins_bash_commands('Vim operational plugin(s)', config.vim_pack_plugin_opt_repos, '${HOME}'))
     finish_ops.extend(make_install_plugins_bash_commands('Zsh plugin(s)', config.zsh_plugin_repos, '${HOME}'))

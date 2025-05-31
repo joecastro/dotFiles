@@ -29,10 +29,12 @@ function install_android_sdk() {
 }
 
 # https://brew.sh
-if command -v brew > /dev/null; then
+if ! command -v brew; then
     echo " >> Installing Homebrew..."
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 fi
+
+eval "$(/opt/homebrew/bin/brew shellenv)"
 
 brew update
 
@@ -71,6 +73,10 @@ brew install \
     flock \
     tmux \
     python@3
+
+brew install openjdk@21
+# Instructions from that keg...
+sudo ln -sfn /opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk /Library/Java/JavaVirtualMachines/openjdk-21.jdk
 
 brew install \
     docker \

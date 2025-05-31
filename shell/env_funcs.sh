@@ -81,6 +81,7 @@ declare -A EMOJI_ICON_MAP=(
     [ARROW_UP_THICK]=⬆️
     [REVIEW]=📝
     [TOOLS]=🛠️
+    [APPLE_FINDER]= # Only legible on MacOS and iOS
     ) > /dev/null 2>&1
 
 declare -A NF_ICON_MAP=(
@@ -132,6 +133,7 @@ declare -A NF_ICON_MAP=(
     [ARROW_UP_THICK]=󰁞
     [REVIEW]=
     [TOOLS]=
+    [APPLE_FINDER]=󰀶
     ) > /dev/null 2>&1
 
 function __is_ssh_session() {
@@ -500,12 +502,38 @@ function __is_shell_old_bash() {
     __is_shell_bash && [[ "${BASH_VERSINFO[0]}" -lt 4 ]]
 }
 
+function __is_shell_system_bash() {
+    if ! __is_shell_bash; then
+        return 1
+    fi
+
+    [[ "$0" == "-bash" ]] \
+        || [[ "$0" == "-/bin/bash" ]] \
+        || [[ "$(which "$0")" == "/bin/bash" ]] \
+        || [[ "$(which "$0")" == "/usr/bin/bash" ]]
+}
+
 function __is_shell_zsh() {
     [[ -n "$ZSH_VERSION" ]]
 }
 
+function __is_shell_system_zsh() {
+    if ! __is_shell_zsh; then
+        return 1
+    fi
+
+    [[ "$0" == "-zsh" ]] \
+        || [[ "$(which "$0")" == "/bin/zsh" ]] \
+        || [[ "$(which "$0")" == "/usr/bin/zsh" ]]
+}
+
 function __has_homebrew() {
     command -v brew > /dev/null
+}
+
+function __is_homebrew_bin() {
+    local bin_path="$1"
+    [[ $bin_path == ${HOMEBREW_PREFIX:-/opt/homebrew}/bin/* ]]
 }
 
 function __has_citc() {
@@ -961,6 +989,18 @@ function __cute_host() {
     uname -n
 }
 
+function __cute_kernel() {
+    if __is_on_osx; then
+        echo -n "${ICON_MAP[APPLE_FINDER]}"
+    else
+        echo -n "$(uname -s)"
+
+        if __is_on_wsl; then
+            echo -n "${ICON_MAP[WINDOWS]}"
+        fi
+    fi
+}
+
 typeset -a CUTE_HEADER_PARTS=()
 
 function __cute_shell_header() {
@@ -978,20 +1018,26 @@ function __cute_shell_header() {
     echo "${CUTE_HEADER_PARTS[@]}" "${ICON_MAP[MD_SNAPCHAT]}"
 }
 
+if ! __is_icon_map_initialized; then
+    echo "Error: ICON_MAP is not initialized." >&2
+fi
+
 if __is_shell_bash; then
-    if [[ "$0" == "-bash" ]] || [[ "$0" == "-/bin/bash" ]]; then
-        CUTE_HEADER_PARTS+=("bash")
-    elif [[ "$(which "$0")" == "/bin/bash" ]] || [[ "$(which "$0")" == "/usr/bin/bash" ]]; then
+    if __is_homebrew_bin "${SHELL}"; then
+        CUTE_HEADER_PARTS+=("bash${ICON_MAP[FA_BEER]}")
+    elif __is_shell_system_bash; then
         CUTE_HEADER_PARTS+=("bash")
     else
-        CUTE_HEADER_PARTS+=("$0")
+        CUTE_HEADER_PARTS+=("${SHELL}")
     fi
 
     CUTE_HEADER_PARTS+=("${BASH_VERSINFO[0]}.${BASH_VERSINFO[1]}.${BASH_VERSINFO[2]}")
 fi
 
 if __is_shell_zsh; then
-    if [[ "${SHELL}" == "/bin/zsh" ]] || [[ "${SHELL}" == "/usr/bin/zsh" ]]; then
+    if __is_homebrew_bin "$SHELL"; then
+        CUTE_HEADER_PARTS+=("zsh${ICON_MAP[FA_BEER]}")
+    elif __is_shell_system_zsh; then
         CUTE_HEADER_PARTS+=("zsh")
     else
         CUTE_HEADER_PARTS+=("${SHELL}")
@@ -1000,21 +1046,16 @@ if __is_shell_zsh; then
     CUTE_HEADER_PARTS+=("${ZSH_VERSION}")
 fi
 
-CUTE_HEADER_PARTS+=("$(uname -s)")
-
 if __is_shell_old_bash; then
+    CUTE_HEADER_PARTS+=("$(uname -s)")
+
     CUTE_HEADER_PARTS+=("$(__cute_host)")
     CUTE_HEADER_PARTS+=("$(uname -m)")
 
     CUTE_HEADER_PARTS+=("!! Bash ${BASH_VERSINFO[0]} is old o_O !!")
 else
-    if ! __is_icon_map_initialized; then
-        echo "Error: ICON_MAP is not initialized." >&2
-    fi
 
-    if __is_on_wsl; then
-        CUTE_HEADER_PARTS+=("${ICON_MAP[WINDOWS]}")
-    fi
+    CUTE_HEADER_PARTS+=("$(__cute_kernel)")
 
     CUTE_HEADER_PARTS+=("$(__cute_host)")
     CUTE_HEADER_PARTS+=("$(uname -m)")
