@@ -2,7 +2,7 @@
 
 function install_android_sdk() {
     if [[ -z "$ANDROID_HOME" ]]; then
-        echo "ANDROID_HOME environment variable not set. This file can be sourced and then the function 'install_ANDROID_HOME' can be called"
+        echo "ANDROID_HOME environment variable not set. This file can be sourced and then the function 'install_android_sdk' can be called"
         return 1
     fi
 
@@ -28,15 +28,15 @@ function install_android_sdk() {
     rm ./"$COMMANDLINETOOLSZIP_FILENAME"
 }
 
-# https://brew.sh
-if ! command -v brew; then
-    echo " >> Installing Homebrew..."
-    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-fi
+    # https://brew.sh
+    if ! command -v brew; then
+        echo " >> Installing Homebrew..."
+        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    fi
 
-eval "$(/opt/homebrew/bin/brew shellenv)"
+    eval "$(/opt/homebrew/bin/brew shellenv)"
 
-brew update
+    brew update
 
 # Consider whether to add Bartender.
 brew install --cask \
@@ -51,7 +51,9 @@ brew install --cask \
     grandperspective \
     google-chrome \
     docker \
-    microsoft-office
+    microsoft-office \
+    chatgpt \
+    ghostty \
 
 # brew install --cask microsoft-edge
 # brew install --cask adobe-creative-cloud
@@ -74,23 +76,34 @@ brew install \
     tmux \
     python@3
 
-brew install openjdk@21
-# Instructions from that keg...
-sudo ln -sfn /opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk /Library/Java/JavaVirtualMachines/openjdk-21.jdk
+    brew install openjdk@21
+    # Instructions from that keg...
+    sudo ln -sfn /opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk /Library/Java/JavaVirtualMachines/openjdk-21.jdk
 
-brew install \
-    docker \
-    docker-machine \
-    docker-compose
+    brew install \
+        docker \
+        docker-machine \
+        docker-compose
+}
+function macos_install_fonts() {
+    local FONT_FOLDER="$HOME/Library/Fonts"
+    mkdir -p "$FONT_FOLDER"
 
-#brew install --cask unity-hub
-brew install --cask \
-    font-inconsolata \
-    font-inconsolata-nerd-font \
-    font-cascadia-code \
-    font-caskaydia-cove-nerd-font \
-    font-jetbrains-mono \
-    font-jetbrains-mono-nerd-font
+    local font_families=("JetBrainsMono" "CascadiaCode" "Hack" "Inconsolata" "FiraCode" "UbuntuSans")
+    local nf_version
+    nf_version=$(wget -q -O - "https://api.github.com/repos/ryanoasis/nerd-fonts/releases/latest" | grep "\"name\"" | head -n 1 | cut -d '"' -f 4)
+
+    for font_family in "${font_families[@]}"; do
+        local font_url="https://github.com/ryanoasis/nerd-fonts/releases/download/${nf_version}/${font_family}.zip"
+        wget -O "$HOME/Downloads/${font_family}.zip" "${font_url}"
+        unzip "$HOME/Downloads/${font_family}.zip" "*.ttf" -d "$FONT_FOLDER"
+
+        rm "$HOME/Downloads/${font_family}.zip"
+        echo "Installed ${font_family} font."
+    done
+}
+
+macos_install_fonts
 
 brew tap gdubw/gng
 brew install gng
