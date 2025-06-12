@@ -4,7 +4,7 @@
 
 #pragma validate-dotfiles
 
-__is_on_osx || return
+__is_on_macos || return
 
 function battery_charge {
     echo -n "$(python3 "${DOTFILES_CONFIG_ROOT}"/batcharge.py)"

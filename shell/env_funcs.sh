@@ -30,7 +30,7 @@ function toggle_trace_dotfiles() {
 }
 
 # Suppress warnings on bash 3
-declare -A ICON_MAP=([NOTHING]="X") > /dev/null 2>&1
+declare -A ICON_MAP=([NOTHING]="❌") > /dev/null 2>&1
 
 declare -A EMOJI_ICON_MAP=(
     [WINDOWS]=🪟
@@ -135,6 +135,41 @@ declare -A NF_ICON_MAP=(
     [TOOLS]=
     [APPLE_FINDER]=󰀶
     ) > /dev/null 2>&1
+
+if [[ -n "${ZSH_VERSION}" ]]; then
+    declare -a ICON_MAP_KEYS=("${(@k)EMOJI_ICON_MAP}")
+else
+    declare -a ICON_MAP_KEYS=("${!EMOJI_ICON_MAP[@]}")
+fi
+
+function __refresh_icon_map() {
+    local USE_NERD_FONTS="$1"
+
+    if __is_shell_old_bash; then
+        return 1
+    fi
+
+    unset "ICON_MAP[NOTHING]"
+
+    # emojipedia.org
+    #Nerdfonts - https://www.nerdfonts.com/cheat-sheet
+    if [[ "${USE_NERD_FONTS}" == "0" ]]; then
+        for key in "${ICON_MAP_KEYS[@]}"; do
+            ICON_MAP[$key]=${NF_ICON_MAP[$key]}
+        done
+    else
+        for key in "${ICON_MAP_KEYS[@]}"; do
+            ICON_MAP[$key]=${EMOJI_ICON_MAP[$key]}
+        done
+    fi
+}
+
+function __print_icon_map() {
+    echo "Icon Map:"
+    for key in "${ICON_MAP_KEYS[@]}"; do
+        echo "  $key => ${ICON_MAP[$key]}"
+    done
+}
 
 function __is_ssh_session() {
     [ -n "${SSH_CLIENT}" ] || [ -n "${SSH_TTY}" ] || [ -n "${SSH_CONNECTION}" ]
@@ -447,8 +482,8 @@ function __is_in_windows_drive() {
     [[ "${PWD##"${WIN_SYSTEM_ROOT}"}" != "${PWD}" ]]
 }
 
-function __is_on_osx() {
-    [[ "$(uname)" == "Darwin" ]]
+function __is_on_macos() {
+    [[ "$(uname -s)" == "Darwin" ]]
 }
 
 function __is_on_windows() {
@@ -495,40 +530,15 @@ function __is_tool_window() {
 }
 
 function __is_shell_bash() {
-    [[ -n "$BASH_VERSION" ]]
+    [[ -n "${BASH_VERSION}" ]]
 }
 
 function __is_shell_old_bash() {
     __is_shell_bash && [[ "${BASH_VERSINFO[0]}" -lt 4 ]]
 }
 
-function __is_shell_system_bash() {
-    if ! __is_shell_bash; then
-        return 1
-    fi
-
-    [[ "$0" == "-bash" ]] \
-        || [[ "$0" == "-/bin/bash" ]] \
-        || [[ "$(which "$0")" == "/bin/bash" ]] \
-        || [[ "$(which "$0")" == "/usr/bin/bash" ]]
-}
-
 function __is_shell_zsh() {
-    [[ -n "$ZSH_VERSION" ]]
-}
-
-function __is_shell_system_zsh() {
-    if ! __is_shell_zsh; then
-        return 1
-    fi
-
-    [[ "$0" == "-zsh" ]] \
-        || [[ "$(which "$0")" == "/bin/zsh" ]] \
-        || [[ "$(which "$0")" == "/usr/bin/zsh" ]]
-}
-
-function __has_homebrew() {
-    command -v brew > /dev/null
+    [[ -n "${ZSH_VERSION}" ]]
 }
 
 function __is_homebrew_bin() {
@@ -540,16 +550,33 @@ function __has_citc() {
     command -v citctools > /dev/null
 }
 
-function __cache_available() {
-    return 1
-}
+if __is_shell_old_bash; then
+    function __cache_available() {
+        return 1
+    }
 
-if __is_shell_zsh; then
+    function __cache_put() {
+        return 1
+    }
+
+    function __cache_get_expiration() {
+        return 1
+    }
+
+    function __cache_get() {
+        return 1
+    }
+
+    function __cache_clear() {
+        return 1
+    }
+
+else
+    declare -A Z_CACHE=()
+
     function __cache_available() {
         return 0
     }
-
-    declare -A Z_CACHE=()
 
     function __cache_put() {
         local key="$1"
@@ -604,7 +631,9 @@ if __is_shell_zsh; then
             Z_CACHE=()
         fi
     }
+fi
 
+if __is_shell_zsh; then
 # Prevent bash from attempting to interpret invalid zsh syntax.
 # shellcheck disable=SC1091
 source /dev/stdin <<'EOF'
@@ -648,66 +677,11 @@ source /dev/stdin <<'EOF'
             Z_CACHE["${key}"]="${value}"
         done < "${cache_file}"
     }
-
-    function __refresh_icon_map() {
-        local USE_NERD_FONTS="$1"
-
-        unset "ICON_MAP[NOTHING]"
-
-        # emojipedia.org
-        #Nerdfonts - https://www.nerdfonts.com/cheat-sheet
-        if [[ "${USE_NERD_FONTS}" == "0" ]]; then
-            for key val in "${(@kv)NF_ICON_MAP}"; do
-                ICON_MAP[$key]=$val
-            done
-        else
-            for key val in "${(@kv)EMOJI_ICON_MAP}"; do
-                ICON_MAP[$key]=$val
-            done
-        fi
-    }
 EOF
 else
-    function __cache_put() {
-        return 0
-    }
-
-    function __cache_get() {
-        return 1
-    }
-
-    function __cache_clear() {
-        return 0
-    }
-
     function __cache_print() {
         return 0
     }
-
-    if __is_shell_old_bash; then
-        function __refresh_icon_map() {
-            ICON_MAP=([UNSUPPORTED]="[?]")
-            return 0
-        }
-    else
-        function __refresh_icon_map() {
-            local USE_NERD_FONTS="$1"
-
-            unset "ICON_MAP[NOTHING]"
-
-            # emojipedia.org
-            #Nerdfonts - https://www.nerdfonts.com/cheat-sheet
-            if [[ "${USE_NERD_FONTS}" == "0" ]]; then
-                for key in "${!NF_ICON_MAP[@]}"; do
-                    ICON_MAP[$key]=${NF_ICON_MAP[$key]}
-                done
-            else
-                for key in "${!EMOJI_ICON_MAP[@]}"; do
-                    ICON_MAP[$key]=${EMOJI_ICON_MAP[$key]}
-                done
-            fi
-        }
-    fi
 fi
 
 function __is_icon_map_initialized() {
@@ -990,78 +964,71 @@ function __cute_host() {
 }
 
 function __cute_kernel() {
-    if __is_on_osx; then
-        echo -n "${ICON_MAP[APPLE_FINDER]}"
-    else
-        echo -n "$(uname -s)"
+    echo -n "$(uname -s)"
 
-        if __is_on_wsl; then
-            echo -n "${ICON_MAP[WINDOWS]}"
-        fi
+    if __is_on_wsl; then
+        echo -n "${ICON_MAP[WINDOWS]}"
     fi
 }
 
-typeset -a CUTE_HEADER_PARTS=()
+declare -a CUTE_HEADER_PARTS=() > /dev/null 2>&1
 
 function __cute_shell_header() {
-    if ! [[ "$1" != "--force" ]]; then
+    if [[ "$1" != "--force" ]]; then
         if ! __is_shell_interactive; then
             return 0
         fi
-        if [[ "${SHLVL}" != "1" ]]; then
+        if [[ "${SHLVL}" -gt 1 ]]; then
             if ! __is_shell_zsh || ! __z_is_embedded_terminal; then
                 return 0
             fi
         fi
     fi
 
-    echo "${CUTE_HEADER_PARTS[@]}" "${ICON_MAP[MD_SNAPCHAT]}"
+    if [[ "${SHLVL}" -gt 1 ]]; then
+        for ((i = 2; i <= SHLVL; i++)); do
+            echo -n "|"
+        done
+        echo -n " "
+    fi
+
+    # Do these late-bound so PATH has been fully settled first.
+
+    # alternatively: readlink /proc/$$/exe 2>/dev/null || lsof -p $$ | awk '/txt/{print $9}'
+    local cute_shell_path="${0#-}"
+    # Zsh rewrites $0 when sourcing and in function calls. Bash does not.
+    if [[ -n "${ZSH_ARGZERO}" ]]; then
+        cute_shell_path="${ZSH_ARGZERO#-}"
+    fi
+
+    cute_shell_path="$(which "${cute_shell_path}")"
+    if [[ "${cute_shell_path}" == "$(which "$(basename "${cute_shell_path}")")" ]]; then
+        cute_shell_path="$(basename "${cute_shell_path}")"
+    fi
+
+    local cute_shell_version=""
+    if __is_shell_bash; then
+        cute_shell_version="${BASH_VERSINFO[0]}.${BASH_VERSINFO[1]}.${BASH_VERSINFO[2]}"
+    elif __is_shell_zsh; then
+        cute_shell_version="${ZSH_VERSION}"
+    else
+        cute_shell_version="<unknown>"
+    fi
+
+    echo "${cute_shell_path}" "${cute_shell_version}" "${CUTE_HEADER_PARTS[@]}" "${ICON_MAP[MD_SNAPCHAT]}"
 }
 
-if ! __is_icon_map_initialized; then
-    echo "Error: ICON_MAP is not initialized." >&2
-fi
-
-if __is_shell_bash; then
-    if __is_homebrew_bin "${SHELL}"; then
-        CUTE_HEADER_PARTS+=("bash${ICON_MAP[FA_BEER]}")
-    elif __is_shell_system_bash; then
-        CUTE_HEADER_PARTS+=("bash")
-    else
-        CUTE_HEADER_PARTS+=("${SHELL}")
-    fi
-
-    CUTE_HEADER_PARTS+=("${BASH_VERSINFO[0]}.${BASH_VERSINFO[1]}.${BASH_VERSINFO[2]}")
-fi
-
-if __is_shell_zsh; then
-    if __is_homebrew_bin "$SHELL"; then
-        CUTE_HEADER_PARTS+=("zsh${ICON_MAP[FA_BEER]}")
-    elif __is_shell_system_zsh; then
-        CUTE_HEADER_PARTS+=("zsh")
-    else
-        CUTE_HEADER_PARTS+=("${SHELL}")
-    fi
-
-    CUTE_HEADER_PARTS+=("${ZSH_VERSION}")
-fi
-
-if __is_shell_old_bash; then
-    CUTE_HEADER_PARTS+=("$(uname -s)")
-
-    CUTE_HEADER_PARTS+=("$(__cute_host)")
-    CUTE_HEADER_PARTS+=("$(uname -m)")
-
-    CUTE_HEADER_PARTS+=("!! Bash ${BASH_VERSINFO[0]} is old o_O !!")
-else
-
+if __is_shell_interactive; then
     CUTE_HEADER_PARTS+=("$(__cute_kernel)")
-
     CUTE_HEADER_PARTS+=("$(__cute_host)")
     CUTE_HEADER_PARTS+=("$(uname -m)")
 
-    if __is_tool_window; then
-        CUTE_HEADER_PARTS+=("${ICON_MAP[TOOLS]}")
+    if ! __is_shell_old_bash; then
+        if __is_tool_window; then
+            CUTE_HEADER_PARTS+=("${ICON_MAP[TOOLS]}")
+        fi
+    else
+        CUTE_HEADER_PARTS+=("!! Bash ${BASH_VERSINFO[0]} is old o_O !!")
     fi
 fi
 
@@ -1125,7 +1092,7 @@ function __do_iterm2_shell_integration() {
 }
 
 function __do_vscode_shell_integration() {
-    if __is_on_osx && ! __is_ssh_session && ! command -v code &> /dev/null; then
+    if __is_on_macos && ! __is_ssh_session && ! command -v code &> /dev/null; then
         local vscode_warning="!! VSCode CLI unavailable. Check https://code.visualstudio.com/docs/setup/mac !!"
         # shellcheck disable=SC2076
         if [[ ! " ${CUTE_HEADER_PARTS[*]} " =~ " ${vscode_warning} " ]]; then

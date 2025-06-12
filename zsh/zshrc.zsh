@@ -297,14 +297,9 @@ __do_eza_aliases
 
 # echo "Welcome to $(__z_effective_distribution)!"
 case "$(__z_effective_distribution)" in
-"GLINUX")
-    # echo "GLinux zshrc load complete"
-    __on_glinux_zshrc_load_complete
-
-    ;;
 "OSX")
     # echo "OSX zshrc load complete"
-    if __has_homebrew; then
+    if command -v brew > /dev/null; then
         gnubin_path="$(brew --prefix)/opt/coreutils/libexec/gnubin"
         if [ -d "${gnubin_path}" ]; then
             path=("${gnubin_path}" "${path[@]}")

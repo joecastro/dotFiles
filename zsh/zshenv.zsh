@@ -35,7 +35,7 @@ function __embedded_terminal_info() {
 
 typeset -A DISTRIBUTION_ID_FUNCS=( \
     [WSL]="__is_on_wsl" \
-    [OSX]="__is_on_osx" \
+    [OSX]="__is_on_macos" \
     [WINDOWS]="__is_on_windows" )
 
 function __z_effective_distribution() {

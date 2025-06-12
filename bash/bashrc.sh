@@ -82,14 +82,8 @@ export VIRTUAL_ENV_DISABLE_PROMPT=1
 # Set vi mode for command-line editing
 set -o vi
 
-# Cursor shape adjustment
-function __set_cursor_shape() {
-    if [[ $READLINE_LINE ]]; then
-        echo -ne '\e[5 q'  # Beam
-    else
-        echo -ne '\e[1 q'  # Block
-    fi
-}
+function set_cursor_command_mode() { printf '\e[1 q'; }
+function set_cursor_insert_mode() { printf '\e[5 q'; }
 
 # Key bindings
 bind '"\e[A": history-search-backward'
@@ -97,6 +91,11 @@ bind '"\e[B": history-search-forward'
 bind '"\C-r": reverse-search-history'
 bind '"\C-u": unix-line-discard'
 bind '"\C-w": kill-line'
+
+bind -m vi-command '"": "set_cursor_command_mode\n"'
+bind -m vi-insert  '"": "set_cursor_insert_mode\n"'
+
+set_cursor_insert_mode
 
 function __remove_nonprintable_regions() {
     local input="$1"
@@ -155,8 +154,6 @@ function __cute_prompt_command() {
     else
         PS1+=" ${END_OF_PROMPT_ICON} "
     fi
-
-    __set_cursor_shape
 }
 
 PS1=""
@@ -171,10 +168,6 @@ __do_eza_aliases
 
 if declare -f chjava &>/dev/null; then
     chjava 22
-fi
-
-if declare -f __is_on_glinux &>/dev/null && __is_on_glinux; then
-    __on_glinux_bashrc_load_complete
 fi
 
 __cute_shell_header
