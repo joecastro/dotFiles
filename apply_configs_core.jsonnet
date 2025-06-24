@@ -40,6 +40,7 @@ local file_maps = [
     ['bash/profile.sh', '.profile'],
     ['bash/bashrc.sh', '.bashrc'],
     ['bash/inputrc.sh', '.inputrc'],
+    ['bash/colors.sh', config_dir + '/'],
     ['ghostty/ghostty_config.properties', '.config/ghostty/config'],
     ['ghostty/xterm-ghostty.terminfo', config_dir + '/'],
     ['shell/env_funcs.sh', config_dir + '/'],

@@ -137,6 +137,7 @@ declare -A NF_ICON_MAP=(
     ) > /dev/null 2>&1
 
 if [[ -n "${ZSH_VERSION}" ]]; then
+    # shellcheck disable=SC2296
     declare -a ICON_MAP_KEYS=("${(@k)EMOJI_ICON_MAP}")
 else
     declare -a ICON_MAP_KEYS=("${!EMOJI_ICON_MAP[@]}")

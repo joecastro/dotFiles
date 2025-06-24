@@ -57,7 +57,11 @@ function get_title() { (
 
 function list_colors() {
     local COLUMN_WIDTH=${1:-6}
-    echo "echoti colors - $(echoti colors)"
+
+    if command -v echoti &>/dev/null; then
+        echo "echoti colors - $(echoti colors)"
+    fi
+
     echo "COLORTERM - $COLORTERM"
 
     # Normal colors

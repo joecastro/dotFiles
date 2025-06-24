@@ -10,6 +10,8 @@ source ~/.profile
 # Exit if not running interactively
 __is_shell_interactive || return
 
+source "${DOTFILES_CONFIG_ROOT}/colors.sh"
+
 # shellcheck source=/dev/null
 source "${DOTFILES_CONFIG_ROOT}/completion/git-completion.bash"
 
@@ -20,47 +22,6 @@ PathShort="\w"
 PathFull="\W"
 NewLine="\n"
 Jobs="\j"
-
-# Colors
-Color_Off='\e[0m'  # Reset
-
-# Normal Colors
-Black='\e[0;30m'
-DarkGray='\e[01;30m'
-Red='\e[0;31m'
-BrightRed='\e[01;31m'
-Green='\e[0;32m'
-BrightGreen='\e[01;32m'
-Brown='\e[0;33m'
-Yellow='\e[1;33m'
-Blue='\e[0;34m'
-BrightBlue='\e[1;34m'
-Purple='\e[0;35m'
-LightPurple='\e[1;35m'
-Cyan='\e[0;36m'
-BrightCyan='\e[1;36m'
-LightGray='\e[0;37m'
-White='\e[1;37m'
-
-# Bold Colors
-BBlack='\e[1;30m'
-BRed='\e[1;31m'
-BGreen='\e[1;32m'
-BYellow='\e[1;33m'
-BBlue='\e[1;34m'
-BPurple='\e[1;35m'
-BCyan='\e[1;36m'
-BWhite='\e[1;37m'
-
-# Background Colors
-On_Black='\e[40m'
-On_Red='\e[41m'
-On_Green='\e[42m'
-On_Yellow='\e[43m'
-On_Blue='\e[44m'
-On_Purple='\e[45m'
-On_Cyan='\e[46m'
-On_White='\e[47m'
 
 # Shell options
 shopt -s checkwinsize  # Update terminal size after each command
@@ -97,62 +58,118 @@ bind -m vi-insert  '"": "set_cursor_insert_mode\n"'
 
 set_cursor_insert_mode
 
-function __remove_nonprintable_regions() {
-    local input="$1"
-    echo "$input" | sed -E 's/\\\[[^]]*\\\]//g'
-}
-
-function __calculate_host_color() {
-    local prompt_host_color="$Brown"
-
-    if [[ -n "${HOST_COLOR}" ]]; then
-        # Convert hex color code to RGB
-        local r g b
-        r=$(printf '%d' 0x"${HOST_COLOR:1:2}")
-        g=$(printf '%d' 0x"${HOST_COLOR:3:2}")
-        b=$(printf '%d' 0x"${HOST_COLOR:5:2}")
-
-        # Convert RGB to ANSI escape sequence
-        prompt_host_color="\033[38;2;${r};${g};${b}m"
+function __print_git_worktree_prompt() {
+    if __git_is_in_worktree; then
+        colorize "$(__print_git_worktree)" "${PINK_FLAMINGO}"
     fi
-
-    echo "$prompt_host_color"
 }
 
-# Calculate host name
-function __calculate_host_name() {
-    local prompt_host_name="\h"
+function __generate_static_prompt_part() {
+    local host_color="${COLOR_ANSI[yellow]}"
+    local host_display="\h"
+
+    if is_valid_rgb "${HOST_COLOR:-}"; then
+        host_color="$(fg_rgb "${HOST_COLOR}")"
+    fi
 
     if __is_in_tmux; then
-        prompt_host_name=""
-    elif ! __is_ssh_session && [[ -n "${LOCALHOST_PREFERRED_DISPLAY}" ]]; then
-        prompt_host_name="${LOCALHOST_PREFERRED_DISPLAY}"
+        host_display=""
+    elif ! __is_ssh_session && [ -n "${LOCALHOST_PREFERRED_DISPLAY}" ]; then
+        host_display="${LOCALHOST_PREFERRED_DISPLAY}"
     fi
 
-    echo "$prompt_host_name"
+    echo -n "${COLOR_ANSI[green]}\u${COLOR_ANSI[yellow]}@${host_color}${host_display}${RESET} "
+}
+
+function __generate_preamble_color() {
+    case "$1" in
+        Git) echo -n "${COLOR_ANSI[green]}" ;;
+        Repo) echo -n "${COLOR_ANSI[yellow]}" ;;
+        Piper) echo -n "${COLOR_ANSI[blue]}" ;;
+        *) echo -n "${RESET}" ;;
+    esac
+}
+
+function __generate_dynamic_prompt_part() {
+    local style="$1"
+    local dynamic_part=""
+
+    case "$style" in
+        Git)
+            dynamic_part+="$(__print_git_worktree_prompt)"
+            dynamic_part+="$(colorize "$(__print_git_branch)" "$(__git_branch_color_hint)") "
+            dynamic_part+="$(__print_git_pwd --no-branch) "
+            ;;
+        Repo)
+            dynamic_part+="$(__print_repo_worktree) "
+            dynamic_part+="$(__cute_pwd)"
+            ;;
+        Piper)
+            dynamic_part+="$(__print_citc_workspace) "
+            dynamic_part+="$(__cute_pwd)"
+            ;;
+        *)
+            dynamic_part="$(__cute_pwd)"
+            ;;
+    esac
+
+    echo -n "${dynamic_part}"
+}
+
+function __generate_prompt() {
+    local END_OF_PROMPT_ICON="%"
+    local ELEVATED_END_OF_PROMPT_ICON="#"
+
+    local preamble=""
+    preamble+="${COLOR_ANSI[red]}${PS1_PREAMBLE_PREFIX}"
+    preamble+="$(__generate_preamble_color "$1")"
+    # shellcheck disable=SC2016
+    preamble+='$(__cute_time_prompt) '
+
+    local static_part suffix
+    static_part="$(__generate_static_prompt_part)"
+    [ "$EUID" -eq 0 ] && suffix=" ${ELEVATED_END_OF_PROMPT_ICON} " || suffix=" ${END_OF_PROMPT_ICON} "
+
+    echo -n "${preamble}${static_part}$(__generate_dynamic_prompt_part "$1")${suffix}${RESET}"
 }
 
 function __cute_prompt_command() {
-    local last_command_status=$?
+    local last_exit=$?  # capture immediately!
+    _dotTrace "__update_prompt"
 
-    local END_OF_PROMPT_ICON='%'
-    local ELEVATED_END_OF_PROMPT_ICON='#'
-
-    local time_part
-    time_part=$(__cute_time_prompt)
-    PS1=''
-    if [[ $last_command_status -ne 0 ]]; then
-        PS1+="\\[${On_Red}\\]"
+    if [ ${last_exit} -ne 0 ]; then
+        PS1_PREAMBLE_PREFIX="!"
+    else
+        PS1_PREAMBLE_PREFIX=""
     fi
 
-    PS1+="\\[${White}\\]${time_part}\\[${Color_Off}\\] "
-    PS1+="\\[${BrightGreen}\\]\u\\[${Yellow}\\]@"
-    PS1+="\\[$(__calculate_host_color)\\]$(__calculate_host_name)\\[${Color_Off}\\] "
-    PS1+="$(__cute_pwd)"
-    if [[ $EUID -eq 0 ]]; then
-        PS1+=" ${ELEVATED_END_OF_PROMPT_ICON} "
-    else
-        PS1+=" ${END_OF_PROMPT_ICON} "
+    local last_pwd
+    last_pwd="$(__cache_get UPDATE_PROMPT_PWD)"
+    if [ "$last_pwd" = "$PWD" ]; then
+        _dotTrace "__update_prompt - no change - done"
+        return
+    fi
+    __cache_put UPDATE_PROMPT_PWD "$PWD"
+
+    _dotTrace "__update_prompt - calculating new style (${PWD})"
+    local new_style="None"
+
+    if [ -n "$UNSMART_PROMPT" ]; then
+        new_style="None"
+    elif __is_in_repo; then
+        new_style="Repo"
+    elif __is_in_git_repo; then
+        new_style="Git"
+    elif __has_citc && __is_in_citc; then
+        new_style="Piper"
+    fi
+
+    local current_style
+    current_style="$(__cache_get ACTIVE_DYNAMIC_PROMPT_STYLE)"
+    if [ "$current_style" != "$new_style" ]; then
+        _dotTrace "__update_prompt - updating prompt to ${new_style}"
+        PS1="$(__generate_prompt "$new_style")"
+        __cache_put ACTIVE_DYNAMIC_PROMPT_STYLE "$new_style"
     fi
 }
 
