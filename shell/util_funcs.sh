@@ -2,6 +2,23 @@
 
 #pragma once
 
+if ! declare -f __is_shell_bash &>/dev/null; then
+    function __is_shell_bash() {
+        [[ -n "$BASH_VERSION" ]]
+    }
+fi
+if ! declare -f __is_shell_zsh &>/dev/null; then
+    function __is_shell_zsh() {
+        [[ -n "$ZSH_VERSION" ]]
+    }
+fi
+if ! declare -f __is_on_osx &>/dev/null; then
+    function __is_on_osx() {
+        [[ "$(uname -s)" == "Darwin" ]]
+    }
+fi
+
+
 alias myip='curl http://ipecho.net/plain; echo'
 
 # kill_port_proc <port>
@@ -158,3 +175,198 @@ else
         echo ""
     }
 fi
+
+function bootstrap_fonts() {
+    local download_dir="$HOME/Downloads"
+    local font_dir="$HOME/.local/share/fonts"
+    if __is_on_osx; then
+        font_dir="$HOME/Library/Fonts"
+    fi
+    echo "Creating font directory: $font_dir"
+    # Ensure the Downloads and fonts directories exist
+    mkdir -p "$download_dir"
+    mkdir -p "$font_dir"
+
+    local font_families=( \
+        "JetBrainsMono" \
+        "CascadiaCode" \
+        "Hack" \
+        "Inconsolata" \
+        "FiraCode" \
+        "UbuntuSans" \
+    )
+
+    local nf_version
+    nf_version=$(wget -q -O - "https://api.github.com/repos/ryanoasis/nerd-fonts/releases/latest" | grep "\"name\"" | head -n 1 | cut -d '"' -f 4)
+
+    for font_family in "${font_families[@]}"; do
+        local font_url="https://github.com/ryanoasis/nerd-fonts/releases/download/${nf_version}/${font_family}.zip"
+        wget -O "$download_dir/${font_family}.zip" "${font_url}"
+        unzip -f -o -d "$font_dir" "$download_dir/${font_family}.zip" "*.ttf"
+        rm "$download_dir/${font_family}.zip"
+    done
+
+    if command -v fc-cache &> /dev/null; then
+        echo "Updating font cache..."
+        fc-cache -f -v
+    fi
+}
+
+function bootstrap_apt_packages() {
+    sudo apt update
+
+    sudo apt install -y \
+        build-essential \
+        wget \
+        curl \
+        rsync \
+        gcc \
+        make \
+        jq \
+        nodejs \
+        vim \
+        python3 \
+        python3.11-venv \
+        python-is-python3 \
+        python3-dev \
+        python3.11-venv \
+        gpg \
+        zsh \
+        git \
+        jsonnet \
+        libgtk-4-dev \
+        libadwaita-1-dev \
+        blueprint-compiler \
+        gettext \
+        libxml2-utils
+
+    if command -v snap &> /dev/null; then
+        sudo snap install zig --classic --beta
+        sudo snap install code --classic
+    fi
+
+    mkdir -p ~/source
+
+    git clone https://github.com/google/jsonnet.git ~/source/jsonnet
+    pushd ~/source/jsonnet
+
+    make
+    sudo ln -s "$PWD/jsonnet" /usr/bin/jsonnet
+
+    git clone https://github.com/ghostty-org/ghostty ~/source/ghostty
+
+    popd
+
+    sudo apt install -y \
+        repo
+
+    sudo mkdir -p /etc/apt/keyrings
+    wget -qO- https://raw.githubusercontent.com/eza-community/eza/main/deb.asc | sudo gpg --dearmor -o /etc/apt/keyrings/gierens.gpg
+    echo "deb [signed-by=/etc/apt/keyrings/gierens.gpg] http://deb.gierens.de stable main" | sudo tee /etc/apt/sources.list.d/gierens.list
+    sudo chmod 644 /etc/apt/keyrings/gierens.gpg /etc/apt/sources.list.d/gierens.list
+
+    sudo apt update
+
+    sudo apt install -y \
+        eza
+}
+
+function bootstrap_brew_packages() {
+    # https://brew.sh
+    if ! command -v brew; then
+        echo " >> Installing Homebrew..."
+        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    fi
+
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+
+    brew update
+
+    # Consider whether to add Bartender.
+    brew install --cask \
+        iterm2 \
+        visual-studio-code \
+        intellij-idea-ce \
+        android-studio \
+        sublime-merge \
+        lastpass \
+        istat-menus \
+        spotify \
+        grandperspective \
+        google-chrome \
+        docker \
+        microsoft-office
+
+    # brew install --cask microsoft-edge
+    # brew install --cask adobe-creative-cloud
+    # brew install --cask dotnet-sdk
+
+    brew install \
+        zsh \
+        bash \
+        coreutils \
+        wget \
+        eza \
+        jsonnet \
+        macvim \
+        git \
+        go \
+        node \
+        gradle \
+        openjdk \
+        flock \
+        tmux \
+        python@3
+
+    brew install openjdk@21
+    # Instructions from that keg...
+    sudo ln -sfn /opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk /Library/Java/JavaVirtualMachines/openjdk-21.jdk
+
+    brew install \
+        docker \
+        docker-machine \
+        docker-compose
+
+    brew tap gdubw/gng
+    brew install gng
+
+    # https://github.com/Genymobile/scrcpy
+    brew install \
+        sdl2 \
+        ffmpeg \
+        libusb \
+        pkg-config \
+        meson
+
+    cd ~ || exit
+}
+
+function bootstrap_android_sdk() {
+    if [ -z "$ANDROID_HOME" ]; then
+        export ANDROID_HOME="$HOME/Android/Sdk"
+    fi
+    mkdir -p "$ANDROID_HOME/cmdline-tools/latest" || return 1
+
+    # Download Android SDK
+    # https://developer.android.com/studio#command-tools
+    local COMMANDLINETOOLSZIP_FILENAME="commandlinetools-linux-10406996_latest.zip"
+    local COMMANDLINETOOLSZIP_URL="https://dl.google.com/android/repository/${COMMANDLINETOOLSZIP_FILENAME}"
+
+    wget "$COMMANDLINETOOLSZIP_URL"
+
+    unzip "./${COMMANDLINETOOLSZIP_FILENAME}" -d "$ANDROID_HOME"
+
+    mv "$ANDROID_HOME/cmdline-tools/NOTICE.txt" "$ANDROID_HOME/cmdline-tools/latest/"
+    mv "$ANDROID_HOME/cmdline-tools/source.properties" "$ANDROID_HOME/cmdline-tools/latest/"
+    mv "$ANDROID_HOME/cmdline-tools/lib" "$ANDROID_HOME/cmdline-tools/latest/"
+    mv "$ANDROID_HOME/cmdline-tools/bin" "$ANDROID_HOME/cmdline-tools/latest/"
+
+    yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses
+    "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "platforms;android-34"
+
+    rm "./${COMMANDLINETOOLSZIP_FILENAME}"
+}
+
+function bootstrap_kubuntu() {
+    sudo add-apt-repository ppa:kubuntu-ppa/beta && sudo apt full-upgrade -y
+}
