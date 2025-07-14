@@ -15,9 +15,136 @@ if [[ ":$PATH:" != *":${HOME}/.local/bin:"* ]]; then
     PATH="${HOME}/.local/bin:${PATH}"
 fi
 
+# Declare a new stack (unconditionally)
+function _stack_declare() {
+    local name=$1
+    eval "$name=''"
+}
+
+# Declare stack only if not already defined
+function _stack_safe_declare() {
+    local name=$1
+    if ! eval "[[ \${$name+set} ]]" 2>/dev/null; then
+        eval "$name=''"
+    fi
+}
+
+# Push a value onto the stack
+function _stack_push() {
+    local name=$1 value=$2
+    local stack
+    eval 'stack="$'"$name"'"'
+    stack="${stack}"$'\n'"$value"
+    eval "$name=\"\$stack\""
+}
+
+# Pop the top value from the stack and print it
+function _stack_pop() {
+    local name=$1 stack top rest
+    eval 'stack="$'"$name"'"'
+    [ -z "$stack" ] && return 1
+
+    top="${stack##*$'\n'}"
+    rest="${stack%$'\n'*}"
+    [ "$top" = "$stack" ] && rest=''
+
+    eval "$name=\"\$rest\""
+}
+
+# Peek at the top value
+function _stack_top() {
+    local name=$1 stack
+    eval 'stack="$'"$name"'"'
+    [ -z "$stack" ] && return 1
+    printf '%s\n' "${stack##*$'\n'}"
+}
+
+# Get number of elements in the stack
+function _stack_size() {
+    local name=$1 stack
+    eval 'stack="$'"$name"'"'
+    [ -z "$stack" ] && echo 0 && return
+    printf '%s\n' "$stack" | awk 'END { print NR }'
+}
+
+
+# Check if the stack is empty (returns 0 if empty)
+function _stack_is_empty() {
+    local name=$1 stack
+    eval 'stack="$'"$name"'"'
+    [ -z "$stack" ]
+}
+
+# Clear the stack
+function _stack_clear() {
+    local name=$1
+    eval "$name=''"
+}
+
+# Print stack elements joined by a given separator
+function _stack_print() {
+    local name=$1 sep=$2 stack first=1
+    eval 'stack="$'"$name"'"'
+    [ -z "$stack" ] && return
+
+    while IFS= read -r line; do
+        if [ $first -eq 1 ]; then
+            printf '%s' "$line"
+            first=0
+        else
+            printf '%s%s' "$sep" "$line"
+        fi
+    done <<< "$stack"
+    echo
+}
+
 function _dotTrace() {
     if [[ -n "${TRACE_DOTFILES}" ]]; then
-        echo "TRACE $(date +%T.%3N): $*" >&2
+        local indent_depth=""
+        for ((i=1; i < $(_stack_size TRACE_DOTFILES_STACK); i++)); do
+            indent_depth+="  "
+        done
+        echo "${indent_depth}TRACE $(date +%T.%3N): $*" >&2
+    fi
+}
+
+function _dotTrace_enter() {
+    if [[ -n "${TRACE_DOTFILES}" ]]; then
+        _stack_safe_declare TRACE_DOTFILES_STACK
+
+        local indent_depth=""
+        for ((i=1; i < $(_stack_size TRACE_DOTFILES_STACK); i++)); do
+            indent_depth+="  "
+        done
+
+        local func_name=""
+        local func_args=""
+        if [[ -n "${ZSH_VERSION}" ]]; then
+            func_name="${funcstack[1]}"
+            # Zsh: $argv contains the arguments to the current function, so use $argv for $func_args
+            func_args="${argv[@]}"
+        else
+            func_name="${FUNCNAME[1]}"
+            # Bash: BASH_ARGV contains the arguments to the current function, but in reverse order
+            # $BASH_ARGC[1] is the number of arguments to the calling function
+            local argc=${BASH_ARGC[1]:-0}
+            if (( argc > 0 )); then
+                for ((i=argc-1; i>=0; i--)); do
+                    func_args="${BASH_ARGV[i]} ${func_args}"
+                done
+                func_args="${func_args%% }"
+            fi
+        fi
+        _stack_push TRACE_DOTFILES_STACK "$func_name"
+
+        echo "${indent_depth}TRACE_ENTER $(date +%T.%3N): $(_stack_top TRACE_DOTFILES_STACK)($func_args)" >&2
+    fi
+}
+
+function _dotTrace_exit() {
+    if [[ -n "${TRACE_DOTFILES}" ]]; then
+        # echo "TRACE_EXIT $(date +%T.%3N): $(_stack_top TRACE_DOTFILES_STACK)" >&2
+        _stack_pop TRACE_DOTFILES_STACK
     fi
 }
 
@@ -178,7 +305,7 @@ function __is_ssh_session() {
 
 function __is_in_git_repo() {
     local ret_for_git_dir=0
-    if [[ "$1" == "--git-dir" ]]; then
+    if [[ "$1" == "--git-dir-ok" ]]; then
         ret_for_git_dir=1
     fi
 
@@ -197,7 +324,7 @@ function __is_in_git_repo() {
 }
 
 function __git_is_in_git_dir() {
-    __is_in_git_repo --git-dir
+    __is_in_git_repo --git-dir-ok
     [[ "$?" == "1" ]]
 }
 
@@ -222,6 +349,18 @@ function __git_is_in_worktree() {
     active_worktree=$(git worktree list | grep "$(git rev-parse --show-toplevel)" | head -n1 | awk '{print $1;}')
 
     [[ "${root_worktree}" != "${active_worktree}" ]]
+}
+
+function __git_is_on_default_branch() {
+    local default_branch
+    default_branch=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|^refs/remotes/origin/||')
+    if [[ -z "${default_branch}" ]]; then
+        return 1
+    fi
+
+    local current_branch
+    current_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+    [[ "${current_branch}" == "${default_branch}" ]]
 }
 
 function __git_print_commit_sha() {
@@ -249,7 +388,12 @@ function __git_print_branch_name() {
 }
 
 function __print_git_branch() {
-    __is_in_git_repo --git-dir
+    local colorize=0
+    if [[ "$1" == "--no-color" ]]; then
+        colorize=1
+    fi
+
+    __is_in_git_repo --git-dir-ok
     local git_repo_result=$?
     if [[ ${git_repo_result} == 2 ]]; then
         echo -n ""
@@ -273,11 +417,17 @@ function __print_git_branch() {
         branch_display+="*"
     fi
 
+    if [[ ${colorize} -eq 0 ]]; then
+        local color_hint
+        color_hint=$(__git_branch_color_hint)
+        branch_display=$(__echo_colored "${color_hint}" "${branch_display}")
+    fi
+
     echo -ne "${branch_display}"
 }
 
-function __print_git_branch_short() {
-    __is_in_git_repo --git-dir
+function __print_git_branch_icon() {
+    __is_in_git_repo --git-dir-ok
     local git_repo_result=$?
     if [[ $git_repo_result == 2 ]]; then
         echo -n ""
@@ -328,26 +478,45 @@ function __print_git_worktree() {
 }
 
 function __print_git_pwd() {
-    local use_pin_icon=1
-    if [[ "$1" == "--no-branch" ]]; then
-        use_pin_icon=0
-    fi
+    _dotTrace_enter
+    local working_pwd=""
 
-    __is_in_git_repo --git-dir
+    __is_in_git_repo --git-dir-ok
     local git_repo_result=$?
     if [[ $git_repo_result == 2 ]]; then
+        _dotTrace "Not at all in a git repo"
         echo -ne ""
+        _dotTrace_exit
         return 1
     fi
 
-    local anchor_icon="${ICON_MAP[COD_PINNED]}"
-    if [[ $use_pin_icon != 0 ]] || [[ $git_repo_result == 1 ]]; then
-        anchor_icon="$(__print_git_branch_short)"
-    fi
+    __git_is_on_default_branch
+    local is_on_default_branch=$?
 
     local color_hint
     color_hint=$(__git_branch_color_hint)
-    anchor_icon=$(__echo_colored "${color_hint}" "${anchor_icon}")
+
+    working_pwd="$(__print_git_branch_icon)"
+
+    if [[ ${is_on_default_branch} == 0 ]]; then
+        _dotTrace "on default branch - omitting branch name"
+    else
+        _dotTrace "not on default branch - using __git_ps1 for branch display"
+        working_pwd+="$(__git_ps1 "%s")"
+    fi
+    
+    if ! __git_is_nothing_to_commit; then
+        _dotTrace "uncommitted changes detected"
+        working_pwd+="*"
+    fi
+
+    working_pwd=$(__echo_colored "${color_hint}" "${working_pwd}")
+
+    if [[ $is_on_default_branch != 0 ]]; then
+        working_pwd+=" ${ICON_MAP[COD_PINNED]}"
+    fi
+
+    _dotTrace "branch prefix before anchored path: ${working_pwd}"
 
     local anchored_path
     if [[ $git_repo_result == 1 ]]; then
@@ -359,7 +528,8 @@ function __print_git_pwd() {
         anchored_path="${anchored_path%/}"
     fi
 
-    echo -ne "${anchor_icon} ${anchored_path}"
+    echo -ne "${working_pwd}${anchored_path}"
+    _dotTrace_exit
 }
 
 function __is_in_repo_root() {
@@ -382,9 +552,11 @@ function __find_repo_root() {
 }
 
 function __is_in_repo() {
+    _dotTrace_enter
     local current_dir
     current_dir=$(readlink -f "$PWD")
     if [[ -n "${CWD_REPO_ROOT}" && "$current_dir" == "$CWD_REPO_ROOT"* ]]; then
+        _dotTrace_exit
         return 0
     fi
 
@@ -392,6 +564,7 @@ function __is_in_repo() {
         unset CWD_REPO_ROOT
         unset CWD_REPO_MANIFEST_BRANCH
         unset CWD_REPO_DEFAULT_REMOTE
+        _dotTrace_exit
         return 1
     fi
 
@@ -401,11 +574,12 @@ function __is_in_repo() {
         export CWD_REPO_ROOT
         export CWD_REPO_MANIFEST_BRANCH
         export CWD_REPO_DEFAULT_REMOTE
-        _dotTrace "__is_in_repo - using cached repo environment variables"
+        _dotTrace "Using cached repo environment variables"
+        _dotTrace_exit
         return 0
     fi
 
-    _dotTrace "__is_in_repo - updating repo environment variables"
+    _dotTrace "updating repo environment variables"
 
     if command -v xmllint &> /dev/null; then
         local xpath_response
@@ -418,18 +592,21 @@ function __is_in_repo() {
     fi
 
     __cache_put "REPO_INFO_${CWD_REPO_ROOT}" "${CWD_REPO_MANIFEST_BRANCH}%${CWD_REPO_DEFAULT_REMOTE}" 3000
-    _dotTrace "__is_in_repo - updated repo environment variables"
+    _dotTrace "updated repo environment variables"
 
     export CWD_REPO_ROOT
     export CWD_REPO_MANIFEST_BRANCH
     export CWD_REPO_DEFAULT_REMOTE
 
+    _dotTrace_exit
     return 0
 }
 
 function __print_repo_worktree() {
-    _dotTrace "__print_repo_worktree"
+    _dotTrace_enter
+    _dotTrace ""
     if ! __is_in_repo; then
+        _dotTrace_exit
         echo -n ""
         return 0
     fi
@@ -452,7 +629,8 @@ function __print_repo_worktree() {
             __echo_colored "green" ":$(__print_abbreviated_path "${current_project}")"
         fi
     fi
-    _dotTrace "__print_repo_worktree - done"
+    _dotTrace "done"
+    _dotTrace_exit
 }
 
 function __is_shell_interactive() {
@@ -902,15 +1080,16 @@ if ! __is_shell_old_bash; then
     }
 
     function __cute_pwd() {
-        _dotTrace "__cute_pwd $1"
+        _dotTrace_enter
+        _dotTrace "args: \"$1\""
         local is_short=1
         if [[ "$1" == "--short" ]]; then
             is_short=0
         fi
 
         if [[ $is_short != 0 ]] && __is_in_git_repo; then
-            __print_git_pwd ""
-            _dotTrace "__cute_pwd - in git repo - done"
+            __print_git_pwd
+            _dotTrace_exit
             return 0
         fi
 
@@ -925,7 +1104,8 @@ if ! __is_shell_old_bash; then
             echo -n "${PWD##*/}"
         fi
 
-        _dotTrace "__cute_pwd - done"
+        _dotTrace "done"
+        _dotTrace_exit
         return 0
     }
 else
@@ -975,12 +1155,15 @@ function __cute_kernel() {
 declare -a CUTE_HEADER_PARTS=() > /dev/null 2>&1
 
 function __cute_shell_header() {
+    _dotTrace_enter
     if [[ "$1" != "--force" ]]; then
         if ! __is_shell_interactive; then
+            _dotTrace_exit
             return 0
         fi
         if [[ "${SHLVL}" -gt 1 ]]; then
             if ! __is_shell_zsh || ! __z_is_embedded_terminal; then
+                _dotTrace_exit
                 return 0
             fi
         fi
@@ -1017,6 +1200,7 @@ function __cute_shell_header() {
     fi
 
     echo "${cute_shell_path}" "${cute_shell_version}" "${CUTE_HEADER_PARTS[@]}" "${ICON_MAP[MD_SNAPCHAT]}"
+    _dotTrace_exit
 }
 
 if __is_shell_interactive; then
@@ -1068,9 +1252,11 @@ function __do_eza_aliases() {
 }
 
 function __do_iterm2_shell_integration() {
+    _dotTrace_enter
     # If using iTerm2, try for shell integration.
     # iTerm profile switching requires shell_integration to be installed anyways.
     if ! __is_iterm2_terminal; then
+        _dotTrace_exit
         return 0;
     fi
 
@@ -1085,14 +1271,17 @@ function __do_iterm2_shell_integration() {
         [[ -f "${DOTFILES_CONFIG_ROOT}/iterm2_shell_integration.bash" ]] && source "${DOTFILES_CONFIG_ROOT}/iterm2_shell_integration.bash"
     else
         echo "Unknown shell for iTerm2 integration"
+        _dotTrace_exit
         return 1
     fi
 
     # shellcheck source=SCRIPTDIR/iterm2_funcs.sh
     [[ -f "${DOTFILES_CONFIG_ROOT}/iterm2_funcs.sh" ]] && source "${DOTFILES_CONFIG_ROOT}/iterm2_funcs.sh"
+    _dotTrace_exit
 }
 
 function __do_vscode_shell_integration() {
+    _dotTrace_enter
     if __is_on_macos && ! __is_ssh_session && ! command -v code &> /dev/null; then
         local vscode_warning="!! VSCode CLI unavailable. Check https://code.visualstudio.com/docs/setup/mac !!"
         # shellcheck disable=SC2076
@@ -1102,6 +1291,7 @@ function __do_vscode_shell_integration() {
     fi
 
     if ! __is_vscode_terminal; then
+        _dotTrace_exit
         return 0
     fi
 
@@ -1111,12 +1301,13 @@ function __do_vscode_shell_integration() {
             source "$(code --locate-shell-integration-path zsh)"
         fi
     fi
+    _dotTrace_exit
 }
 
 _prompt_executing=""
 function __konsole_integration_precmd() {
-    _dotTrace "__konsole_integration_precmd"
-
+    _dotTrace_enter
+    _dotTrace ""
     local ret="$?"
     if [[ "$_prompt_executing" != "0" ]]; then
         _PROMPT_SAVE_PS1="$PS1"
@@ -1130,19 +1321,21 @@ function __konsole_integration_precmd() {
     fi
     echo -ne "\e]133;A;cl=m;aid=$$\a"
     _prompt_executing=0
+    _dotTrace_exit
 }
 
 function __konsole_integration_preexec() {
-    _dotTrace "__konsole_integration_preexec"
-
+    _dotTrace_enter
+    _dotTrace ""
     PS1="$_PROMPT_SAVE_PS1"
     PS2="$_PROMPT_SAVE_PS2"
     echo -ne "\e]133;C;\a"
     _prompt_executing=1
+    _dotTrace_exit
 }
 
 function toggle_konsole_semantic_integration() {
-    _dotTrace "toggle_konsole_semantic_integration"
+    _dotTrace_enter
 
     function is_konsole_semantic_integration_active() {
         echo "${preexec_functions}" | grep -q __konsole_integration_preexec
@@ -1162,24 +1355,35 @@ function toggle_konsole_semantic_integration() {
         fi
     }
 
+    local do_enable_integration
     if [[ "$1" == "0" ]]; then
-        remove_konsole_semantic_integration
-        return 0
+        _dotTrace "Removing Konsole semantic integration because of explicit argument"
+        do_enable_integration=1
     elif [[ "$1" == "1" ]]; then
-        add_konsole_semantic_integration
-        return 0
+        _dotTrace "Adding Konsole semantic integration because of explicit argument"
+        do_enable_integration=0
+    else
+        _dotTrace "Toggling Konsole semantic integration - current state: $(is_konsole_semantic_integration_active)"
+        if is_konsole_semantic_integration_active; then
+            do_enable_integration=1
+        else
+            do_enable_integration=0
+        fi
     fi
 
-    if is_konsole_semantic_integration_active; then
+    if [[ ${do_enable_integration} -eq 1 ]]; then
+        _dotTrace "Removing Konsole semantic integration"
         remove_konsole_semantic_integration
     else
+        _dotTrace "Adding Konsole semantic integration"
         add_konsole_semantic_integration
     fi
+    _dotTrace_exit
 }
 
 function __update_konsole_profile() {
-    _dotTrace "__update_konsole_profile"
-
+    _dotTrace_enter
+    _dotTrace ""
     local active_dynamic_prompt_style
     active_dynamic_prompt_style=$(__cache_get "ACTIVE_DYNAMIC_PROMPT_STYLE")
 
@@ -1190,17 +1394,20 @@ function __update_konsole_profile() {
         arg="Colors=$(hostname) Colors"
     fi
     if [[ $(__cache_get "KONSOLE_PROFILE") == "${arg}" ]]; then
-        _dotTrace "__update_konsole_profile - already set"
+        _dotTrace "already set"
+        _dotTrace_exit
         return
     fi
 
-    _dotTrace "__update_konsole_profile - setting default profile"
+    _dotTrace "setting default profile"
     echo -ne "\e]50;${arg}\a"
     __cache_put "KONSOLE_PROFILE" "${arg}" 30000
-    _dotTrace "__update_konsole_profile - done"
+    _dotTrace "done"
+    _dotTrace_exit
 }
 
 function __do_konsole_shell_integration() {
+    _dotTrace_enter
     source "${DOTFILES_CONFIG_ROOT}/konsole_color_funcs.sh"
 
     if __is_shell_zsh; then
@@ -1208,4 +1415,6 @@ function __do_konsole_shell_integration() {
 
         precmd_functions+=(__update_konsole_profile)
     fi
+    _dotTrace_exit
 }
+

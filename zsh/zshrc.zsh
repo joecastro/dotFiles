@@ -195,20 +195,16 @@ function __generate_dynamic_prompt_part() {
     case "${style}" in
     "Git")
         dynamic_part+='$(__print_git_worktree_prompt)'
-        dynamic_part+='$(__echo_colored "$(__git_branch_color_hint)" "$(__print_git_branch)") '
-        dynamic_part+='$(__print_git_pwd --no-branch)'
         ;;
     "Repo")
         dynamic_part+='$(__print_repo_worktree) '
-        dynamic_part+='$(__cute_pwd)'
         ;;
     "Piper")
         dynamic_part+='$(__print_citc_workspace) '
-        dynamic_part+='$(__cute_pwd)'
         ;;
     *)
-        dynamic_part='$(__cute_pwd)'
     esac
+    dynamic_part+='$(__cute_pwd)'
 
     echo -n "${dynamic_part}"
 }
