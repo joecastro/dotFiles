@@ -205,7 +205,9 @@ declare -A EMOJI_ICON_MAP=(
     [KEY]=🔑
     [LEGO]=🪀
     [ARROW_UP]=⬆️
+    [ARROW_DOWN]=⬇️
     [ARROW_UP_THICK]=⬆️
+    [ARROW_DOWN_THICK]=⬇️
     [REVIEW]=📝
     [TOOLS]=🛠️
     [APPLE_FINDER]= # Only legible on MacOS and iOS
@@ -257,7 +259,9 @@ declare -A NF_ICON_MAP=(
     [KEY]=
     [LEGO]=
     [ARROW_UP]=
+    [ARROW_DOWN]=
     [ARROW_UP_THICK]=󰁞
+    [ARROW_DOWN_THICK]=󰁆
     [REVIEW]=
     [TOOLS]=
     [APPLE_FINDER]=󰀶
@@ -349,6 +353,31 @@ function __git_is_in_worktree() {
     active_worktree=$(git worktree list | grep "$(git rev-parse --show-toplevel)" | head -n1 | awk '{print $1;}')
 
     [[ "${root_worktree}" != "${active_worktree}" ]]
+}
+
+function __git_has_unpushed_changes() {
+    local upstream="$(git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null)"
+    if [[ -n "$upstream" ]]; then
+        if [[ -n "$(git log --oneline "$upstream"..HEAD)" ]]; then
+            return 0
+        fi
+    fi
+
+    return 1
+}
+
+function __git_has_remote_changes() {
+    # Fetch remote changes (optional: use --quiet to suppress output)
+    git fetch --quiet
+
+    local upstream="$(git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null)"
+    if [[ -n "$upstream" ]]; then
+        if [[ -n "$(git log --oneline HEAD.."$upstream")" ]]; then
+            return 0
+        fi
+    fi
+
+    return 1  # No remote changes
 }
 
 function __git_is_on_default_branch() {
@@ -491,20 +520,32 @@ function __print_git_pwd() {
     fi
 
     __git_is_on_default_branch
-    local is_on_default_branch=$?
+    local is_branch_shorthand_eligible=$?
 
     local color_hint
     color_hint=$(__git_branch_color_hint)
 
-    working_pwd="$(__print_git_branch_icon)"
+    if __git_has_remote_changes; then
+        _dotTrace "remote changes detected"
+        is_branch_shorthand_eligible=1
+        working_pwd+="${ICON_MAP[ARROW_DOWN_THICK]}"
+    fi
 
-    if [[ ${is_on_default_branch} == 0 ]]; then
+    if __git_has_unpushed_changes; then
+        _dotTrace "unpushed changes detected"
+        is_branch_shorthand_eligible=1
+        working_pwd+="${ICON_MAP[ARROW_UP_THICK]}"
+    fi
+
+    working_pwd+="$(__print_git_branch_icon)"
+
+    if [[ ${is_branch_shorthand_eligible} == 0 ]]; then
         _dotTrace "on default branch - omitting branch name"
     else
         _dotTrace "not on default branch - using __git_ps1 for branch display"
         working_pwd+="$(__git_ps1 "%s")"
     fi
-    
+
     if ! __git_is_nothing_to_commit; then
         _dotTrace "uncommitted changes detected"
         working_pwd+="*"
@@ -532,17 +573,17 @@ function __print_git_pwd() {
     _dotTrace_exit
 }
 
-function __is_in_repo_root() {
+function __repo_is_in_repo_root() {
     local candidate_dir="${1:-$PWD}"
     # Hackily relying on an implementation detail...
     # Check _FindRepo() in the repo Python script.
     [[ -f "${candidate_dir}/.repo/repo/main.py" ]]
 }
 
-function __find_repo_root() {
+function __repo_find_root() {
     local current_dir="$1"
     while [[ "$current_dir" != "/" ]]; do
-        if __is_in_repo_root "$current_dir"; then
+        if __repo_is_in_repo_root "$current_dir"; then
             echo -n "$current_dir"
             return 0
         fi
@@ -560,7 +601,7 @@ function __is_in_repo() {
         return 0
     fi
 
-    if ! CWD_REPO_ROOT=$(__find_repo_root "$current_dir"); then
+    if ! CWD_REPO_ROOT=$(__repo_find_root "$current_dir"); then
         unset CWD_REPO_ROOT
         unset CWD_REPO_MANIFEST_BRANCH
         unset CWD_REPO_DEFAULT_REMOTE
@@ -1048,7 +1089,7 @@ if ! __is_shell_old_bash; then
             return 0
         fi
 
-        if __is_in_repo_root "${ACTIVE_DIR}"; then
+        if __repo_is_in_repo_root "${ACTIVE_DIR}"; then
             echo -n "${ICON_MAP[ANDROID_HEAD]}"
             return 0
         fi
