@@ -2,6 +2,7 @@ local ext_vars = {
     home: std.extVar('home'),
     cwd: std.extVar('cwd'),
     is_osx: std.extVar('kernel') == 'darwin',
+    is_linux: std.extVar('kernel') == 'linux',
     is_localhost: std.extVar('is_localhost') == 'true',
     hostname: std.extVar('hostname')
 };
@@ -19,6 +20,10 @@ local jsonnet_maps = [
 
 local jsonnet_localhost_mac_maps = [
     ['vscode/user_settings.jsonnet', 'gen/vscode_user_settings.json', 'Library/Application Support/Code/User/settings.json']
+];
+
+local jsonnet_localhost_linux_maps = [
+    ['vscode/user_settings.jsonnet', 'gen/vscode_user_settings.json', '.config/Code/User/settings.json']
 ];
 
 local jsonnet_multi_maps = [
@@ -181,11 +186,13 @@ local Host(hostname, home, icon, color, primary_wallpaper, android_wallpaper) = 
 
     is_localhost:: $.hostname == ext_vars.hostname && ext_vars.is_localhost,
     is_osx:: $.is_localhost && ext_vars.is_osx,
+    is_linux:: $.is_localhost && ext_vars.is_linux,
 
     config_dir: config_dir,
     curl_maps: curl_maps,
     jsonnet_maps: jsonnet_maps +
-        if $.is_osx then jsonnet_localhost_mac_maps else [],
+        if $.is_osx then jsonnet_localhost_mac_maps else
+        if $.is_linux then jsonnet_localhost_linux_maps else [],
     jsonnet_multi_maps: jsonnet_multi_maps,
     directory_maps: directory_maps,
     macros: macros,
@@ -208,6 +215,7 @@ local Host(hostname, home, icon, color, primary_wallpaper, android_wallpaper) = 
 };
 
 {
+    ext_vars: ext_vars,
     hostname: ext_vars.hostname,
     is_osx: ext_vars.is_osx,
     cwd: ext_vars.cwd,
@@ -218,5 +226,5 @@ local Host(hostname, home, icon, color, primary_wallpaper, android_wallpaper) = 
     vim_pack_plugin_opt_repos: vim_pack_plugin_opt_repos,
     zsh_plugin_repos: zsh_plugin_repos,
 
-    Host: Host,
+    Host:: Host,
 }

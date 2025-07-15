@@ -6,21 +6,25 @@ local PeacockColor(name, color) = {
     'value': color.hexcolor,
 };
 
+local preferred_font_families = "Cascaydia Cove NerdFont Mono, Cascadia Code NF, Inconsolata, Consolas";
+
 local editorSettings = {
-    "editor.fontFamily": "CaskaydiaCove Nerd Font, Cascadia Code NF, Consolas",
+    "editor.fontFamily": preferred_font_families,
     "editor.fontLigatures": true,
+    "editor.fontSize": 14,
     "editor.formatOnType": true,
     "editor.renderWhitespace": "all",
     "editor.rulers": [
         120
     ],
 };
+
 local terminalSettings = {
     "terminal.external.osxExec": "iTerm.app",
     "terminal.integrated.cursorStyle": "line",
     "terminal.integrated.defaultProfile.osx": "zsh",
     "terminal.integrated.enableImages": true,
-    "terminal.integrated.fontFamily": "CaskaydiaCove Nerd Font, Cascadia Code NF, Consolas",
+    "terminal.integrated.fontFamily": preferred_font_families,
     "terminal.integrated.profiles.linux": {
         "bash": {
             "icon": "terminal-bash",
@@ -44,6 +48,7 @@ local terminalSettings = {
     },
     "terminal.integrated.scrollback": 10000,
 };
+
 local javaSettings = {
     "java.help.showReleaseNotes": false,
     "java.imports.gradle.wrapper.checksums": [
@@ -54,8 +59,14 @@ local javaSettings = {
     ],
     "redhat.telemetry.enabled": false,
 };
+
 local vimSettings = {
     'vim.useCtrlKeys': false,
+};
+
+local copilotSettings = {
+    "github.copilot.nextEditSuggestions.enabled": true,
+    "github.copilot.editor.enableAutoCompletions": true,
 };
 
 {
@@ -90,7 +101,6 @@ local vimSettings = {
     "files.trimTrailingWhitespace": true,
     "git.autofetch": true,
     "git.openRepositoryInParentFolders": "always",
-    "github.copilot.editor.enableAutoCompletions": true,
     "js/ts.implicitProjectConfig.checkJs": true,
     "peacock.favoriteColors": [PeacockColor(c.key, c.value) for c in std.objectKeysValues(color_defs.PeacockColors)],
     "typescript.enablePromptUseWorkspaceTsdk": true,
@@ -107,3 +117,4 @@ local vimSettings = {
     + terminalSettings
     + javaSettings
     + vimSettings
+    + copilotSettings

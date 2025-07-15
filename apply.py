@@ -691,7 +691,8 @@ def compare_iterm2_prefs() -> None:
 
 def compare_user_settings(host: Host) -> None:
     """Compare the current user settings with the generated settings."""
-    target_jsonnet_map_entry = host.jsonnet_maps.get('vscode/user_settings.jsonnet')
+    template_path = 'vscode/user_settings.jsonnet'
+    target_jsonnet_map_entry = host.jsonnet_maps.get(template_path)
     if not target_jsonnet_map_entry:
         print(f'No vscode user settings for {host.hostname}')
         return
@@ -700,7 +701,6 @@ def compare_user_settings(host: Host) -> None:
     if not target_file_map_entry:
         raise ValueError(f'No vscode user settings file for {host.hostname}')
 
-    template_path = target_jsonnet_map_entry
     gen_path = f'{host.local_staging_dir}/{os.path.splitext(target_jsonnet_map_entry)[0]}.gen.json'
     original_path = f'{HOME}/{target_file_map_entry}'
     snapshot_path = f'{host.local_staging_dir}/{os.path.splitext(target_jsonnet_map_entry)[0]}.snapshot.json'
