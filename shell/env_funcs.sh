@@ -120,8 +120,10 @@ function _dotTrace_enter() {
         local func_name=""
         local func_args=""
         if [[ -n "${ZSH_VERSION}" ]]; then
+            # shellcheck disable=SC2154
             func_name="${funcstack[1]}"
             # Zsh: $argv contains the arguments to the current function, so use $argv for $func_args
+            # shellcheck disable=SC2124,SC2154
             func_args="${argv[@]}"
         else
             func_name="${FUNCNAME[1]}"
@@ -355,29 +357,39 @@ function __git_is_in_worktree() {
     [[ "${root_worktree}" != "${active_worktree}" ]]
 }
 
-function __git_has_unpushed_changes() {
-    local upstream="$(git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null)"
-    if [[ -n "$upstream" ]]; then
-        if [[ -n "$(git log --oneline "$upstream"..HEAD)" ]]; then
-            return 0
-        fi
+function __git_compare_upstream_changes() {
+    # Fetch remote changes (use --quiet to suppress output)
+    # git fetch --quiet
+
+    local upstream
+    upstream=$(git rev-parse --abbrev-ref --symbolic-full-name "@{u}" 2>/dev/null)
+    if [[ -z "$upstream" ]]; then
+        return 1
     fi
 
-    return 1
+    local ahead behind
+    read -r ahead behind < <(git rev-list --left-right --count "$upstream"...HEAD 2>/dev/null | awk '{print $2, $1}')
+
+    local result=0
+    if [[ "$ahead" -gt 0 ]]; then
+        result=$((result + 2))
+    fi
+    if [[ "$behind" -gt 0 ]]; then
+        result=$((result + 4))
+    fi
+    return $result
+}
+
+function __git_has_unpushed_changes() {
+    __git_compare_upstream_changes
+    local result=$?
+    return $(( (result & 2) == 0 ))
 }
 
 function __git_has_remote_changes() {
-    # Fetch remote changes (optional: use --quiet to suppress output)
-    git fetch --quiet
-
-    local upstream="$(git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null)"
-    if [[ -n "$upstream" ]]; then
-        if [[ -n "$(git log --oneline HEAD.."$upstream")" ]]; then
-            return 0
-        fi
-    fi
-
-    return 1  # No remote changes
+    __git_compare_upstream_changes
+    local result=$?
+    return $(( (result & 4) == 0 ))
 }
 
 function __git_is_on_default_branch() {
@@ -553,7 +565,7 @@ function __print_git_pwd() {
 
     working_pwd=$(__echo_colored "${color_hint}" "${working_pwd}")
 
-    if [[ $is_on_default_branch != 0 ]]; then
+    if [[ $is_branch_shorthand_eligible != 0 ]]; then
         working_pwd+=" ${ICON_MAP[COD_PINNED]}"
     fi
 
@@ -714,8 +726,17 @@ function __is_on_unexpected_windows() {
     [[ "$(uname -s)" = "MINGW32_NT"* ]]
 }
 
-function __is_on_unexpected_linux() {
+function __is_on_linux() {
     [[ "$(uname -s)" = "Linux"* ]];
+}
+
+function __print_linux_distro() {
+    if [[ -f /etc/lsb-release ]]; then
+        . /etc/lsb-release
+        echo -n "${DISTRIB_ID}"
+    else
+        echo -n "Unknown Linux distribution"
+    fi
 }
 
 function __is_vscode_terminal() {

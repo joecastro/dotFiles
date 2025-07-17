@@ -45,8 +45,8 @@ function __z_effective_distribution() {
             return 0
         fi
     done
-    if __is_on_unexpected_linux; then
-       echo "Linux"
+    if __is_on_linux; then
+        echo "$(__print_linux_distro)"
     elif __is_on_unexpected_windows; then
         echo "Unexpected Win32 environment"
     else

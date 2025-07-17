@@ -66,7 +66,6 @@ local vimSettings = {
 
 local copilotSettings = {
     "github.copilot.nextEditSuggestions.enabled": true,
-    "github.copilot.editor.enableAutoCompletions": true,
 };
 
 {
@@ -86,7 +85,6 @@ local copilotSettings = {
     "accessibility.dimUnfocused.opacity": 0.8,
     "background.windowBackgrounds": [],
     "cmake.configureOnOpen": false,
-    "cmake.showOptionsMovedNotification": false,
     "diffEditor.codeLens": true,
     "diffEditor.renderSideBySide": false,
     "files.associations": {

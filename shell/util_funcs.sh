@@ -238,12 +238,18 @@ function bootstrap_apt_packages() {
         libadwaita-1-dev \
         blueprint-compiler \
         gettext \
-        libxml2-utils
+        libxml2-utils \
+        default-jdk
 
     if command -v snap &> /dev/null; then
         sudo snap install zig --classic --beta
         sudo snap install code --classic
+        sudo snap install spotify
     fi
+
+    wget -O ~/Downloads/google-chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+    sudo dpkg -i ~/Downloads/google-chrome.deb || sudo apt install -f -y
+    rm ~/Downloads/google-chrome.deb
 
     mkdir -p ~/source
 
