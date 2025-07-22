@@ -1,0 +1,11 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# These files should have specific line endings
+*.sh	text eol=lf
+*.zsh   text eol=lf
+*.vim   text eol=lf
+*.bat	text eol=crlf
+
+*.jpeg	binary	
+#.png   binary

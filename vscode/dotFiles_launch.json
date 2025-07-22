@@ -1,0 +1,124 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+
+        {
+            "name": "Generate derived workspace",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/apply.py",
+            "console": "integratedTerminal",
+            "args": [
+                "generate-workspace"
+            ]
+        },
+        {
+            "name": "Stage remote hosts",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/apply.py",
+            "console": "integratedTerminal",
+            "args": [
+                "stage-all"
+            ]
+        },
+        {
+            "name": "Push to remote hosts",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/apply.py",
+            "console": "integratedTerminal",
+            "args": [
+                "push-all"
+            ]
+        },
+        {
+            "name": "Push to remote host (joec1)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/apply.py",
+            "console": "integratedTerminal",
+            "args": [
+                "push",
+                "joec1.c.googlers.com"
+            ]
+        },
+        {
+            "name": "Pull from remote host (joec1)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/apply.py",
+            "console": "integratedTerminal",
+            "args": [
+                "pull",
+                "joec1.c.googlers.com"
+            ]
+        },
+        {
+            "name": "Update Workspace recommended extensions",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/apply.py",
+            "console": "integratedTerminal",
+            "args": [ "update-workspace-extensions" ]
+        },
+        {
+            "name": "Push to local dotFiles",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/apply.py",
+            "console": "integratedTerminal",
+            "args": ["push", "--local"]
+        },
+        {
+            "name": "Push iTerm2 Settings",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/apply.py",
+            "console": "integratedTerminal",
+            "args": ["push-iterm2-prefs"]
+        },
+        {
+            "name": "Snapshot iTerm2 Settings",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/apply.py",
+            "console": "integratedTerminal",
+            "args": ["snapshot-iterm2-prefs-json"]
+        },
+        {
+            "name": "Compare iTerm2 Settings",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/apply.py",
+            "console": "integratedTerminal",
+            "args": ["compare-iterm2-prefs"]
+        },
+        {
+            "name": "Compare VSCode User Settings",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/apply.py",
+            "console": "integratedTerminal",
+            "args": ["compare-user-settings"]
+        },
+        {
+            "name": "Bootstrap Windows Environment",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/apply.py",
+            "console": "integratedTerminal",
+            "args": [
+                "bootstrap-windows"
+            ]
+        },
+        {
+            "name": "Test fonts",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/verify_fonts.py",
+            "console": "integratedTerminal",
+            "args": []
+        }
+    ]
+}
