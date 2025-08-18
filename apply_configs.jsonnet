@@ -1,6 +1,15 @@
 local color_defs = import './shell/color_definitions.libsonnet';
 local apply_configs_core = import './apply_configs_core.jsonnet';
-local wallpapers = import './wallpaper/wallpapers.jsonnet';
+local wallpapers = import './wallpaper/wallpapers.libsonnet';
+
+local localhost = apply_configs_core.Host(
+    null, // hostname
+    null, // home
+    wallpapers.icons.tux,
+    color_defs.Colors.YellowSea,
+    wallpapers.abstract_blue,
+    wallpapers.android_backpack
+);
 
 {
     vim_pack_plugin_opt_repos: apply_configs_core.vim_pack_plugin_opt_repos,
@@ -8,8 +17,8 @@ local wallpapers = import './wallpaper/wallpapers.jsonnet';
     zsh_plugin_repos: apply_configs_core.zsh_plugin_repos,
 
     workspace_overrides: null,
-    host:: apply_configs_core.Host(null, null, wallpapers.icons.tux, color_defs.Colors.YellowSea, wallpapers.abstract_blue, wallpapers.android_backpack),
     hosts: [
-        $.host
+        localhost,
     ],
+    host:: $.hosts[0],
 }

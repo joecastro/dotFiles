@@ -27,8 +27,7 @@ local jsonnet_localhost_linux_maps = [
 ];
 
 local jsonnet_multi_maps = [
-    ['konsole/LocalProfiles.jsonnet', 'gen/konsole_profiles', '.local/share/konsole'],
-    ['konsole/ColorConfigs.jsonnet', 'gen/konsole_colors', '.local/share/konsole'],
+    ['konsole/konsole_configs_multiplex.jsonnet', 'gen/konsole_configs', '.local/share/konsole'],
 ];
 
 local curl_maps = [
@@ -65,6 +64,7 @@ local file_maps = [
 local directory_maps = [
     ['vim/colors', '.vim/colors'],
     ['svg', config_dir + '/svg'],
+    ['wallpaper', config_dir + '/wallpaper'],
 ];
 
 local vim_pack_plugin_start_repos = [
@@ -174,17 +174,18 @@ local localhost_env_vars = env_vars + {
 };
 
 local Host(hostname, home, icon, color, primary_wallpaper, android_wallpaper) = {
+    assert hostname != null || ext_vars.is_localhost,
+    assert home != null || ext_vars.is_localhost,
     hostname:
         if hostname != null then hostname
-        else if ext_vars.is_localhost then ext_vars.hostname
-        else 'localhost',
+        else ext_vars.hostname,
     home: if home != null then home else ext_vars.home,
     color:: color,
     primary_wallpaper:: primary_wallpaper,
     android_wallpaper:: android_wallpaper,
     icon:: icon,
 
-    is_localhost:: $.hostname == ext_vars.hostname && ext_vars.is_localhost,
+    is_localhost:: ext_vars.is_localhost,
     is_osx:: $.is_localhost && ext_vars.is_osx,
     is_linux:: $.is_localhost && ext_vars.is_linux,
 
@@ -197,10 +198,7 @@ local Host(hostname, home, icon, color, primary_wallpaper, android_wallpaper) = 
     directory_maps: directory_maps,
     macros: macros,
     post_install_commands: if $.is_localhost then [] else remote_post_install_commands,
-
-    file_maps: file_maps +
-        if primary_wallpaper != null then [[primary_wallpaper.local_path, primary_wallpaper.target_path($)]] else [] +
-        if android_wallpaper != null then [[android_wallpaper.local_path, android_wallpaper.target_path($)]] else [],
+    file_maps: file_maps,
 
     env_vars:: (if $.is_localhost then localhost_env_vars else env_vars) + {
         properties+: {

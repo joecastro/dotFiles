@@ -5,21 +5,13 @@ local BackgroundImageNode(path, blend_percent=0.4) = {
     blend: blend_percent,
     local_path: 'wallpaper/' + path,
     target_path(host)::
-        if host == null then
-            apply_configs_core.cwd + '/' + $.local_path
-        else
-            assert host.home != null;
-            host.home + '/Pictures/' + path
+        host.home + '/' + host.config_dir + '/wallpaper/' + path,
 };
 local SvgImage(path) = {
     path: path,
     local_path: 'svg/' + path,
     target_path(host)::
-        if host == null then
-            apply_configs_core.cwd + '/svg/' + $.local_path
-        else
-            assert host.home != null && host.config_dir != null;
-            host.home + '/' + host.config_dir + '/svg/' + path,
+        host.home + '/' + host.config_dir + '/svg/' + path,
 };
 {
     abstract_blue: BackgroundImageNode("abstract_blue.png"),

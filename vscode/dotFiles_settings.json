@@ -13,7 +13,7 @@
     "peacock.remoteColor": "#1857a4",
     "jsonnet.languageServer.extVars": {
         "is_localhost": "true",
-        "hostname": "localhost",
+        "hostname": "env:HOST",
         "cwd": "${workspaceFolder}",
         "home": "${env:HOME}",
         "kernel": "linux"

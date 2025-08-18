@@ -1445,7 +1445,6 @@ function toggle_konsole_semantic_integration() {
 
 function __update_konsole_profile() {
     _dotTrace_enter
-    _dotTrace ""
     local active_dynamic_prompt_style
     active_dynamic_prompt_style=$(__cache_get "ACTIVE_DYNAMIC_PROMPT_STYLE")
 
@@ -1461,10 +1460,9 @@ function __update_konsole_profile() {
         return
     fi
 
-    _dotTrace "setting default profile"
+    _dotTrace "setting konsole profile"
     echo -ne "\e]50;${arg}\a"
     __cache_put "KONSOLE_PROFILE" "${arg}" 30000
-    _dotTrace "done"
     _dotTrace_exit
 }
 
@@ -1475,7 +1473,7 @@ function __do_konsole_shell_integration() {
     if __is_shell_zsh; then
         toggle_konsole_semantic_integration 1
 
-        precmd_functions+=(__update_konsole_profile)
+        # precmd_functions+=(__update_konsole_profile)
     fi
     _dotTrace_exit
 }

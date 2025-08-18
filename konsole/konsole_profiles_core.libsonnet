@@ -1,9 +1,15 @@
-local konsole_configs = import './KonsoleConfigs.libsonnet';
+local konsole_configs = import './konsole_definitions.libsonnet';
 local color_defs = import '../shell/color_definitions.libsonnet';
-local wallpapers = import '../wallpaper/wallpapers.jsonnet';
+local wallpapers = import '../wallpaper/wallpapers.libsonnet';
 local apply_configs = import '../apply_configs.jsonnet';
 
 local host = apply_configs.host;
+
+local localhost_profile = konsole_configs.KonsoleProfileWithColorscheme(
+    host.hostname,
+    color_defs.Schemes['Darkside'],
+    host.icon.target_path(host),
+    host.primary_wallpaper.target_path(host));
 
 local bash_profile = konsole_configs.KonsoleProfileWithColorscheme(
     'Bash',
@@ -36,13 +42,9 @@ local optional_android_profiles = if std.objectHas(host.env_vars.properties, 'AN
             host.env_vars.properties.ANDROID_REPO_ROOT)
     ] else [];
 
-{
-    [o.filename]: std.manifestIni(o) for o in std.flattenArrays(
-        [[o.profile, o.colorscheme]
-        for o in [
-            bash_profile,
-            zsh_profile,
-            quake_profile,
-        ] + optional_android_profiles
-    ])
-}
+[
+    bash_profile,
+    zsh_profile,
+    quake_profile,
+    localhost_profile,
+] + optional_android_profiles

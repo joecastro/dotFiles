@@ -1,5 +1,5 @@
 local color_defs = import '../shell/color_definitions.libsonnet';
-local wallpapers = import '../wallpaper/wallpapers.jsonnet';
+local wallpapers = import '../wallpaper/wallpapers.libsonnet';
 
 local mouse_settings = {
     'left-handed': true,

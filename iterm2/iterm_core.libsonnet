@@ -1,4 +1,4 @@
-local wallpapers = import '../wallpaper/wallpapers.jsonnet';
+local wallpapers = import '../wallpaper/wallpapers.libsonnet';
 local color_defs = import '../shell/color_definitions.libsonnet';
 local apply_configs = import '../apply_configs.jsonnet';
 

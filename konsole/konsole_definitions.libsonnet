@@ -1,5 +1,5 @@
 local color_defs = import '../shell/color_definitions.libsonnet';
-local wallpapers = import '../wallpaper/wallpapers.jsonnet';
+local wallpapers = import '../wallpaper/wallpapers.libsonnet';
 
 local KonsoleColor(color) = {
     Color: color.rgb255,
@@ -105,7 +105,7 @@ local getForeground(extended_scheme) = {
                 },
             },
     },
-    KonsolercIni(default_profile_filename): {
+    KonsolercIni(default_profile_name): {
         main: {
             "2050x1238 screen: Height": 550,
             "2050x1238 screen: Width": 1118,
@@ -116,7 +116,7 @@ local getForeground(extended_scheme) = {
         },
         sections: {
             "Desktop Entry": {
-                DefaultProfile: default_profile_filename,
+                DefaultProfile: default_profile_name + '.profile',
             },
             General: {
                 ConfigVersion: 1,
@@ -137,7 +137,7 @@ local getForeground(extended_scheme) = {
                 IconSize: 16,
             },
             UiSettings: {
-                ColorScheme: "",
+                ColorScheme: default_profile_name + ' Colors',
             }
         },
     },
