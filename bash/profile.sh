@@ -15,7 +15,7 @@ test -e ~/.cargo/env && source ~/.cargo/env
 
 source "${DOTFILES_CONFIG_ROOT}/env_funcs.sh"
 test -e "${DOTFILES_CONFIG_ROOT}/google_funcs.sh" && source "${DOTFILES_CONFIG_ROOT}/google_funcs.sh"
-source "${DOTFILES_CONFIG_ROOT}/osx_funcs.sh"
+source "${DOTFILES_CONFIG_ROOT}/macos_funcs.sh"
 source "${DOTFILES_CONFIG_ROOT}/android_funcs.sh" # Android shell utility functions
 source "${DOTFILES_CONFIG_ROOT}/util_funcs.sh"
 

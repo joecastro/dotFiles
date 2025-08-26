@@ -1,7 +1,7 @@
 local ext_vars = {
     home: std.extVar('home'),
     cwd: std.extVar('cwd'),
-    is_osx: std.extVar('kernel') == 'darwin',
+    is_macos: std.extVar('kernel') == 'darwin',
     is_linux: std.extVar('kernel') == 'linux',
     is_localhost: std.extVar('is_localhost') == 'true',
     hostname: std.extVar('hostname')
@@ -49,7 +49,7 @@ local file_maps = [
     ['ghostty/xterm-ghostty.terminfo', config_dir + '/'],
     ['shell/env_funcs.sh', config_dir + '/'],
     ['shell/iterm2_funcs.sh', config_dir + '/'],
-    ['shell/osx_funcs.sh', config_dir + '/'],
+    ['shell/macos_funcs.sh', config_dir + '/'],
     ['shell/util_funcs.sh', config_dir + '/'],
     ['shell/android_funcs.sh', config_dir + '/'],
     ['zsh/zshrc.zsh', '.zshrc'],
@@ -186,13 +186,13 @@ local Host(hostname, home, icon, color, primary_wallpaper, android_wallpaper) = 
     icon:: icon,
 
     is_localhost:: ext_vars.is_localhost,
-    is_osx:: $.is_localhost && ext_vars.is_osx,
+    is_macos:: $.is_localhost && ext_vars.is_macos,
     is_linux:: $.is_localhost && ext_vars.is_linux,
 
     config_dir: config_dir,
     curl_maps: curl_maps,
     jsonnet_maps: jsonnet_maps +
-        if $.is_osx then jsonnet_localhost_mac_maps else
+        if $.is_macos then jsonnet_localhost_mac_maps else
         if $.is_linux then jsonnet_localhost_linux_maps else [],
     jsonnet_multi_maps: jsonnet_multi_maps,
     directory_maps: directory_maps,
@@ -203,7 +203,7 @@ local Host(hostname, home, icon, color, primary_wallpaper, android_wallpaper) = 
     env_vars:: (if $.is_localhost then localhost_env_vars else env_vars) + {
         properties+: {
             HOST_COLOR: color.hexcolor,
-            ANDROID_HOME: if ext_vars.is_osx
+            ANDROID_HOME: if ext_vars.is_macos
                 then '~/Library/Android/sdk'
                 else '$HOME/android_sdk',
             [if primary_wallpaper != null then 'PRIMARY_WALLPAPER']: primary_wallpaper.target_path($),
@@ -215,7 +215,7 @@ local Host(hostname, home, icon, color, primary_wallpaper, android_wallpaper) = 
 {
     ext_vars: ext_vars,
     hostname: ext_vars.hostname,
-    is_osx: ext_vars.is_osx,
+    is_macos: ext_vars.is_macos,
     cwd: ext_vars.cwd,
 
     config_dir: config_dir,

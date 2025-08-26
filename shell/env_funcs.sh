@@ -208,8 +208,10 @@ declare -A EMOJI_ICON_MAP=(
     [LEGO]=🪀
     [ARROW_UP]=⬆️
     [ARROW_DOWN]=⬇️
+    [ARROW_UPDOWN]=↕️
     [ARROW_UP_THICK]=⬆️
     [ARROW_DOWN_THICK]=⬇️
+    [ARROW_UPDOWN_THICK]=↕️
     [REVIEW]=📝
     [TOOLS]=🛠️
     [APPLE_FINDER]= # Only legible on MacOS and iOS
@@ -262,8 +264,10 @@ declare -A NF_ICON_MAP=(
     [LEGO]=
     [ARROW_UP]=
     [ARROW_DOWN]=
+    [ARROW_UPDOWN]=󰹹
     [ARROW_UP_THICK]=󰁞
     [ARROW_DOWN_THICK]=󰁆
+    [ARROW_UPDOWN_THICK]=󰹺
     [REVIEW]=
     [TOOLS]=
     [APPLE_FINDER]=󰀶
@@ -534,16 +538,20 @@ function __print_git_pwd() {
     __git_is_on_default_branch
     local is_branch_shorthand_eligible=$?
 
-    local color_hint
+    local color_hint has_remote_changes has_unpushed_changes
     color_hint=$(__git_branch_color_hint)
+    has_remote_changes=$(__git_has_remote_changes; echo $?)
+    has_unpushed_changes=$(__git_has_unpushed_changes; echo $?)
 
-    if __git_has_remote_changes; then
+    if [[ $has_remote_changes -eq 0 && $has_unpushed_changes -eq 0 ]]; then
+        _dotTrace "both remote and unpushed changes detected"
+        is_branch_shorthand_eligible=1
+        working_pwd+="${ICON_MAP[ARROW_UPDOWN_THICK]}"
+    elif [[ $has_remote_changes -eq 0 ]]; then
         _dotTrace "remote changes detected"
         is_branch_shorthand_eligible=1
         working_pwd+="${ICON_MAP[ARROW_DOWN_THICK]}"
-    fi
-
-    if __git_has_unpushed_changes; then
+    elif [[ $has_unpushed_changes -eq 0 ]]; then
         _dotTrace "unpushed changes detected"
         is_branch_shorthand_eligible=1
         working_pwd+="${ICON_MAP[ARROW_UP_THICK]}"

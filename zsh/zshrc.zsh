@@ -293,8 +293,8 @@ __do_eza_aliases
 
 # echo "Welcome to $(__z_effective_distribution)!"
 case "$(__z_effective_distribution)" in
-"OSX")
-    # echo "OSX zshrc load complete"
+"MACOS")
+    # echo "MacOS zshrc load complete"
     if command -v brew > /dev/null; then
         gnubin_path="$(brew --prefix)/opt/coreutils/libexec/gnubin"
         if [ -d "${gnubin_path}" ]; then

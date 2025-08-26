@@ -104,7 +104,7 @@ local copilotSettings = {
     "typescript.enablePromptUseWorkspaceTsdk": true,
     "window.zoomLevel": 1,
     "workbench.editor.closeOnFileDelete": true,
-    "workbench.editor.tabActionLocation": if apply_configs.host.is_osx then 'left' else 'right',
+    "workbench.editor.tabActionLocation": if apply_configs.host.is_macos then 'left' else 'right',
     "workbench.iconTheme": "a-file-icon-vscode",
     "workbench.productIconTheme": "feather-vscode",
     "workbench.settings.editor": "json",

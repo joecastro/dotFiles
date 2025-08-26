@@ -35,7 +35,7 @@ function __embedded_terminal_info() {
 
 typeset -A DISTRIBUTION_ID_FUNCS=( \
     [WSL]="__is_on_wsl" \
-    [OSX]="__is_on_macos" \
+    [MACOS]="__is_on_macos" \
     [WINDOWS]="__is_on_windows" )
 
 function __z_effective_distribution() {
@@ -89,7 +89,7 @@ function __virtualenv_info() {
 }
 
 [[ -f "${DOTFILES_CONFIG_ROOT}/google_funcs.sh" ]] && source "${DOTFILES_CONFIG_ROOT}/google_funcs.sh"
-source "${DOTFILES_CONFIG_ROOT}/osx_funcs.sh"
+source "${DOTFILES_CONFIG_ROOT}/macos_funcs.sh"
 source "${DOTFILES_CONFIG_ROOT}/android_funcs.sh" # Android shell utility functions
 source "${DOTFILES_CONFIG_ROOT}/util_funcs.sh"
 

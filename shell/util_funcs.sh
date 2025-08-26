@@ -12,8 +12,8 @@ if ! declare -f __is_shell_zsh &>/dev/null; then
         [[ -n "$ZSH_VERSION" ]]
     }
 fi
-if ! declare -f __is_on_osx &>/dev/null; then
-    function __is_on_osx() {
+if ! declare -f __is_on_macos &>/dev/null; then
+    function __is_on_macos() {
         [[ "$(uname -s)" == "Darwin" ]]
     }
 fi
@@ -179,7 +179,7 @@ fi
 function bootstrap_fonts() {
     local download_dir="$HOME/Downloads"
     local font_dir="$HOME/.local/share/fonts"
-    if __is_on_osx; then
+    if __is_on_macos; then
         font_dir="$HOME/Library/Fonts"
     fi
     echo "Creating font directory: $font_dir"
