@@ -133,7 +133,11 @@ zle -N zle-line-init
 # Finish all the autoloads before sourcing. Some scripts presume compinit and no more zle's
 source "${HOME}/.config/zshext/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
 
-chpwd_functions=($chpwd_functions __update_prompt __auto_apply_venv_on_chpwd)
+chpwd_functions=($chpwd_functions __update_prompt)
+
+if ! __is_tool_window && ! __is_embedded_terminal; then
+    chpwd_functions=($chpwd_functions __auto_activate_venv)
+fi
 
 # Use beam shape cursor for each new prompt.
 preexec_functions=($preexec_functions _set_cursor_beam)
@@ -264,35 +268,13 @@ RPROMPT="YYY"
 __update_prompt
 # RPOMPT+='%* '
 
-if ! __is_tool_window && ! __z_is_embedded_terminal; then
-    function __auto_apply_venv_on_chpwd() {
-        # If I am no longer in the same directory hierarchy as the venv that was last activated, deactivate.
-        if [[ -n "${VIRTUAL_ENV}" ]]; then
-            local P_DIR="$(dirname "$VIRTUAL_ENV")"
-            if [[ "$PWD"/ != "${P_DIR}"/* ]] && command -v deactivate &> /dev/null; ; then
-                echo "${ICON_MAP[PYTHON]} Deactivating venv for ${P_DIR}"
-                deactivate
-            fi
-        fi
-
-        # If I enter a directory with a .venv and I am already activated with another one, let me know but don't activate.
-        if [[ -d ./.venv ]]; then
-            if [[ -z "$VIRTUAL_ENV" ]]; then
-                source ./.venv/bin/activate
-                echo "${ICON_MAP[PYTHON]} Activating venv with $(python --version) for $PWD/.venv"
-            # else: CONSIDER: test "$PWD" -ef "$VIRUAL_ENV" && "🐍 Avoiding implicit activation of .venv environment because $VIRTUAL_ENV is already active"
-            fi
-        fi
-    }
-fi
-
 __do_iterm2_shell_integration
 __do_vscode_shell_integration
 __do_konsole_shell_integration
 __do_eza_aliases
 
-# echo "Welcome to $(__z_effective_distribution)!"
-case "$(__z_effective_distribution)" in
+# echo "Welcome to $(__effective_distribution)!"
+case "$(__effective_distribution)" in
 "MACOS")
     # echo "MacOS zshrc load complete"
     if command -v brew > /dev/null; then
@@ -305,10 +287,6 @@ case "$(__z_effective_distribution)" in
 
     # RPROMPT='$(battery_charge)'
     chjava 22
-
-    if declare -f __on_gmac_zshrc_load_complete > /dev/null; then
-        __on_gmac_zshrc_load_complete
-    fi
 
     ;;
 "WSL")

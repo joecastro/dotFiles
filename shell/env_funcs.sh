@@ -710,6 +710,34 @@ function __is_in_tmux() {
     [ -n "${TMUX}" ]
 }
 
+function __is_in_vimruntime() {
+    [ -n "${VIMRUNTIME}" ]
+}
+
+function __is_in_python_venv() {
+    [ -n "${VIRTUAL_ENV}" ]
+}
+
+function __auto_activate_venv() {
+    # If I am no longer in the same directory hierarchy as the venv that was last activated, deactivate.
+    if __is_in_python_venv; then
+        local P_DIR="$(dirname "$VIRTUAL_ENV")"
+        if [[ "$PWD"/ != "${P_DIR}"/* ]] && command -v deactivate &> /dev/null; then
+            echo "${ICON_MAP[PYTHON]} Deactivating venv for ${P_DIR}"
+            deactivate
+        fi
+    fi
+
+    # If I enter a directory with a .venv and I am already activated with another one, let me know but don't activate.
+    if [[ -d ./.venv ]]; then
+        if ! __is_in_python_venv; then
+            source ./.venv/bin/activate
+            echo "${ICON_MAP[PYTHON]} Activating venv with $(python --version) for $PWD/.venv"
+        # else: CONSIDER: test "$PWD" -ef "$VIRTUAL_ENV" && "🐍 Avoiding implicit activation of .venv environment because $VIRTUAL_ENV is already active"
+        fi
+    fi
+}
+
 function __is_on_wsl() {
     grep -qE "(Microsoft|WSL)" /proc/version &> /dev/null
 }
@@ -720,6 +748,14 @@ function __is_in_windows_drive() {
     fi
 
     [[ "${PWD##"${WIN_SYSTEM_ROOT}"}" != "${PWD}" ]]
+}
+
+function __is_in_wsl_windows_drive() {
+    __is_on_wsl && __is_in_windows_drive
+}
+
+function __is_in_wsl_linux_drive() {
+    __is_on_wsl && ! __is_in_windows_drive
 }
 
 function __is_on_macos() {
@@ -1222,6 +1258,114 @@ function __cute_kernel() {
     fi
 }
 
+function __cute_shell_path() {
+    # alternatively: readlink /proc/$$/exe 2>/dev/null || lsof -p $$ | awk '/txt/{print $9}'
+    local cute_shell_path="${0#-}"
+    # Zsh rewrites $0 when sourcing and in function calls. Bash does not.
+    if [[ -n "${ZSH_ARGZERO}" ]]; then
+        cute_shell_path="${ZSH_ARGZERO#-}"
+    fi
+
+    cute_shell_path="$(which "${cute_shell_path}")"
+    if [[ "${cute_shell_path}" == "$(which "$(basename "${cute_shell_path}")")" ]]; then
+        cute_shell_path="$(basename "${cute_shell_path}")"
+    fi
+
+    echo -n "${cute_shell_path}"
+}
+
+function __cute_shell_version() {
+    local cute_shell_version=""
+    if __is_shell_bash; then
+        cute_shell_version="${BASH_VERSINFO[0]}.${BASH_VERSINFO[1]}.${BASH_VERSINFO[2]}"
+    elif __is_shell_zsh; then
+        cute_shell_version="${ZSH_VERSION}"
+    else
+        cute_shell_version="<unknown>"
+    fi
+
+    echo -n "${cute_shell_version}"
+}
+
+# "key" -> (test_function ICON)
+typeset -a VSCODE_TERMINAL_ID=("__is_vscode_terminal" "MD_MICROSOFT_VISUAL_STUDIO_CODE")
+typeset -a EMBEDDED_TERMINAL_ID_FUNCS=( \
+    VSCODE_TERMINAL_ID )
+
+function __is_embedded_terminal() {
+    __embedded_terminal_info --noshow
+}
+
+function __embedded_terminal_info() {
+    local ID_FUNC ICON arr
+    for value in "${EMBEDDED_TERMINAL_ID_FUNCS[@]}"; do
+        eval "arr=(\"\${${value}[@]}\")"
+        ID_FUNC="${arr[@]:0:1}"
+        ICON="${ICON_MAP[${arr[@]:1:1}]}"
+        if eval "${ID_FUNC}"; then
+            if [[ "$1" != "--noshow" ]]; then
+                echo -n "${ICON}"
+            fi
+            return 0
+        fi
+    done
+    return 1
+}
+
+function __effective_distribution() {
+    if __is_on_wsl; then
+        echo "WSL"
+        return 0
+    elif __is_on_macos; then
+        echo "MACOS"
+        return 0
+    elif __is_on_windows; then
+        echo "WINDOWS"
+        return 0
+    elif __is_on_linux; then
+        echo "$(__print_linux_distro)"
+    elif __is_on_unexpected_windows; then
+        echo "Unexpected Win32 environment"
+    else
+        echo "Unhandled"
+    fi
+    return 1
+}
+
+# "key" -> (test_function ICON ICON_COLOR)
+# typeset -a GIT_VIRTUALENV_ID=("__is_in_git_repo" "ICON_MAP[GIT]" "yellow")
+typeset -a TMUX_VIRTUALENV_ID=("__is_in_tmux" "TMUX" "white")
+typeset -a VIM_VIRTUALENV_ID=("__is_in_vimruntime" "VIM" "green")
+typeset -a PYTHON_VIRTUALENV_ID=("__is_in_python_venv" "PYTHON" "blue")
+typeset -a WSL_WINDOWS_VIRTUALENV_ID=("__is_in_wsl_windows_drive" "WINDOWS" "blue")
+typeset -a WSL_LINUX_VIRTUALENV_ID=("__is_in_wsl_linux_drive" "LINUX_PENGUIN" "blue")
+
+typeset -a VIRTUALENV_ID_FUNCS=( \
+    TMUX_VIRTUALENV_ID \
+    VIM_VIRTUALENV_ID \
+    PYTHON_VIRTUALENV_ID \
+    WSL_WINDOWS_VIRTUALENV_ID \
+    WSL_LINUX_VIRTUALENV_ID)
+
+function __virtualenv_info() {
+    local suffix="${1:-}"
+    local has_virtualenv=1
+    for value in "${VIRTUALENV_ID_FUNCS[@]}"; do
+        eval "arr=(\"\${${value}[@]}\")"
+        ID_FUNC="${arr[@]:0:1}"
+        ICON="${ICON_MAP[${arr[@]:1:1}]}"
+        ICON_COLOR="${arr[@]:2:1}"
+        if eval "${ID_FUNC}"; then
+            __echo_colored "${ICON_COLOR}" "${ICON}"
+            has_virtualenv=0
+        fi
+    done
+    if [[ "${has_virtualenv}" == "0" ]]; then
+        echo -n "${suffix}"
+    fi
+    return ${has_virtualenv}
+}
+
 declare -a CUTE_HEADER_PARTS=() > /dev/null 2>&1
 
 function __cute_shell_header() {
@@ -1232,7 +1376,7 @@ function __cute_shell_header() {
             return 0
         fi
         if [[ "${SHLVL}" -gt 1 ]]; then
-            if ! __is_shell_zsh || ! __z_is_embedded_terminal; then
+            if __is_embedded_terminal; then
                 _dotTrace_exit
                 return 0
             fi
@@ -1246,30 +1390,7 @@ function __cute_shell_header() {
         echo -n " "
     fi
 
-    # Do these late-bound so PATH has been fully settled first.
-
-    # alternatively: readlink /proc/$$/exe 2>/dev/null || lsof -p $$ | awk '/txt/{print $9}'
-    local cute_shell_path="${0#-}"
-    # Zsh rewrites $0 when sourcing and in function calls. Bash does not.
-    if [[ -n "${ZSH_ARGZERO}" ]]; then
-        cute_shell_path="${ZSH_ARGZERO#-}"
-    fi
-
-    cute_shell_path="$(which "${cute_shell_path}")"
-    if [[ "${cute_shell_path}" == "$(which "$(basename "${cute_shell_path}")")" ]]; then
-        cute_shell_path="$(basename "${cute_shell_path}")"
-    fi
-
-    local cute_shell_version=""
-    if __is_shell_bash; then
-        cute_shell_version="${BASH_VERSINFO[0]}.${BASH_VERSINFO[1]}.${BASH_VERSINFO[2]}"
-    elif __is_shell_zsh; then
-        cute_shell_version="${ZSH_VERSION}"
-    else
-        cute_shell_version="<unknown>"
-    fi
-
-    echo "${cute_shell_path}" "${cute_shell_version}" "${CUTE_HEADER_PARTS[@]}" "${ICON_MAP[MD_SNAPCHAT]}"
+    echo "$(__cute_shell_path)" "$(__cute_shell_version)" "${CUTE_HEADER_PARTS[@]}" "${ICON_MAP[MD_SNAPCHAT]}"
     _dotTrace_exit
 }
 
@@ -1284,6 +1405,11 @@ if __is_shell_interactive; then
         fi
     else
         CUTE_HEADER_PARTS+=("!! Bash ${BASH_VERSINFO[0]} is old o_O !!")
+    fi
+
+    CUTE_HEADER_PARTS+=("distro:$(__effective_distribution)")
+    if __is_embedded_terminal; then
+        CUTE_HEADER_PARTS+=("embedded:$(__embedded_terminal_info)")
     fi
 fi
 

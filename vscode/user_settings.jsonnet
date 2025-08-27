@@ -6,7 +6,17 @@ local PeacockColor(name, color) = {
     'value': color.hexcolor,
 };
 
-local preferred_font_families = "Cascaydia Cove NerdFont Mono, Cascadia Code NF, Inconsolata, Consolas";
+local preferred_font_families = if apply_configs.host.is_macos
+    then "CascaydiaCove Nerd Font Mono, Hack Nerd Font Mono, Inconsolata, Consolas"
+    else "Cascaydia Cove NerdFont Mono, Cascadia Code NF, Inconsolata, Consolas";
+
+local preferred_icon_theme = if apply_configs.host.is_macos
+    then "vscode-icons"
+    else "a-file-icon-vscode";
+
+local preferred_product_icon_theme = if apply_configs.host.is_macos
+    then "macos-modern"
+    else "feather-vscode";
 
 local editorSettings = {
     "editor.fontFamily": preferred_font_families,
@@ -83,8 +93,6 @@ local copilotSettings = {
     },
     "accessibility.dimUnfocused.enabled": true,
     "accessibility.dimUnfocused.opacity": 0.8,
-    "background.windowBackgrounds": [],
-    "cmake.configureOnOpen": false,
     "diffEditor.codeLens": true,
     "diffEditor.renderSideBySide": false,
     "files.associations": {
@@ -105,8 +113,8 @@ local copilotSettings = {
     "window.zoomLevel": 1,
     "workbench.editor.closeOnFileDelete": true,
     "workbench.editor.tabActionLocation": if apply_configs.host.is_macos then 'left' else 'right',
-    "workbench.iconTheme": "a-file-icon-vscode",
-    "workbench.productIconTheme": "feather-vscode",
+    "workbench.iconTheme": preferred_icon_theme,
+    "workbench.productIconTheme": preferred_product_icon_theme,
     "workbench.settings.editor": "json",
     "workbench.startupEditor": "none",
     "update.mode": "none",

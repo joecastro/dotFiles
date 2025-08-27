@@ -124,7 +124,7 @@ function __generate_prompt() {
     preamble+="${COLOR_ANSI[red]}${PS1_PREAMBLE_PREFIX}"
     preamble+="$(__generate_preamble_color "$1")"
     # shellcheck disable=SC2016
-    preamble+='$(__cute_time_prompt) '
+    preamble+='$(__cute_time_prompt) $(__virtualenv_info " ")'
 
     local static_part suffix
     static_part="$(__generate_static_prompt_part)"
@@ -165,6 +165,11 @@ function __cute_prompt_command() {
     fi
     __cache_put UPDATE_PROMPT_PWD "$PWD"
 
+    if ! __is_embedded_terminal && ! __is_tool_window; then
+        _dotTrace "Auto-activating venv if needed"
+        __auto_activate_venv
+    fi
+
     _dotTrace "calculating new style (${PWD})"
     local new_style="None"
 
@@ -186,7 +191,7 @@ function __cute_prompt_command() {
         _dotTrace_exit
         return
     fi
-    
+
     _dotTrace "updating prompt to ${new_style}"
     PS1="$(__generate_prompt "$new_style")"
     export PS1
