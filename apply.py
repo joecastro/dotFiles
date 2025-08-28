@@ -17,17 +17,24 @@ from itertools import chain
 from pathlib import Path
 from typing import Any
 
-HOME = str(Path.home())
-CWD = '.'
-OUT_DIR_ROOT = f'{CWD}/out'
-GIT_PLUGINS_DIR = f'{OUT_DIR_ROOT}/plugins'
-
-BASH_COMMAND_PREFIX = 'BASH_COMMAND: '
-
 def mingify_path(path: str) -> str:
     path = re.sub(r'\\', '/', path)
     path = re.sub(r'^([A-Za-z]):', lambda m: f'/{m.group(1).lower()}', path)
     return path
+
+HOME = str(Path.home())
+CWD = '.'
+OS_CWD = mingify_path(os.getcwd())
+OUT_DIR_ROOT = f'{CWD}/out'
+GIT_PLUGINS_DIR = f'{OUT_DIR_ROOT}/plugins'
+
+LOCALHOST_NAME = platform.uname().node
+# Fixup mDNS hostname mangling on macOS
+if LOCALHOST_NAME.endswith('.local'):
+    LOCALHOST_NAME = LOCALHOST_NAME[:-6]
+LOCALHOST_KERNEL = platform.uname().system.lower()
+
+BASH_COMMAND_PREFIX = 'BASH_COMMAND: '
 
 
 def make_joined_path(path: str, root: str | None) -> str:
@@ -77,11 +84,12 @@ class Host:
     remote_staging_dir: str = field(init=False, default='')
 
     def __post_init__(self):
+
         self.home = mingify_path(self.home)
         if self.hostname == 'localhost':
-            self.hostname = platform.uname().node
-        if self.hostname == platform.uname().node:
-            self.kernel = platform.uname().system.lower()
+            self.hostname = LOCALHOST_NAME
+        if self.hostname == LOCALHOST_NAME:
+            self.kernel = LOCALHOST_KERNEL
         self.file_maps = dict(self.file_maps)
         self.file_maps |= {item2:item3 for (_, item2, item3) in self.jsonnet_maps}
         self.prestaged_files.update([item2 for (_, item2, _) in self.jsonnet_maps])
@@ -98,7 +106,7 @@ class Host:
         for key in values_to_coerce:
             self.file_maps[key] = f'{self.file_maps[key]}{os.path.basename(key)}'
 
-        self.is_localhost = self.hostname == platform.uname().node
+        self.is_localhost = self.hostname == LOCALHOST_NAME
         self.local_staging_dir = f'{CWD}/out/{self.hostname}-dot'
         self.remote_staging_dir = f'{self.home}/{self.config_dir}-staging'
 
@@ -359,9 +367,9 @@ def parse_jsonnet(jsonnet_file: str, ext_vars: dict, output_path: str | None = N
 def get_ext_vars(host: Host | None = None) -> dict:
     standard_ext_vars = {
         'is_localhost': 'true',
-        'hostname': platform.uname().node,
-        'kernel': platform.uname().system.lower(),
-        'cwd': mingify_path(os.getcwd()),
+        'hostname': LOCALHOST_NAME,
+        'kernel': LOCALHOST_KERNEL,
+        'cwd': OS_CWD,
         'home': HOME,
     }
     if host:
@@ -428,7 +436,7 @@ def copy_files_local(source_root, source_files, dest_root, dest_files, annotate:
     # Filter out files that would overwrite files in the current working directory
     filtered_sources, filtered_dests = zip(*[
         (src, dest) for src, dest in zip(full_path_sources, full_path_dests)
-        if not mingify_path(dest).startswith(mingify_path(os.getcwd()))
+        if not mingify_path(dest).startswith(OS_CWD)
     ]) if full_path_sources else ([], [])
 
     ops = ensure_directories_exist_ops([os.path.dirname(dest) for dest in filtered_dests], None)
@@ -631,7 +639,7 @@ def pull_remote(host: Host) -> list:
 
 def bootstrap_windows() -> list:
     """Apply environment settings for a new Windows machine."""
-    return [['SETX', 'DOTFILES_SRC_DIR', os.getcwd()]]
+    return [['SETX', 'DOTFILES_SRC_DIR', OS_CWD]]
 
 
 def iterm2_prefs_plist_location() -> str:

@@ -5,7 +5,7 @@
         },
 
         user: {
-            email: "joecastr@gmail.com",
+            email: "joe@lifequakesoftware.com",
             name: "Joe Castro"
         },
 

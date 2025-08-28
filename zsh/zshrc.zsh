@@ -153,7 +153,7 @@ function __print_git_worktree_prompt() {
 
 function __print_last_command_status_prompt() {
     if [[ "$?" -ne 0 ]]; then
-        echo -n "%{$fg[red]%}!"
+        echo -n "%{$fg[red]%}!%{$reset_color%}"
     fi
 }
 
@@ -216,8 +216,9 @@ function __generate_dynamic_prompt_part() {
 function __generate_prompt() {
     # Prefix an indicator when the last command failed.
     local preamble='$(__print_last_command_status_prompt)'
-    preamble+="$(__generate_preamble_color $1)"
-    preamble+='$(__cute_time_prompt) $(__virtualenv_info " ")'
+    # preamble+="$(__generate_preamble_color $1)"
+    preamble+='$(__cute_time_prompt) '
+    preamble+='$(__virtualenv_info " ")'
 
     local static=$(__generate_static_prompt_part)
     local suffix
@@ -231,10 +232,11 @@ function __generate_prompt() {
 }
 
 function __update_prompt() {
-    _dotTrace "__update_prompt"
+    _dotTrace_enter
 
     if [[ "${$(__cache_get UPDATE_PROMPT_PWD)}" == "${PWD}" ]]; then
         _dotTrace "__update_prompt - no change - done"
+        _dotTrace_exit
         return
     fi
     __cache_put UPDATE_PROMPT_PWD "${PWD}"
@@ -253,14 +255,16 @@ function __update_prompt() {
         new_dynamic_style="None"
     fi
 
-    local active_dynamic_prompt_style=$(__cache_get "ACTIVE_DYNAMIC_PROMPT_STYLE")
+    local active_dynamic_prompt_style=$(__cache_get ACTIVE_DYNAMIC_PROMPT_STYLE)
 
     if [[ "${active_dynamic_prompt_style}" != "${new_dynamic_style}" ]]; then
         _dotTrace "__update_prompt - updating prompt to ${new_dynamic_style}"
         PROMPT="$(__generate_prompt ${new_dynamic_style})"
         RPROMPT=''
-        __cache_put "ACTIVE_DYNAMIC_PROMPT_STYLE" "${new_dynamic_style}"
+        __cache_put ACTIVE_DYNAMIC_PROMPT_STYLE "${new_dynamic_style}"
     fi
+
+    _dotTrace_exit
 }
 
 PROMPT="XXX"

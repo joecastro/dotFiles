@@ -2,19 +2,9 @@
 
 #pragma once
 
-if ! declare -f __is_shell_bash &>/dev/null; then
-    function __is_shell_bash() {
-        [[ -n "$BASH_VERSION" ]]
-    }
-fi
 if ! declare -f __is_shell_zsh &>/dev/null; then
     function __is_shell_zsh() {
         [[ -n "$ZSH_VERSION" ]]
-    }
-fi
-if ! declare -f __is_on_macos &>/dev/null; then
-    function __is_on_macos() {
-        [[ "$(uname -s)" == "Darwin" ]]
     }
 fi
 
@@ -132,24 +122,13 @@ function list_colors() {
 }
 
 if __is_shell_zsh; then
-    function clear_pragmas() {
-        # Undoes the pragma once guards in my source files.
-        unset -m "PRAGMA_*"
-    }
-
-    alias source_dotfiles='clear_pragmas; source ~/.zshenv; source ~/.zprofile; source ~/.zshrc'
-elif __is_shell_bash; then
-    alias source_dotfiles='echo "Maybe later..."'
-fi
-
-if __is_shell_zsh; then
     # Linter is not happy with ZSH syntax in a bash script.
     function debug_color_env() {
         local color_var=${1:-"LS_COLORS"}
         # shellcheck disable=SC2034 disable=SC2296
-        color_var=${(P)color_var}
+        local color_value=${(P)color_var}
         # shellcheck disable=SC2206 disable=SC2296
-        local parts=(${(s/:/)color_var})
+        local parts=(${(s/:/)color_value})
         # shellcheck disable=SC2128
         for ls_color in $parts; do
             echo -ne "\e[${ls_color##*=}m${ls_color%%=*}\e[0m "
@@ -179,7 +158,8 @@ fi
 function bootstrap_fonts() {
     local download_dir="$HOME/Downloads"
     local font_dir="$HOME/.local/share/fonts"
-    if __is_on_macos; then
+    # __is_on_macos
+    if [[ "$(uname -s)" == "Darwin" ]]; then
         font_dir="$HOME/Library/Fonts"
     fi
     echo "Creating font directory: $font_dir"
@@ -301,7 +281,6 @@ function bootstrap_brew_packages() {
         spotify \
         grandperspective \
         google-chrome \
-        docker \
         microsoft-office
 
     # brew install --cask microsoft-edge
@@ -329,8 +308,9 @@ function bootstrap_brew_packages() {
     # Instructions from that keg...
     sudo ln -sfn /opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk /Library/Java/JavaVirtualMachines/openjdk-21.jdk
 
+    brew install --cask \
+        docker
     brew install \
-        docker \
         docker-machine \
         docker-compose
 
