@@ -573,9 +573,7 @@ function __print_git_pwd() {
 
     working_pwd=$(__echo_colored "${color_hint}" "${working_pwd}")
 
-    if [[ $is_branch_shorthand_eligible != 0 ]]; then
-        working_pwd+=" ${ICON_MAP[COD_PINNED]}"
-    fi
+    working_pwd+=" ${ICON_MAP[COD_PINNED]}"
 
     _dotTrace "branch prefix before anchored path: ${working_pwd}"
 
@@ -587,6 +585,7 @@ function __print_git_pwd() {
         # These commands wind up spitting out an extra slash, so backspace to remove it on the console.
         anchored_path="$(echo -ne "$(git rev-parse --show-toplevel | xargs basename)/$(git rev-parse --show-prefix)")"
         anchored_path="${anchored_path%/}"
+        anchored_path="$(__print_abbreviated_path "${anchored_path}" 0)"
     fi
 
     echo -ne "${working_pwd}${anchored_path}"
@@ -1084,11 +1083,17 @@ fi
 
 function __print_abbreviated_path() {
     local input_string="$1"
+    local expand_prefix="${2:-1}"
     local result=""
     local part
     while [[ "$input_string" == *"/"* ]]; do
         part="${input_string%%/*}"
-        result+="${part:0:1}/"
+        if [[ $expand_prefix -eq 0 ]]; then
+            result+="$part/"
+        else
+            result+="${part:0:1}/"
+        fi
+        expand_prefix=1
         input_string="${input_string#*/}"
     done
     result+="${input_string}"
