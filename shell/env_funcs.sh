@@ -1088,7 +1088,7 @@ function __print_abbreviated_path() {
     local part
     while [[ "$input_string" == *"/"* ]]; do
         part="${input_string%%/*}"
-        if [[ $expand_prefix -eq 0 ]]; then
+        if [[ $expand_prefix -eq 0 || ${#part} -le 3 ]]; then
             result+="$part/"
         else
             result+="${part:0:1}/"
