@@ -115,10 +115,21 @@ class Host:
         return self.hostname
 
 
-    def get_inflated_macro(self, key: str, file_path: str) -> list[str]:
+    def get_inflated_macro(self, key: str, file_path: str, pragma_arg: str | None = None) -> list[str]:
+        """Inflate a macro template defined in Jsonnet with built-in tokens.
+
+        Supported tokens in templates:
+        - @@FILE_NAME   -> uppercased stem of the file name being processed
+        - @@NOW         -> current timestamp (YYYY-MM-DD HH:MM)
+        - @@PRAGMA_ARG  -> argument following the pragma on the source line
+        """
+        arg_value = pragma_arg or ''
+        now_value = datetime.now().strftime("%Y-%m-%d %H:%M")
+        file_stem_upper = Path(file_path).stem.upper()
         return [
-            v.replace('@@FILE_NAME', Path(file_path).stem.upper())
-             .replace('@@NOW', datetime.now().strftime("%Y-%m-%d %H:%M"))
+            v.replace('@@FILE_NAME', file_stem_upper)
+             .replace('@@NOW', now_value)
+             .replace('@@PRAGMA_ARG', arg_value)
             for v in self.macros.get(key, [])
         ]
 
@@ -547,9 +558,12 @@ def process_macros_for_staged_file(host: Host, file: str) -> None:
     with open(file, 'r', encoding='utf-8') as f:
         lines = f.read().splitlines()
         for line in lines:
-            if line in host.macros:
+            # Expand macros (supports arguments after the keyword)
+            matched_macro = next((k for k in host.macros if line.startswith(k)), None)
+            if matched_macro is not None:
                 is_modified = True
-                modified_content.extend(host.get_inflated_macro(line, file))
+                pragma_arg = line[len(matched_macro):].strip()
+                modified_content.extend(host.get_inflated_macro(matched_macro, file, pragma_arg=pragma_arg))
             else:
                 modified_content.append(line)
     if is_modified:

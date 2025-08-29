@@ -47,7 +47,12 @@ local file_maps = [
     ['bash/colors.sh', config_dir + '/'],
     ['ghostty/ghostty_config.properties', '.config/ghostty/config'],
     ['ghostty/xterm-ghostty.terminfo', config_dir + '/'],
+    ['konsole/konsole_funcs.sh', config_dir + '/'],
     ['shell/env_funcs.sh', config_dir + '/'],
+    ['shell/platform.sh', config_dir + '/'],
+    ['shell/cache.sh', config_dir + '/'],
+    ['shell/icons.sh', config_dir + '/'],
+    ['shell/git_funcs.sh', config_dir + '/'],
     ['shell/iterm2_funcs.sh', config_dir + '/'],
     ['shell/macos_funcs.sh', config_dir + '/'],
     ['shell/util_funcs.sh', config_dir + '/'],
@@ -113,6 +118,22 @@ local macros = {
     ],
     '#pragma validate-dotfiles': [
         '[[ -e ~/.env_vars.sh ]] || return',
+        'source ~/.env_vars.sh',
+    ],
+    '#pragma requires': [
+        'if [[ -f "${DOTFILES_CONFIG_ROOT}/@@PRAGMA_ARG" ]]; then',
+        '    source "${DOTFILES_CONFIG_ROOT}/@@PRAGMA_ARG"',
+        'else',
+        '    echo "ERROR: Missing required file ${DOTFILES_CONFIG_ROOT}/@@PRAGMA_ARG (@@FILE_NAME)" >&2',
+        '    return 1',
+        'fi',
+    ],
+    '#pragma wants': [
+        'if [[ -f "${DOTFILES_CONFIG_ROOT}/@@PRAGMA_ARG" ]]; then',
+        '    source "${DOTFILES_CONFIG_ROOT}/@@PRAGMA_ARG"',
+        'else',
+        '    echo "WARN: Optional file not found ${DOTFILES_CONFIG_ROOT}/@@PRAGMA_ARG (@@FILE_NAME)" >&2',
+        'fi',
     ],
 };
 

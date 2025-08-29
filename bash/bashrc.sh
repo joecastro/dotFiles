@@ -10,10 +10,8 @@ source ~/.profile
 # Exit if not running interactively
 __is_shell_interactive || return
 
-source "${DOTFILES_CONFIG_ROOT}/colors.sh"
-
-# shellcheck source=/dev/null
-source "${DOTFILES_CONFIG_ROOT}/completion/git-completion.bash"
+#pragma requires colors.sh
+#pragma requires completion/git-completion.bash
 
 # PS1 components
 Time12h="\T"

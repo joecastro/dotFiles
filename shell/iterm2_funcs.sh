@@ -1,6 +1,7 @@
 #! /bin/bash
 
 #pragma once
+#pragma requires iterm2_color_funcs.sh
 
 declare -a ITERM_COLOR_KEYS=( \
     "fg" \
@@ -30,9 +31,6 @@ declare -a ITERM_COLOR_KEYS=( \
     "br_cyan" \
     "br_white" \
 )
-
-# shellcheck disable=SC1091
-source "${DOTFILES_CONFIG_ROOT}/iterm2_color_funcs.sh"
 
 # https://iterm2.com/documentation-escape-codes.html
 function iterm_set_color() {
