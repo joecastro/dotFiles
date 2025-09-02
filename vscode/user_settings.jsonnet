@@ -8,7 +8,7 @@ local PeacockColor(name, color) = {
 
 local preferred_font_families = if apply_configs.host.is_macos
     then "CascaydiaCove Nerd Font Mono, Hack Nerd Font Mono, Inconsolata, Consolas"
-    else "Cascaydia Cove NerdFont Mono, Cascadia Code NF, Inconsolata, Consolas";
+    else "Hack Nerd Font, Inconsolata, Consolas";
 
 local preferred_icon_theme = if apply_configs.host.is_macos
     then "vscode-icons"

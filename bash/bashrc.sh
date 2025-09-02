@@ -96,17 +96,21 @@ function __generate_dynamic_prompt_part() {
 
     case "$style" in
         Git)
+            # shellcheck disable=SC2016
             dynamic_part+='$(__print_git_worktree_prompt)'
             ;;
         Repo)
+            # shellcheck disable=SC2016
             dynamic_part+='$(__print_repo_worktree) '
             ;;
         Piper)
+            # shellcheck disable=SC2016
             dynamic_part+='$(__print_citc_workspace) '
             ;;
         *)
             ;;
     esac
+    # shellcheck disable=SC2016
     dynamic_part+='$(__cute_pwd)'
 
     echo -n "${dynamic_part}"
@@ -128,7 +132,8 @@ function __generate_prompt() {
     static_part="$(__generate_static_prompt_part)"
     [ "$EUID" -eq 0 ] && suffix=" ${ELEVATED_END_OF_PROMPT_ICON} " || suffix=" ${END_OF_PROMPT_ICON} "
 
-    local local_ps1="${preamble}${static_part}$(__generate_dynamic_prompt_part "$1")${suffix}${RESET}"
+    local local_ps1
+    local_ps1="${preamble}${static_part}$(__generate_dynamic_prompt_part "$1")${suffix}${RESET}"
     _dotTrace "Generated PS1: \"${local_ps1}\""
     echo -n "${local_ps1}"
 
@@ -321,7 +326,7 @@ HAS_UPDATED_FOR_GHOSTTY=1
 function __patch_ghostty_shell_integration() {
     _dotTrace_enter
 
-    if [ $HAS_UPDATED_FOR_GHOSTTY -eq 0 ]; then
+    if [ "$HAS_UPDATED_FOR_GHOSTTY" -eq 0 ]; then
         _dotTrace "Ghostty shell integration already updated"
         _dotTrace_exit
         return

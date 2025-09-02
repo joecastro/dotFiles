@@ -228,6 +228,8 @@ function bootstrap_apt_packages() {
         sudo snap install spotify
     fi
 
+    # TODO: Initialize node and nvm
+    #curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.0/install.sh | bash
     wget -O ~/Downloads/google-chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
     sudo dpkg -i ~/Downloads/google-chrome.deb || sudo apt install -f -y
     rm ~/Downloads/google-chrome.deb

@@ -60,6 +60,8 @@ declare -A EMOJI_ICON_MAP=(
     [ARROW_UPDOWN_THICK]=↕️
     [REVIEW]=📝
     [TOOLS]=🛠️
+    [NODEJS]=🔩
+    [CLOCK]=🕰️
     [APPLE_FINDER]= # Only legible on MacOS and iOS
     ) > /dev/null 2>&1
 
@@ -116,6 +118,8 @@ declare -A NF_ICON_MAP=(
     [ARROW_UPDOWN_THICK]=󰹺
     [REVIEW]=
     [TOOLS]=
+    [NODEJS]=
+    [CLOCK]=
     [APPLE_FINDER]=󰀶
     ) > /dev/null 2>&1
 

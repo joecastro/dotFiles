@@ -265,10 +265,121 @@ function __print_repo_worktree() {
     _dotTrace_exit
 }
 
+function __node_is_in_project_root() {
+    local candidate_dir="${1:-$PWD}"
+    [[ -f "${candidate_dir}/package.json" ]]
+}
+
+function __node_find_root() {
+    local current_dir="$1"
+    while [[ "$current_dir" != "/" ]]; do
+        if __node_is_in_project_root "$current_dir"; then
+            echo -n "$current_dir"
+            return 0
+        fi
+        current_dir="$(dirname "$current_dir")"
+    done
+    return 1
+}
+
+function __is_in_node_project() {
+    _dotTrace_enter
+    local current_dir
+    current_dir=$(readlink -f "$PWD")
+    if [[ -n "${CWD_NODE_ROOT}" && "$current_dir" == "$CWD_NODE_ROOT"* ]]; then
+        _dotTrace_exit
+        return 0
+    fi
+
+    if ! CWD_NODE_ROOT=$(__node_find_root "$current_dir"); then
+        unset CWD_NODE_ROOT
+        _dotTrace_exit
+        return 1
+    fi
+
+    _dotTrace "updating node environment variables"
+    export CWD_NODE_ROOT
+
+    _dotTrace_exit
+    return 0
+}
+
+function __is_in_initialized_node_project() {
+    __is_in_node_project && [ -d "${CWD_NODE_ROOT}/node_modules" ]
+}
+
+function __is_in_uninitialized_node_project() {
+    __is_in_node_project && [ ! -d "${CWD_NODE_ROOT}/node_modules" ]
+}
+
+function __is_in_stale_node_project() {
+    if ! __is_in_initialized_node_project; then
+        return 1
+    fi
+
+    if npm ls --depth=0 >/dev/null 2>&1; then
+        return 1
+    else
+        return 0
+    fi
+}
+
+function __is_in_synchronized_node_project() {
+    __is_in_node_project && ! __is_in_uninitialized_node_project && ! __is_in_stale_node_project
+}
+
+# Check node_modules existence & freshness at the project root
+# - Reports if node_modules is missing
+# - Warns if the dependency tree has problems (unmet/invalid)
+# - Lists outdated top-level deps (or says they’re current)
+function __print_node_modules_status() {
+    if ! __is_in_node_project; then
+        echo "Not inside a Node.js project."
+        return 1
+    fi
+
+    echo "Project root: $CWD_NODE_ROOT"
+    if __is_in_initialized_node_project; then
+        echo "node_modules: present"
+    else
+        echo "node_modules: MISSING (run: npm install or npm ci)"
+        return 1
+    fi
+
+    if __is_in_stale_node_project; then
+        echo "Dependency tree: PROBLEMS DETECTED (unmet/peer issues)."
+    else
+        echo "Dependency tree: OK"
+        return 0
+    fi
+
+    # Check for outdated top-level deps; parse JSON so we don’t rely on exit codes
+    local out
+    out="$(npm outdated --depth=0 --json 2>/dev/null || true)"
+    if [ -z "$out" ] || [ "$out" = "{}" ]; then
+        echo "Outdated check: all top-level dependencies are CURRENT."
+    else
+        echo "Outdated check: some dependencies are OUTDATED:"
+        # Pretty-print a small table (name current wanted latest)
+        echo "$out" | node -e '
+        const data = JSON.parse(require("fs").readFileSync(0,"utf8"));
+        const rows = Object.entries(data).map(([name, v]) =>
+            [name, v.current||"", v.wanted||"", v.latest||""]);
+        const w=[0,0,0,0];
+        rows.forEach(r=>r.forEach((c,i)=>w[i]=Math.max(w[i],String(c).length)));
+        const pr=(r)=>r.map((c,i)=>String(c).padEnd(w[i])).join("  ");
+        console.log(pr(["package","current","wanted","latest"]));
+        console.log(pr(w.map(x=>"-".repeat(x))));
+        rows.forEach(r=>console.log(pr(r)));
+        '
+    fi
+}
+
 function __auto_activate_venv() {
     # If I am no longer in the same directory hierarchy as the venv that was last activated, deactivate.
     if __is_in_python_venv; then
-        local P_DIR="$(dirname "$VIRTUAL_ENV")"
+        local P_DIR
+        P_DIR="$(dirname "$VIRTUAL_ENV")"
         if [[ "$PWD"/ != "${P_DIR}"/* ]] && command -v deactivate &> /dev/null; then
             echo "${ICON_MAP[PYTHON]} Deactivating venv for ${P_DIR}"
             deactivate
@@ -278,6 +389,7 @@ function __auto_activate_venv() {
     # If I enter a directory with a .venv and I am already activated with another one, let me know but don't activate.
     if [[ -d ./.venv ]]; then
         if ! __is_in_python_venv; then
+            # shellcheck disable=SC1091
             source ./.venv/bin/activate
             echo "${ICON_MAP[PYTHON]} Activating venv with $(python --version) for $PWD/.venv"
         # else: CONSIDER: test "$PWD" -ef "$VIRTUAL_ENV" && "🐍 Avoiding implicit activation of .venv environment because $VIRTUAL_ENV is already active"
@@ -389,6 +501,46 @@ else
 fi
 
 # Shared cuteness
+
+# Always-ANSI color helper for non-prompt output (works in bash and zsh)
+function __echo_colored_stdout() {
+    local color_name="$1"
+    shift
+    local style=""
+    if __is_style_name "$color_name"; then
+        style="$color_name"
+        color_name="$1"
+        shift
+    fi
+    local text="$*"
+    local base="37"  # default white
+    case "$color_name" in
+        black) base="30" ;;
+        red) base="31" ;;
+        green) base="32" ;;
+        yellow) base="33" ;;
+        blue) base="34" ;;
+        magenta) base="35" ;;
+        cyan) base="36" ;;
+        white) base="37" ;;
+    esac
+    local code="$base"
+    if [[ "$style" == "bold" ]]; then
+        code="1;${base}"
+    elif [[ "$style" == "bright" ]]; then
+        case "$base" in
+            30) code=90 ;;
+            31) code=91 ;;
+            32) code=92 ;;
+            33) code=93 ;;
+            34) code=94 ;;
+            35) code=95 ;;
+            36) code=96 ;;
+            37) code=97 ;;
+        esac
+    fi
+    printf '\e[%sm%s\e[0m' "$code" "$text"
+}
 
 function __print_abbreviated_path() {
     local input_string="$1"
@@ -629,7 +781,7 @@ function __effective_distribution() {
         echo "WINDOWS"
         return 0
     elif __is_on_linux; then
-        echo "$(__print_linux_distro)"
+        __print_linux_distro
     elif __is_on_unexpected_windows; then
         echo "Unexpected Win32 environment"
     else
@@ -645,13 +797,19 @@ typeset -a VIM_VIRTUALENV_ID=("__is_in_vimruntime" "VIM" "green")
 typeset -a PYTHON_VIRTUALENV_ID=("__is_in_python_venv" "PYTHON" "blue")
 typeset -a WSL_WINDOWS_VIRTUALENV_ID=("__is_in_wsl_windows_drive" "WINDOWS" "blue")
 typeset -a WSL_LINUX_VIRTUALENV_ID=("__is_in_wsl_linux_drive" "LINUX_PENGUIN" "blue")
+typeset -a NODE_VIRTUALENV_UNINITIALIZED_ID=("__is_in_uninitialized_node_project" "NODEJS" "yellow")
+typeset -a NODE_VIRTUALENV_STALE_ID=("__is_in_stale_node_project" "NODEJS" "red")
+typeset -a NODE_VIRTUALENV_SYNCED_ID=("__is_in_synchronized_node_project" "NODEJS" "blue")
 
 typeset -a VIRTUALENV_ID_FUNCS=( \
     TMUX_VIRTUALENV_ID \
     VIM_VIRTUALENV_ID \
     PYTHON_VIRTUALENV_ID \
     WSL_WINDOWS_VIRTUALENV_ID \
-    WSL_LINUX_VIRTUALENV_ID)
+    WSL_LINUX_VIRTUALENV_ID \
+    NODE_VIRTUALENV_UNINITIALIZED_ID \
+    NODE_VIRTUALENV_STALE_ID \
+    NODE_VIRTUALENV_SYNCED_ID)
 
 function __virtualenv_info() {
     local suffix="${1:-}"
@@ -673,6 +831,46 @@ function __virtualenv_info() {
 }
 
 declare -a CUTE_HEADER_PARTS=() > /dev/null 2>&1
+
+function __cute_startup_time() {
+    # Prefer high-resolution timing when available (bash 5+/zsh: EPOCHREALTIME)
+    local secs="" formatted=""
+
+    if [[ -n "${EPOCHREALTIME:-}" && -n "${DOTFILES_INIT_EPOCHREALTIME_START:-}" ]]; then
+        local now="${EPOCHREALTIME}"
+        # Calculate elapsed seconds to millisecond precision
+        secs="$(awk -v n="$now" -v s="$DOTFILES_INIT_EPOCHREALTIME_START" 'BEGIN { printf "%.3f", (n - s) }')"
+        formatted="${secs}s"
+    elif [[ -n "${SECONDS:-}" ]]; then
+        secs="${SECONDS}"
+        formatted="${SECONDS}s"
+    else
+        # As a final fallback, skip reporting
+            return 1
+        fi
+
+    # Prepare display with clock icon
+    local display_str
+    display_str="${ICON_MAP[CLOCK]} ${formatted}"
+
+    # Highlight slow startups (> 3.000 seconds) in red
+    local is_slow="0"
+    if [[ -n "${secs}" ]]; then
+        if [[ "$secs" == *.* ]]; then
+            # float compare via awk
+            is_slow="$(awk -v d="$secs" 'BEGIN { if (d > 3.0) print 1; else print 0 }')"
+        else
+            # integer seconds
+            if [[ ${secs} -gt 3 ]]; then is_slow="1"; fi
+        fi
+    fi
+
+    if [[ "${is_slow}" == "1" ]]; then
+        __echo_colored_stdout red "${display_str}"
+    else
+        echo -n "${display_str}"
+    fi
+}
 
 function __cute_shell_header() {
     _dotTrace_enter
@@ -696,7 +894,13 @@ function __cute_shell_header() {
         echo -n " "
     fi
 
-    echo "$(__cute_shell_path)" "$(__cute_shell_version)" "${CUTE_HEADER_PARTS[@]}" "${ICON_MAP[MD_SNAPCHAT]}"
+    local startup_part
+    startup_part="$(__cute_startup_time)"
+    if [[ -n "$startup_part" ]]; then
+        echo "$(__cute_shell_path)" "$(__cute_shell_version)" "${CUTE_HEADER_PARTS[@]}" "$startup_part" "${ICON_MAP[MD_SNAPCHAT]}"
+    else
+        echo "$(__cute_shell_path)" "$(__cute_shell_version)" "${CUTE_HEADER_PARTS[@]}" "${ICON_MAP[MD_SNAPCHAT]}"
+    fi
     _dotTrace_exit
 }
 
@@ -805,5 +1009,3 @@ function __do_vscode_shell_integration() {
     fi
     _dotTrace_exit
 }
-
-

@@ -176,7 +176,9 @@ local env_vars = {
         LSCOLORS: 'GxDxbxhbcxegedabagacad',
         LS_COLORS: 'di=1;36:ln=1;33:so=31:pi=37;41:ex=32:bd=34;46:cd=34;43:su=30;41:sg=30;46:tw=30;42:ow=30;43',
         EDITOR: 'vim',
-        EXPECT_NERD_FONTS: '${EXPECT_NERD_FONTS:-0}'
+        EXPECT_NERD_FONTS: '${EXPECT_NERD_FONTS:-0}',
+        DOTFILES_INIT_EPOCHREALTIME_START: "${EPOCHREALTIME:-}",
+        NVM_DIR: "$HOME/.nvm",
     } + less_termcaps_properties,
     interactive_directives: less_termcaps_directives,
     aliases: {
