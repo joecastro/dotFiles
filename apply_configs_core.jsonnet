@@ -96,6 +96,8 @@ local vim_pack_plugin_start_repos = [
     'https://github.com/vim/colorschemes.git',
     # Retro groove color scheme for Vim
     'https://github.com/morhetz/gruvbox.git',
+    # Jsonnet filetype plugin for Vim.
+    'https://github.com/google/vim-jsonnet.git',
 ];
 
 local vim_pack_plugin_opt_repos = [
