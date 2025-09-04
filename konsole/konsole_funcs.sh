@@ -8,8 +8,7 @@
 
 _prompt_executing=""
 function __konsole_integration_precmd() {
-    _dotTrace_enter
-    _dotTrace ""
+    _dotTrace_enter "$@"
     local ret="$?"
     if [[ "$_prompt_executing" != "0" ]]; then
         _PROMPT_SAVE_PS1="$PS1"
@@ -19,28 +18,27 @@ function __konsole_integration_precmd() {
         PS2=$'%{\e]133;P;k=s\a%}'$PS2$'%{\e]133;B\a%}'
     fi
     if [[ "$_prompt_executing" != "" ]]; then
-        echo -ne "\e]133;D;$ret;aid=$$\a"
+        printf '\e]133;D;%s;aid=%s\a' "$ret" "$$"
     fi
-    echo -ne "\e]133;A;cl=m;aid=$$\a"
+    printf '\e]133;A;cl=m;aid=%s\a' "$$"
     _prompt_executing=0
     _dotTrace_exit
 }
 
 function __konsole_integration_preexec() {
-    _dotTrace_enter
-    _dotTrace ""
+    _dotTrace_enter "$@"
     PS1="$_PROMPT_SAVE_PS1"
     PS2="$_PROMPT_SAVE_PS2"
-    echo -ne "\e]133;C;\a"
+    printf '\e]133;C;\a'
     _prompt_executing=1
     _dotTrace_exit
 }
 
 function toggle_konsole_semantic_integration() {
-    _dotTrace_enter
+    _dotTrace_enter "$@"
 
     function is_konsole_semantic_integration_active() {
-        echo "${preexec_functions}" | grep -q __konsole_integration_preexec
+        printf '%s' "${preexec_functions}" | grep -q __konsole_integration_preexec
     }
 
     function add_konsole_semantic_integration() {
@@ -84,7 +82,7 @@ function toggle_konsole_semantic_integration() {
 }
 
 function __update_konsole_profile() {
-    _dotTrace_enter
+    _dotTrace_enter "$@"
     local active_dynamic_prompt_style
     active_dynamic_prompt_style=$(__cache_get "ACTIVE_DYNAMIC_PROMPT_STYLE")
 
@@ -101,13 +99,13 @@ function __update_konsole_profile() {
     fi
 
     _dotTrace "setting konsole profile"
-    echo -ne "\e]50;${arg}\a"
+    printf '\e]50;%s\a' "${arg}"
     __cache_put "KONSOLE_PROFILE" "${arg}" 30000
     _dotTrace_exit
 }
 
 function __do_konsole_shell_integration() {
-    _dotTrace_enter
+    _dotTrace_enter "$@"
     source "${DOTFILES_CONFIG_ROOT}/konsole_color_funcs.sh"
 
     if __is_shell_zsh; then

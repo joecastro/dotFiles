@@ -214,6 +214,7 @@ function __generate_dynamic_prompt_part() {
 }
 
 function __generate_prompt() {
+    _dotTrace_enter "$@"
     # Prefix an indicator when the last command failed.
     local preamble='$(__print_last_command_status_prompt)'
     # preamble+="$(__generate_preamble_color $1)"
@@ -229,25 +230,26 @@ function __generate_prompt() {
     fi
 
     echo -n "${preamble}${static}$(__generate_dynamic_prompt_part "$1")${suffix}"
+    _dotTrace_exit 0
 }
 
 function __update_prompt() {
     _dotTrace_enter
 
     if [[ "${$(__cache_get UPDATE_PROMPT_PWD)}" == "${PWD}" ]]; then
-        _dotTrace "__update_prompt - no change - done"
+        _dotTrace "no change"
         _dotTrace_exit
         return
     fi
     __cache_put UPDATE_PROMPT_PWD "${PWD}"
 
-    _dotTrace "__update_prompt - calculating new style (${PWD})"
+    _dotTrace "calculating new style (${PWD})"
     local new_dynamic_style
     if (( ${+UNSMART_PROMPT} )); then
         new_dynamic_style="None"
     elif __is_in_repo; then
         new_dynamic_style="Repo"
-    elif __is_in_git_repo; then
+    elif __git_is_in_repo; then
         new_dynamic_style="Git"
     elif __has_citc && __is_in_citc; then
         new_dynamic_style="Piper"
@@ -258,7 +260,7 @@ function __update_prompt() {
     local active_dynamic_prompt_style=$(__cache_get ACTIVE_DYNAMIC_PROMPT_STYLE)
 
     if [[ "${active_dynamic_prompt_style}" != "${new_dynamic_style}" ]]; then
-        _dotTrace "__update_prompt - updating prompt to ${new_dynamic_style}"
+        _dotTrace "updating prompt to ${new_dynamic_style}"
         PROMPT="$(__generate_prompt ${new_dynamic_style})"
         RPROMPT=''
         __cache_put ACTIVE_DYNAMIC_PROMPT_STYLE "${new_dynamic_style}"

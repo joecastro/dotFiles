@@ -31,9 +31,9 @@ function __is_on_linux() { [[ "$(uname -s)" = "Linux"* ]]; }
 function __print_linux_distro() {
     if [[ -f /etc/lsb-release ]]; then
         . /etc/lsb-release
-        echo -n "${DISTRIB_ID}"
+        printf '%s' "${DISTRIB_ID}"
     else
-        echo -n "Unknown Linux distribution"
+        printf 'Unknown Linux distribution'
     fi
 }
 
@@ -49,7 +49,7 @@ function __is_ghostty_terminal() { [[ "${TERM}" == "xterm-ghostty" ]]; }
 function __is_tool_window() { [[ -n "${TOOL_WINDOW}" ]]; }
 
 function __is_shell_bash() { [[ -n "${BASH_VERSION}" ]]; }
-function __is_shell_old_bash() { __is_shell_bash && [[ "${BASH_VERSINFO[0]}" -lt 4 ]]; }
+function __is_shell_old_bash() { __is_shell_bash && (( BASH_VERSINFO[0] < 4 )); }
 function __is_shell_zsh() { [[ -n "${ZSH_VERSION}" ]]; }
 
 function __is_homebrew_bin() {
@@ -58,4 +58,3 @@ function __is_homebrew_bin() {
 }
 
 function __has_citc() { command -v citctools > /dev/null; }
-

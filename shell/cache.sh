@@ -19,9 +19,10 @@ declare -A Z_CACHE=()
 function __cache_available() { return 0; }
 
 function __cache_put() {
-    local key="$1" value="$2" expiration_time="${3:-0}"
+    local key="$1" value="$2"
+    local -i expiration_time=${3:-0}
     Z_CACHE[${key}]="${value}"
-    if [[ ${expiration_time} -gt 0 ]]; then
+    if (( expiration_time > 0 )); then
         Z_CACHE[${key}_expiration]="$(( $(date +%s) + expiration_time ))"
     else
         Z_CACHE[${key}_expiration]=0
@@ -32,17 +33,18 @@ function __cache_get_expiration() {
     local key="$1" expiration_value
     expiration_value="${Z_CACHE[${key}_expiration]}"
     if [[ -n "${expiration_value}" ]]; then
-        echo -n "${expiration_value}"
+        printf '%s' "${expiration_value}"
         return 0
     fi
     return 1
 }
 
 function __cache_get() {
-    local key="$1" cache_expiration
+    local key="$1"
+    local -i cache_expiration
     if ! cache_expiration=$(__cache_get_expiration "${key}"); then return 1; fi
-    if [[ "${cache_expiration}" -gt 0 ]] && [[ "${cache_expiration}" -lt "$(date +%s)" ]]; then return 1; fi
-    if [[ -n "${Z_CACHE[${key}]}" ]]; then echo -n "${Z_CACHE[${key}]}"; return 0; fi
+    if (( cache_expiration > 0 )) && (( cache_expiration < $(date +%s) )); then return 1; fi
+    if [[ -n "${Z_CACHE[${key}]}" ]]; then printf '%s' "${Z_CACHE[${key}]}"; return 0; fi
     return 1
 }
 

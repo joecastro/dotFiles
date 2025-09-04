@@ -5,7 +5,7 @@ function bootstrap_env() {
     WORK_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
     # These should always be safe to clean.
-    echo ">> Cleaning up environment"
+    printf '>> Cleaning up environment\n'
     rm "$WORK_DIR/.DS_Store" 2> /dev/null
     rm -rf "$WORK_DIR/out" 2> /dev/null
     rm -rf "$WORK_DIR/.venv" 2> /dev/null
@@ -14,7 +14,7 @@ function bootstrap_env() {
     if [[ -d "${WORK_DIR}/.vscode" ]]; then
         DOTCODE_FOLDER_NON_LINK_FILE_COUNT=$(find "${WORK_DIR}/.vscode" -not -type l -not -type d | wc -l | xargs)
         if [[ "${DOTCODE_FOLDER_NON_LINK_FILE_COUNT}" != "0" ]]; then
-            echo "It seems like there are files that are directly added to the virtual folder. Not proceeding."
+            printf '%s\n' "It seems like there are files that are directly added to the virtual folder. Not proceeding."
             find "${WORK_DIR}" -not -type l -not -type d
             return 1
         fi
@@ -26,7 +26,7 @@ function bootstrap_env() {
     fi
 
     pushd "$WORK_DIR" || exit 1
-    echo ">> Initializing Python virtual environment"
+    printf '>> Initializing Python virtual environment\n'
 
     mkdir "${WORK_DIR}"/.vscode
     ln -s "${WORK_DIR}"/vscode/dotFiles_launch.json "${WORK_DIR}"/.vscode/launch.json
@@ -44,7 +44,7 @@ function bootstrap_env() {
 
     popd || exit 1
 
-    echo ">> Launching workspace"
+    printf '>> Launching workspace\n'
     code "$WORK_DIR"
 
     return 0

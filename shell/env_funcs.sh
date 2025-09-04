@@ -1,4 +1,4 @@
-#! /bin/bash
+#! /usr/bin/env bash
 
 #pragma once
 
@@ -17,6 +17,8 @@ if [[ ":$PATH:" != *":${HOME}/.local/bin:"* ]]; then
     PATH="${HOME}/.local/bin:${PATH}"
 fi
 
+
+## Stack implementation (portable bash/zsh): newline-delimited string
 # Declare a new stack (unconditionally)
 function _stack_declare() {
     local name=$1
@@ -31,14 +33,18 @@ function _stack_safe_declare() {
     fi
 }
 
-# Push a value onto the stack
-function _stack_push() {
-    local name=$1 value=$2
-    local stack
-    eval 'stack="$'"$name"'"'
-    stack="${stack}"$'\n'"$value"
-    eval "$name=\"\$stack\""
-}
+    # Push a value onto the stack
+    function _stack_push() {
+        local name=$1 value=$2
+        local stack
+        eval 'stack="$'"$name"'"'
+        if [[ -z "$stack" ]]; then
+            stack="$value"
+        else
+            stack="${stack}"$'\n'"$value"
+        fi
+        eval "$name=\"\$stack\""
+    }
 
 # Pop the top value from the stack and print it
 function _stack_pop() {
@@ -62,13 +68,19 @@ function _stack_top() {
 }
 
 # Get number of elements in the stack
-function _stack_size() {
-    local name=$1 stack
-    eval 'stack="$'"$name"'"'
-    [ -z "$stack" ] && echo 0 && return
-    printf '%s\n' "$stack" | awk 'END { print NR }'
-}
-
+    function _stack_size() {
+        local name=$1 stack
+        eval 'stack="$'"$name"'"'
+        if [ -z "$stack" ]; then
+            echo 0
+            return
+        fi
+        local -i n=0
+        while IFS= read -r _; do
+            ((n++))
+        done <<< "$stack"
+        printf '%d\n' "$n"
+    }
 
 # Check if the stack is empty (returns 0 if empty)
 function _stack_is_empty() {
@@ -122,21 +134,30 @@ function _dotTrace_enter() {
         local func_name=""
         local func_args=""
         if [[ -n "${ZSH_VERSION}" ]]; then
+            # In zsh, $funcstack[1] is the current function; the caller is [2]
             # shellcheck disable=SC2154
-            func_name="${funcstack[1]}"
-            # Zsh: $argv contains the arguments to the current function, so use $argv for $func_args
-            # shellcheck disable=SC2124,SC2154
-            func_args="${argv[@]}"
+            func_name="${funcstack[2]:-<toplevel>}"
+            # Prefer explicitly forwarded args (from caller using: _dotTrace_enter "$@")
+            if (( $# > 0 )); then
+                func_args="$*"
+            else
+                func_args=""
+            fi
         else
             func_name="${FUNCNAME[1]}"
-            # Bash: BASH_ARGV contains the arguments to the current function, but in reverse order
-            # $BASH_ARGC[1] is the number of arguments to the calling function
-            local argc=${BASH_ARGC[1]:-0}
-            if (( argc > 0 )); then
-                for ((i=argc-1; i>=0; i--)); do
-                    func_args="${BASH_ARGV[i]} ${func_args}"
-                done
-                func_args="${func_args%% }"
+            # Prefer explicitly forwarded args
+            if (( $# > 0 )); then
+                func_args="$*"
+            else
+                # Bash: BASH_ARGV contains the arguments to the current function, but in reverse order
+                # $BASH_ARGC[1] is the number of arguments to the calling function
+                local -i argc=${BASH_ARGC[1]:-0}
+                if (( argc > 0 )); then
+                    for ((i=argc-1; i>=0; i--)); do
+                        func_args="${BASH_ARGV[i]} ${func_args}"
+                    done
+                    func_args="${func_args%% }"
+                fi
             fi
         fi
         _stack_push TRACE_DOTFILES_STACK "$func_name"
@@ -146,10 +167,18 @@ function _dotTrace_enter() {
 }
 
 function _dotTrace_exit() {
+    # Capture caller's last exit code immediately
+    local -i exit_status=${1:-$?}
     if [[ -n "${TRACE_DOTFILES}" ]]; then
-        # echo "TRACE_EXIT $(date +%T.%3N): $(_stack_top TRACE_DOTFILES_STACK)" >&2
+        local indent_depth=""
+        for ((i=1; i < $(_stack_size TRACE_DOTFILES_STACK); i++)); do
+            indent_depth+="  "
+        done
+        local current="$(_stack_top TRACE_DOTFILES_STACK)"
+        echo "${indent_depth}TRACE_EXIT  $(date +%T.%3N): ${current} -> status=${exit_status}" >&2
         _stack_pop TRACE_DOTFILES_STACK
     fi
+    return ${exit_status}
 }
 
 function toggle_trace_dotfiles() {
@@ -175,7 +204,7 @@ function __repo_find_root() {
     local current_dir="$1"
     while [[ "$current_dir" != "/" ]]; do
         if __repo_is_in_repo_root "$current_dir"; then
-            echo -n "$current_dir"
+            printf '%s' "$current_dir"
             return 0
         fi
         current_dir="$(dirname "$current_dir")"
@@ -184,20 +213,21 @@ function __repo_find_root() {
 }
 
 function __is_in_repo() {
-    _dotTrace_enter
+    _dotTrace_enter "$@"
     local current_dir
-    current_dir=$(readlink -f "$PWD")
+    # Use physical path resolution that works in both bash and zsh (portable on macOS/Linux)
+    current_dir=$(pwd -P)
     if [[ -n "${CWD_REPO_ROOT}" && "$current_dir" == "$CWD_REPO_ROOT"* ]]; then
-        _dotTrace_exit
-        return 0
+        _dotTrace_exit 0
+        return
     fi
 
     if ! CWD_REPO_ROOT=$(__repo_find_root "$current_dir"); then
         unset CWD_REPO_ROOT
         unset CWD_REPO_MANIFEST_BRANCH
         unset CWD_REPO_DEFAULT_REMOTE
-        _dotTrace_exit
-        return 1
+        _dotTrace_exit 1
+        return
     fi
 
     local cached_parts
@@ -207,8 +237,8 @@ function __is_in_repo() {
         export CWD_REPO_MANIFEST_BRANCH
         export CWD_REPO_DEFAULT_REMOTE
         _dotTrace "Using cached repo environment variables"
-        _dotTrace_exit
-        return 0
+        _dotTrace_exit 0
+        return
     fi
 
     _dotTrace "updating repo environment variables"
@@ -230,17 +260,14 @@ function __is_in_repo() {
     export CWD_REPO_MANIFEST_BRANCH
     export CWD_REPO_DEFAULT_REMOTE
 
-    _dotTrace_exit
-    return 0
+    _dotTrace_exit 0
 }
 
 function __print_repo_worktree() {
-    _dotTrace_enter
-    _dotTrace ""
+    _dotTrace_enter "$@"
     if ! __is_in_repo; then
-        _dotTrace_exit
-        echo -n ""
-        return 0
+        _dotTrace_exit 0
+        return
     fi
 
     local line="${ICON_MAP[ANDROID_BODY]}"
@@ -256,13 +283,12 @@ function __print_repo_worktree() {
     if current_project=$(repo_current_project); then
         local current_branch
         if current_branch=$(repo_current_project_branch); then
-            echo -n ":$(repo_current_project_branch_status)${current_branch}"
+            printf '%s' ":$(repo_current_project_branch_status)${current_branch}"
         else
             __echo_colored "green" ":$(__print_abbreviated_path "${current_project}")"
         fi
     fi
-    _dotTrace "done"
-    _dotTrace_exit
+    _dotTrace_exit 0
 }
 
 function __node_is_in_project_root() {
@@ -274,7 +300,7 @@ function __node_find_root() {
     local current_dir="$1"
     while [[ "$current_dir" != "/" ]]; do
         if __node_is_in_project_root "$current_dir"; then
-            echo -n "$current_dir"
+            printf '%s' "$current_dir"
             return 0
         fi
         current_dir="$(dirname "$current_dir")"
@@ -283,25 +309,25 @@ function __node_find_root() {
 }
 
 function __is_in_node_project() {
-    _dotTrace_enter
+    _dotTrace_enter "$@"
     local current_dir
-    current_dir=$(readlink -f "$PWD")
+    # Use physical path resolution that works in both bash and zsh (portable on macOS/Linux)
+    current_dir=$(pwd -P)
     if [[ -n "${CWD_NODE_ROOT}" && "$current_dir" == "$CWD_NODE_ROOT"* ]]; then
-        _dotTrace_exit
-        return 0
+        _dotTrace_exit 0
+        return
     fi
 
     if ! CWD_NODE_ROOT=$(__node_find_root "$current_dir"); then
         unset CWD_NODE_ROOT
-        _dotTrace_exit
-        return 1
+        _dotTrace_exit 1
+        return
     fi
 
     _dotTrace "updating node environment variables"
     export CWD_NODE_ROOT
 
-    _dotTrace_exit
-    return 0
+    _dotTrace_exit 0
 }
 
 function __is_in_initialized_node_project() {
@@ -437,13 +463,13 @@ if __is_shell_zsh; then
         fi
 
         if __is_text_colored "$text"; then
-            echo -ne "${text}"
-            echo "E: Trying to colorize colored text: ${text}" >&2
+            printf '%s' "${text}"
+            printf 'E: Trying to colorize colored text: %s\n' "${text}" >&2
             return 0
         fi
 
         # shellcheck disable=SC2154
-        echo -ne "%{${color_code}%}${text}%{${reset_color}%}"
+        printf '%s' "%{${color_code}%}${text}%{${reset_color}%}"
     }
 
 else
@@ -468,34 +494,44 @@ else
 
         local text="$*"
 
-        declare -A color_map=(
-            ["black"]="0"
-            ["red"]="1"
-            ["green"]="2"
-            ["yellow"]="3"
-            ["blue"]="4"
-            ["magenta"]="5"
-            ["cyan"]="6"
-            ["white"]="7"
-        )
+        # Map color name to base code (avoid associative arrays for bash 3.x compatibility)
+        local base="37" # default white
+        case "$color_name" in
+            black)   base="30" ;;
+            red)     base="31" ;;
+            green)   base="32" ;;
+            yellow)  base="33" ;;
+            blue)    base="34" ;;
+            magenta) base="35" ;;
+            cyan)    base="36" ;;
+            white)   base="37" ;;
+        esac
 
-        # Default to white if color not found
-        local color_code="3${color_map[$color_name]:-7}"
-
+        local color_code="$base"
         # Apply style if specified
         if [[ "$style" == "bold" ]]; then
-            color_code="1;${color_code}"
+            color_code="1;${base}"
         elif [[ "$style" == "bright" ]]; then
-            color_code="9${color_map[$color_name]:-7}"
+            # Bright variant of the base color
+            case "$base" in
+                30) color_code=90 ;;
+                31) color_code=91 ;;
+                32) color_code=92 ;;
+                33) color_code=93 ;;
+                34) color_code=94 ;;
+                35) color_code=95 ;;
+                36) color_code=96 ;;
+                37) color_code=97 ;;
+            esac
         fi
 
         if __is_text_colored "$text"; then
-            echo -ne "${text}"
-            echo "E: Trying to colorize colored text: ${text}" >&2
+            printf '%s' "${text}"
+            printf 'E: Trying to colorize colored text: %s\n' "${text}" >&2
             return 0
         fi
 
-        echo -ne "\e[${color_code}m${text}\e[0m"
+        printf '\e[%sm%s\e[0m' "$color_code" "$text"
     }
 
 fi
@@ -544,7 +580,7 @@ function __echo_colored_stdout() {
 
 function __print_abbreviated_path() {
     local input_string="$1"
-    local expand_prefix="${2:-1}"
+    local -i expand_prefix=${2:-1}
     local result=""
     local part
     while [[ "$input_string" == *"/"* ]]; do
@@ -558,7 +594,7 @@ function __print_abbreviated_path() {
         input_string="${input_string#*/}"
     done
     result+="${input_string}"
-    echo -n "${result}"
+    printf '%s' "${result}"
 }
 
 
@@ -570,72 +606,72 @@ if ! __is_shell_old_bash; then
 
         case "${ACTIVE_DIR}" in
         "${HOME}")
-            echo -n "${ICON_MAP[COD_HOME]}"
+            printf '%s' "${ICON_MAP[COD_HOME]}"
             return 0
             ;;
         "${HOME}/Desktop")
-            echo -n "${ICON_MAP[DESKTOP]}"
+            printf '%s' "${ICON_MAP[DESKTOP]}"
             return 0
             ;;
         "${HOME}/Documents")
-            echo -n "${ICON_MAP[DOCUMENTS]}"
+            printf '%s' "${ICON_MAP[DOCUMENTS]}"
             return 0
             ;;
         "${HOME}/Videos")
-            echo -n "${ICON_MAP[VIDEOS]}"
+            printf '%s' "${ICON_MAP[VIDEOS]}"
             return 0
             ;;
         "${HOME}/Downloads")
-            echo -n "${ICON_MAP[DOWNLOAD]}"
+            printf '%s' "${ICON_MAP[DOWNLOAD]}"
             return 0
             ;;
         "${HOME}/Pictures")
-            echo -n "${ICON_MAP[PICTURES]}"
+            printf '%s' "${ICON_MAP[PICTURES]}"
             return 0
             ;;
         "${HOME}/Music")
-            echo -n "${ICON_MAP[MUSIC]}"
+            printf '%s' "${ICON_MAP[MUSIC]}"
             return 0
             ;;
         "${HOME}/.ssh")
-            echo -n "${ICON_MAP[KEY]}"
+            printf '%s' "${ICON_MAP[KEY]}"
             return 0
             ;;
         "/")
-            echo -n "${ICON_MAP[FAE_TREE]}"
+            printf '%s' "${ICON_MAP[FAE_TREE]}"
             return 0
             ;;
         esac
 
         if __is_on_wsl && test "${ACTIVE_DIR}" = "${WIN_USERPROFILE}"; then
-            echo -n "${ICON_MAP[HOME_FOLDER]}"
+            printf '%s' "${ICON_MAP[HOME_FOLDER]}"
             return 0
         fi
 
         if __repo_is_in_repo_root "${ACTIVE_DIR}"; then
-            echo -n "${ICON_MAP[ANDROID_HEAD]}"
+            printf '%s' "${ICON_MAP[ANDROID_HEAD]}"
             return 0
         fi
 
         case "${ACTIVE_DIR##*/}" in
         "src")
-            echo -n "${ICON_MAP[COD_SAVE]}"
+            printf '%s' "${ICON_MAP[COD_SAVE]}"
             return 0
             ;;
         "source")
-            echo -n "${ICON_MAP[COD_SAVE]}"
+            printf '%s' "${ICON_MAP[COD_SAVE]}"
             return 0
             ;;
         "github")
-            echo -n "${ICON_MAP[GITHUB]}"
+            printf '%s' "${ICON_MAP[GITHUB]}"
             return 0
             ;;
         "cloud")
-            echo -n "${ICON_MAP[CLOUD]}"
+            printf '%s' "${ICON_MAP[CLOUD]}"
             return 0
             ;;
         "$USER")
-            echo -n "${ICON_MAP[ACCOUNT]}"
+            printf '%s' "${ICON_MAP[ACCOUNT]}"
             return 0
             ;;
         esac
@@ -644,48 +680,48 @@ if ! __is_shell_old_bash; then
     }
 
     function __cute_pwd() {
-        _dotTrace_enter
-        _dotTrace "args: \"$1\""
+        _dotTrace_enter "$@"
+        # rely on _dotTrace_enter to report args if forwarded
         local is_short=1
         if [[ "$1" == "--short" ]]; then
             is_short=0
         fi
 
-        if [[ $is_short != 0 ]] && __is_in_git_repo; then
+        if [[ $is_short != 0 ]] && __git_is_in_repo; then
             __print_git_pwd
-            _dotTrace_exit
-            return 0
+            _dotTrace_exit 0
+            return
         fi
 
         if [[ $is_short != 0 ]]; then
             # Print the parent directory only if it has a special expansion.
             if [[ "${PWD}" != "/" ]] && __cute_pwd_lookup "$(dirname "${PWD}")"; then
-                echo -n "/"
+                printf '/'
             fi
         fi
 
         if ! __cute_pwd_lookup "${PWD}"; then
-            echo -n "${PWD##*/}"
+            printf '%s' "${PWD##*/}"
         fi
 
         _dotTrace "done"
-        _dotTrace_exit
-        return 0
+        _dotTrace_exit 0
+        return
     }
 else
     function __cute_pwd() {
         if [[ "$1" == "--short" ]]; then
-            echo -n "${PWD##*/}"
+            printf '%s' "${PWD##*/}"
             return 0
         fi
 
         if [[ "${PWD}" == "/" ]]; then
-            echo -n "${PWD}"
+            printf '%s' "${PWD}"
             return 0
         fi
 
         parent_dir="$(dirname "${PWD}")"
-        echo -n "${parent_dir##*/}/${PWD##*/}"
+        printf '%s' "${parent_dir##*/}/${PWD##*/}"
     }
 fi
 
@@ -696,10 +732,10 @@ function __cute_pwd_short() {
 function __cute_time_prompt() {
     case "$(date +%Z)" in
     UTC)
-        echo -n "$(date -u +'%H:%Mz')"
+        printf '%s' "$(date -u +'%H:%Mz')"
         ;;
     *)
-        echo -n "$(date +'%_H:%M %Z')"
+        printf '%s' "$(date +'%_H:%M %Z')"
         ;;
     esac
 }
@@ -709,10 +745,10 @@ function __cute_host() {
 }
 
 function __cute_kernel() {
-    echo -n "$(uname -s)"
+    printf '%s' "$(uname -s)"
 
     if __is_on_wsl; then
-        echo -n "${ICON_MAP[WINDOWS]}"
+        printf '%s' "${ICON_MAP[WINDOWS]}"
     fi
 }
 
@@ -724,12 +760,12 @@ function __cute_shell_path() {
         cute_shell_path="${ZSH_ARGZERO#-}"
     fi
 
-    cute_shell_path="$(which "${cute_shell_path}")"
-    if [[ "${cute_shell_path}" == "$(which "$(basename "${cute_shell_path}")")" ]]; then
+    cute_shell_path="$(command -v -- "${cute_shell_path}")"
+    if [[ "${cute_shell_path}" == "$(command -v -- "$(basename "${cute_shell_path}")")" ]]; then
         cute_shell_path="$(basename "${cute_shell_path}")"
     fi
 
-    echo -n "${cute_shell_path}"
+    printf '%s' "${cute_shell_path}"
 }
 
 function __cute_shell_version() {
@@ -742,7 +778,7 @@ function __cute_shell_version() {
         cute_shell_version="<unknown>"
     fi
 
-    echo -n "${cute_shell_version}"
+    printf '%s' "${cute_shell_version}"
 }
 
 # "key" -> (test_function ICON)
@@ -757,12 +793,16 @@ function __is_embedded_terminal() {
 function __embedded_terminal_info() {
     local ID_FUNC ICON arr
     for value in "${EMBEDDED_TERMINAL_ID_FUNCS[@]}"; do
-        eval "arr=(\"\${${value}[@]}\")"
+        if [[ -n ${ZSH_VERSION:-} ]]; then
+            eval "arr=(\"\${${value}[@]}\")"
+        else
+            eval "arr=(\"\${$value[@]}\")"
+        fi
         ID_FUNC="${arr[@]:0:1}"
         ICON="${ICON_MAP[${arr[@]:1:1}]}"
         if eval "${ID_FUNC}"; then
             if [[ "$1" != "--noshow" ]]; then
-                echo -n "${ICON}"
+                printf '%s' "${ICON}"
             fi
             return 0
         fi
@@ -791,7 +831,7 @@ function __effective_distribution() {
 }
 
 # "key" -> (test_function ICON ICON_COLOR)
-# typeset -a GIT_VIRTUALENV_ID=("__is_in_git_repo" "ICON_MAP[GIT]" "yellow")
+# typeset -a GIT_VIRTUALENV_ID=("__git_is_in_repo" "ICON_MAP[GIT]" "yellow")
 typeset -a TMUX_VIRTUALENV_ID=("__is_in_tmux" "TMUX" "white")
 typeset -a VIM_VIRTUALENV_ID=("__is_in_vimruntime" "VIM" "green")
 typeset -a PYTHON_VIRTUALENV_ID=("__is_in_python_venv" "PYTHON" "blue")
@@ -813,9 +853,13 @@ typeset -a VIRTUALENV_ID_FUNCS=( \
 
 function __virtualenv_info() {
     local suffix="${1:-}"
-    local has_virtualenv=1
+    local -i has_virtualenv=1
     for value in "${VIRTUALENV_ID_FUNCS[@]}"; do
-        eval "arr=(\"\${${value}[@]}\")"
+        if [[ -n ${ZSH_VERSION:-} ]]; then
+            eval "arr=(\"\${${value}[@]}\")"
+        else
+            eval "arr=(\"\${$value[@]}\")"
+        fi
         ID_FUNC="${arr[@]:0:1}"
         ICON="${ICON_MAP[${arr[@]:1:1}]}"
         ICON_COLOR="${arr[@]:2:1}"
@@ -825,12 +869,17 @@ function __virtualenv_info() {
         fi
     done
     if [[ "${has_virtualenv}" == "0" ]]; then
-        echo -n "${suffix}"
+        printf '%s' "${suffix}"
     fi
     return ${has_virtualenv}
 }
 
-declare -a CUTE_HEADER_PARTS=() > /dev/null 2>&1
+# Robust array declaration for both bash and zsh
+if [[ -n "${ZSH_VERSION:-}" ]]; then
+    typeset -ga CUTE_HEADER_PARTS
+else
+    declare -a CUTE_HEADER_PARTS
+fi
 
 function __cute_startup_time() {
     # Prefer high-resolution timing when available (bash 5+/zsh: EPOCHREALTIME)
@@ -854,44 +903,44 @@ function __cute_startup_time() {
     display_str="${ICON_MAP[CLOCK]} ${formatted}"
 
     # Highlight slow startups (> 3.000 seconds) in red
-    local is_slow="0"
+    local -i is_slow=0
     if [[ -n "${secs}" ]]; then
         if [[ "$secs" == *.* ]]; then
             # float compare via awk
             is_slow="$(awk -v d="$secs" 'BEGIN { if (d > 3.0) print 1; else print 0 }')"
         else
             # integer seconds
-            if [[ ${secs} -gt 3 ]]; then is_slow="1"; fi
+            if (( secs > 3 )); then is_slow="1"; fi
         fi
     fi
 
-    if [[ "${is_slow}" == "1" ]]; then
+    if (( is_slow == 1 )); then
         __echo_colored_stdout red "${display_str}"
     else
-        echo -n "${display_str}"
+        printf '%s' "${display_str}"
     fi
 }
 
 function __cute_shell_header() {
-    _dotTrace_enter
+    _dotTrace_enter "$@"
     if [[ "$1" != "--force" ]]; then
         if ! __is_shell_interactive; then
-            _dotTrace_exit
-            return 0
+            _dotTrace_exit 0
+            return
         fi
-        if [[ "${SHLVL}" -gt 1 ]]; then
+        if (( SHLVL > 1 )); then
             if __is_embedded_terminal; then
-                _dotTrace_exit
-                return 0
+                _dotTrace_exit 0
+                return
             fi
         fi
     fi
 
-    if [[ "${SHLVL}" -gt 1 ]]; then
+    if (( SHLVL > 1 )); then
         for ((i = 2; i <= SHLVL; i++)); do
-            echo -n "|"
+            printf '|'
         done
-        echo -n " "
+        printf ' '
     fi
 
     local startup_part
@@ -901,7 +950,7 @@ function __cute_shell_header() {
     else
         echo "$(__cute_shell_path)" "$(__cute_shell_version)" "${CUTE_HEADER_PARTS[@]}" "${ICON_MAP[MD_SNAPCHAT]}"
     fi
-    _dotTrace_exit
+    _dotTrace_exit 0
 }
 
 if __is_shell_interactive; then
@@ -953,17 +1002,35 @@ function __do_eza_aliases() {
         alias ls='eza -l --group-directories-first'
         # https://github.com/orgs/eza-community/discussions/239#discussioncomment-9834010
         alias kd='eza --group-directories-first'
+        # Use a POSIX-valid function name; alias hyphenated names to it
+        function kd_tree() {
+            local arg="${1:-}"
+            local -i level=3
+
+            if [[ -n "$arg" && "$arg" =~ ^[0-9]+$ ]]; then
+                # If the token is both a number and an existing directory, prefer level (warn user).
+                if [[ -d "$arg" ]]; then
+                    echo "Warning: ambiguous argument '$arg' (both number and directory); using as level." >&2
+                fi
+                level="$arg"
+                shift
+            fi
+
+            # Pass remaining args (which may include a directory or flags) to eza
+            eza --tree --level="$level" --group-directories-first "$@"
+        }
+        alias kt='kd_tree'
         alias realls='\ls -FHG'
     fi
 }
 
 function __do_iterm2_shell_integration() {
-    _dotTrace_enter
+    _dotTrace_enter "$@"
     # If using iTerm2, try for shell integration.
     # iTerm profile switching requires shell_integration to be installed anyways.
     if ! __is_iterm2_terminal; then
-        _dotTrace_exit
-        return 0;
+        _dotTrace_exit 0
+        return
     fi
 
     if __is_shell_zsh; then
@@ -977,17 +1044,17 @@ function __do_iterm2_shell_integration() {
         [[ -f "${DOTFILES_CONFIG_ROOT}/iterm2_shell_integration.bash" ]] && source "${DOTFILES_CONFIG_ROOT}/iterm2_shell_integration.bash"
     else
         echo "Unknown shell for iTerm2 integration"
-        _dotTrace_exit
-        return 1
+        _dotTrace_exit 1
+        return
     fi
 
     # shellcheck source=SCRIPTDIR/iterm2_funcs.sh
     [[ -f "${DOTFILES_CONFIG_ROOT}/iterm2_funcs.sh" ]] && source "${DOTFILES_CONFIG_ROOT}/iterm2_funcs.sh"
-    _dotTrace_exit
+    _dotTrace_exit 0
 }
 
 function __do_vscode_shell_integration() {
-    _dotTrace_enter
+    _dotTrace_enter "$@"
     if __is_on_macos && ! __is_ssh_session && ! command -v code &> /dev/null; then
         local vscode_warning="!! VSCode CLI unavailable. Check https://code.visualstudio.com/docs/setup/mac !!"
         # shellcheck disable=SC2076
@@ -997,8 +1064,8 @@ function __do_vscode_shell_integration() {
     fi
 
     if ! __is_vscode_terminal; then
-        _dotTrace_exit
-        return 0
+        _dotTrace_exit 0
+        return
     fi
 
     if __is_shell_zsh; then
@@ -1007,5 +1074,5 @@ function __do_vscode_shell_integration() {
             source "$(code --locate-shell-integration-path zsh)"
         fi
     fi
-    _dotTrace_exit
+    _dotTrace_exit 0
 }

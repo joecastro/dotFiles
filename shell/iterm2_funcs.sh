@@ -43,7 +43,7 @@ function iterm_set_color() {
         return 1
     fi
 
-    echo -ne "\033]1337;SetColors=${color_key}=${color_value}\007"
+    printf '\033]1337;SetColors=%s=%s\007' "${color_key}" "${color_value}"
 }
 
 function iterm_get_attention() {

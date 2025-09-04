@@ -3,7 +3,7 @@
 which hostnamectl && hostnamectl
 
 if [[ "amd64" != "$(dpkg --print-architecture)" ]]; then
-	echo "This script doesn't currently handle ARM"
+	printf '%s\n' "This script doesn't currently handle ARM"
 	exit 1
 fi
 

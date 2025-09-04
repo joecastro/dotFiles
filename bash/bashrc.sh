@@ -76,21 +76,20 @@ function __generate_static_prompt_part() {
         host_display="${LOCALHOST_PREFERRED_DISPLAY}"
     fi
 
-    echo -n "${COLOR_ANSI[green]}\u${COLOR_ANSI[yellow]}@${host_color}${host_display}${RESET} "
+    printf '%s' "${COLOR_ANSI[green]}\u${COLOR_ANSI[yellow]}@${host_color}${host_display}${RESET} "
 }
 
 function __generate_preamble_color() {
     case "$1" in
-        Git) echo -n "${COLOR_ANSI[green]}" ;;
-        Repo) echo -n "${COLOR_ANSI[yellow]}" ;;
-        Piper) echo -n "${COLOR_ANSI[blue]}" ;;
-        *) echo -n "${RESET}" ;;
+        Git)   printf '%s' "${COLOR_ANSI[green]}" ;;
+        Repo)  printf '%s' "${COLOR_ANSI[yellow]}" ;;
+        Piper) printf '%s' "${COLOR_ANSI[blue]}" ;;
+        *)     printf '%s' "${RESET}" ;;
     esac
 }
 
 function __generate_dynamic_prompt_part() {
-    _dotTrace_enter
-    _dotTrace "Generating dynamic prompt part for style: $1"
+    _dotTrace_enter "$@"
     local style="$1"
     local dynamic_part=""
 
@@ -113,11 +112,12 @@ function __generate_dynamic_prompt_part() {
     # shellcheck disable=SC2016
     dynamic_part+='$(__cute_pwd)'
 
-    echo -n "${dynamic_part}"
+    printf '%s' "${dynamic_part}"
+    _dotTrace_exit
 }
 
 function __generate_prompt() {
-    _dotTrace_enter
+    _dotTrace_enter "$@"
 
     local END_OF_PROMPT_ICON="%"
     local ELEVATED_END_OF_PROMPT_ICON="#"
@@ -135,19 +135,18 @@ function __generate_prompt() {
     local local_ps1
     local_ps1="${preamble}${static_part}$(__generate_dynamic_prompt_part "$1")${suffix}${RESET}"
     _dotTrace "Generated PS1: \"${local_ps1}\""
-    echo -n "${local_ps1}"
-
+    printf '%s' "${local_ps1}"
     _dotTrace_exit
 }
 
 function __patch_ghostty_shell_integration() {
-    _dotTrace_enter
-    _dotTrace_exit
+    _dotTrace_enter "$@"
+    _dotTrace_exit 0
 }
 
 function __cute_prompt_command() {
-    local last_exit=$?  # capture immediately!
-    _dotTrace_enter
+    local -i last_exit=$?  # capture immediately!
+    _dotTrace_enter "$@"
 
     __patch_ghostty_shell_integration
 
@@ -162,8 +161,8 @@ function __cute_prompt_command() {
     local last_pwd
     last_pwd="$(__cache_get UPDATE_PROMPT_PWD)"
     if [ "$last_pwd" = "$PWD" ]; then
-        _dotTrace "no change - done"
-        _dotTrace_exit
+        _dotTrace "no change"
+        _dotTrace_exit "$last_exit"
         return
     fi
     __cache_put UPDATE_PROMPT_PWD "$PWD"
@@ -180,7 +179,7 @@ function __cute_prompt_command() {
         new_style="None"
     elif __is_in_repo; then
         new_style="Repo"
-    elif __is_in_git_repo; then
+    elif __git_is_in_repo; then
         new_style="Git"
     elif __has_citc && __is_in_citc; then
         new_style="Piper"
@@ -191,7 +190,7 @@ function __cute_prompt_command() {
     current_style="$(__cache_get ACTIVE_DYNAMIC_PROMPT_STYLE)"
     if [ "$current_style" == "$new_style" ]; then
         _dotTrace "no change in style"
-        _dotTrace_exit
+        _dotTrace_exit $last_exit
         return
     fi
 
@@ -201,7 +200,7 @@ function __cute_prompt_command() {
     _dotTrace "Updated PS1: \"${PS1}\""
     __cache_put ACTIVE_DYNAMIC_PROMPT_STYLE "$new_style"
 
-    _dotTrace_exit
+    _dotTrace_exit "$last_exit"
 }
 
 PS1=""
@@ -235,9 +234,9 @@ function __remove_suffix() {
 }
 
 function __ghostty_precmd2() {
-    local ret="$?"
+    local -i ret="$?"
 
-    _dotTrace_enter
+    _dotTrace_enter "$@"
 
     # Suffixes used for Ghostty integration
     local ghostty_marks='\[\e]133;B\a\]'
@@ -294,11 +293,12 @@ function __ghostty_precmd2() {
     builtin printf "\e]133;A;aid=%s\a" "$BASHPID"
     _ghostty_executing=0
 
-    _dotTrace_exit
+    _dotTrace_exit "$ret"
 }
 
 function __ghostty_preexec2() {
-    _dotTrace_enter
+    local -i rc=$?
+    _dotTrace_enter "$@"
 
     builtin local cmd="$1"
 
@@ -318,17 +318,17 @@ function __ghostty_preexec2() {
     builtin printf "\e]133;C;\a"
     _ghostty_executing=1
 
-    _dotTrace_exit
+    _dotTrace_exit "$rc"
 }
 
 HAS_UPDATED_FOR_GHOSTTY=1
 
 function __patch_ghostty_shell_integration() {
-    _dotTrace_enter
+    _dotTrace_enter "$@"
 
     if [ "$HAS_UPDATED_FOR_GHOSTTY" -eq 0 ]; then
         _dotTrace "Ghostty shell integration already updated"
-        _dotTrace_exit
+        _dotTrace_exit "$?"
         return
     fi
 
@@ -341,7 +341,7 @@ function __patch_ghostty_shell_integration() {
     HAS_UPDATED_FOR_GHOSTTY=0
     _dotTrace "Ghostty shell integration updated"
 
-    _dotTrace_exit
+    _dotTrace_exit "$?"
 }
 
 fi

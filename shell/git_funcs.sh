@@ -6,29 +6,13 @@
 #pragma requires platform.sh
 #pragma requires completion/git-prompt.sh
 
-function __is_in_git_repo() {
-    local ret_for_git_dir=0
-    if [[ "$1" == "--git-dir-ok" ]]; then
-        ret_for_git_dir=1
-    fi
-
-    if error_message=$(git branch 2>&1); then
-        if git rev-parse --is-inside-git-dir | grep "true" > /dev/null 2>&1; then
-            return ${ret_for_git_dir}
-        fi
-        return 0
-    fi
-
-    if [[ "${error_message}" == *"ot a git repository"* ]]; then
-        return 2
-    fi
-
-    return 1
+function __git_is_in_repo() {
+    # Success if anywhere inside a Git repository (worktree or .git dir)
+    git rev-parse --git-dir > /dev/null 2>&1
 }
 
-function __git_is_in_git_dir() {
-    __is_in_git_repo --git-dir-ok
-    [[ "$?" == "1" ]]
+function __git_is_in_dotgit_dir() {
+    [[ "$(git rev-parse --is-inside-git-dir 2>/dev/null)" == "true" ]]
 }
 
 function __git_is_detached_head() {
@@ -64,14 +48,14 @@ function __git_compare_upstream_changes() {
         return 1
     fi
 
-    local ahead behind
+    local -i ahead=0 behind=0
     read -r ahead behind < <(git rev-list --left-right --count "$upstream"...HEAD 2>/dev/null | awk '{print $2, $1}')
 
-    local result=0
-    if [[ "$ahead" -gt 0 ]]; then
+    local -i result=0
+    if (( ahead > 0 )); then
         result=$((result + 2))
     fi
-    if [[ "$behind" -gt 0 ]]; then
+    if (( behind > 0 )); then
         result=$((result + 4))
     fi
     return $result
@@ -79,13 +63,13 @@ function __git_compare_upstream_changes() {
 
 function __git_has_unpushed_changes() {
     __git_compare_upstream_changes
-    local result=$?
+    local -i result=$?
     return $(( (result & 2) == 0 ))
 }
 
 function __git_has_remote_changes() {
     __git_compare_upstream_changes
-    local result=$?
+    local -i result=$?
     return $(( (result & 4) == 0 ))
 }
 
@@ -102,8 +86,7 @@ function __git_is_on_default_branch() {
 }
 
 function __git_print_commit_sha() {
-    if ! __is_in_git_repo; then
-        echo -n ""
+    if ! __git_is_in_repo; then
         return 1
     fi
 
@@ -111,33 +94,30 @@ function __git_print_commit_sha() {
 }
 
 function __git_print_branch_name() {
-    if ! __is_in_git_repo; then
-        echo -n ""
+    if ! __git_is_in_repo; then
         return 1
     fi
 
     local branch_name
     if ! branch_name=$(git symbolic-ref --short HEAD 2> /dev/null); then
-        echo -n "HEAD"
+        printf 'HEAD'
         return 1
     fi
 
-    echo -n "${branch_name}"
+    printf '%s' "${branch_name}"
 }
 
 function __print_git_branch() {
-    local colorize=0
+    local -i colorize=0
     if [[ "$1" == "--no-color" ]]; then
         colorize=1
     fi
 
-    __is_in_git_repo --git-dir-ok
-    local git_repo_result=$?
-    if [[ ${git_repo_result} == 2 ]]; then
-        echo -n ""
+    if ! __git_is_in_repo; then
         return 1
-    elif [[ ${git_repo_result} == 1 ]]; then
-        echo -n "${ICON_MAP[COD_TOOLS]} "
+    fi
+    if __git_is_in_dotgit_dir; then
+        printf '%s' "${ICON_MAP[COD_TOOLS]} "
         return 0
     fi
 
@@ -155,104 +135,98 @@ function __print_git_branch() {
         branch_display+="*"
     fi
 
-    if [[ ${colorize} -eq 0 ]]; then
+    if (( colorize == 0 )); then
         local color_hint
         color_hint=$(__git_branch_color_hint)
         branch_display=$(__echo_colored "${color_hint}" "${branch_display}")
     fi
 
-    echo -ne "${branch_display}"
+    printf '%s' "${branch_display}"
 }
 
 function __print_git_branch_icon() {
-    __is_in_git_repo --git-dir-ok
-    local git_repo_result=$?
-    if [[ $git_repo_result == 2 ]]; then
-        echo -n ""
+    if ! __git_is_in_repo; then
         return 1
     fi
-
-    if [[ $git_repo_result == 1 ]]; then
-        echo -n "${ICON_MAP[COD_TOOLS]}"
+    if __git_is_in_dotgit_dir; then
+        printf '%s' "${ICON_MAP[COD_TOOLS]}"
         return 0
     fi
 
     if ! __git_is_detached_head; then
-        echo -n "${ICON_MAP[GIT_BRANCH]}"
+        printf '%s' "${ICON_MAP[GIT_BRANCH]}"
         return 0
     fi
 
     if __git_is_head_on_branch; then
-        echo -n "${ICON_MAP[GIT_BRANCH]}"
+        printf '%s' "${ICON_MAP[GIT_BRANCH]}"
     else
-        echo -n "${ICON_MAP[GIT_COMMIT]}"
+        printf '%s' "${ICON_MAP[GIT_COMMIT]}"
     fi
 
     return 0
 }
 
 function __print_git_worktree() {
-    if ! __is_in_git_repo; then
-        echo -n ""
+    if ! __git_is_in_repo; then
         return 1
     fi
 
     if ! __git_is_in_worktree; then
-        echo -n ""
         return 1
     fi
 
     local root_worktree active_worktree submodule_worktree
     submodule_worktree=$(git rev-parse --show-superproject-working-tree)
     if [[ "${submodule_worktree}" != "" ]]; then
-        echo -n "${ICON_MAP[LEGO]}${submodule_worktree##*/}"
+        printf '%s' "${ICON_MAP[LEGO]}${submodule_worktree##*/}"
         return 0
     fi
 
     root_worktree=$(git worktree list | head -n1 | awk '{print $1;}')
     active_worktree=$(git worktree list | grep "$(git rev-parse --show-toplevel)" | head -n1 | awk '{print $1;}')
 
-    echo -n "${ICON_MAP[LEGO]}${root_worktree##*/}:${active_worktree##*/}"
+    printf '%s' "${ICON_MAP[LEGO]}${root_worktree##*/}:${active_worktree##*/}"
 }
 
 function __print_git_pwd() {
-    _dotTrace_enter
+    _dotTrace_enter "$@"
     local working_pwd=""
 
-    __is_in_git_repo --git-dir-ok
-    local git_repo_result=$?
-    if [[ $git_repo_result == 2 ]]; then
+    if ! __git_is_in_repo; then
         _dotTrace "Not at all in a git repo"
-        echo -ne ""
-        _dotTrace_exit
-        return 1
+        _dotTrace_exit 1
+        return
     fi
 
     __git_is_on_default_branch
-    local is_branch_shorthand_eligible=$?
+    local -i on_default_branch_status=$?
+    # Normalize to boolean: 1 when on default branch, else 0
+    local -i is_on_default_branch=$(( on_default_branch_status == 0 ))
 
-    local color_hint has_remote_changes has_unpushed_changes
+    local color_hint
+    local -i has_remote has_unpushed
     color_hint=$(__git_branch_color_hint)
-    has_remote_changes=$(__git_has_remote_changes; echo $?)
-    has_unpushed_changes=$(__git_has_unpushed_changes; echo $?)
+    __git_has_remote_changes; has_remote=$(( $? == 0 ))
+    __git_has_unpushed_changes; has_unpushed=$(( $? == 0 ))
 
-    if [[ $has_remote_changes -eq 0 && $has_unpushed_changes -eq 0 ]]; then
+    if (( has_remote && has_unpushed )); then
         _dotTrace "both remote and unpushed changes detected"
-        is_branch_shorthand_eligible=1
+        is_on_default_branch=0
         working_pwd+="${ICON_MAP[ARROW_UPDOWN_THICK]}"
-    elif [[ $has_remote_changes -eq 0 ]]; then
+    elif (( has_remote )); then
         _dotTrace "remote changes detected"
-        is_branch_shorthand_eligible=1
+        is_on_default_branch=0
         working_pwd+="${ICON_MAP[ARROW_DOWN_THICK]}"
-    elif [[ $has_unpushed_changes -eq 0 ]]; then
+    elif (( has_unpushed )); then
         _dotTrace "unpushed changes detected"
-        is_branch_shorthand_eligible=1
+        is_on_default_branch=0
         working_pwd+="${ICON_MAP[ARROW_UP_THICK]}"
     fi
 
     working_pwd+="$(__print_git_branch_icon)"
 
-    if [[ ${is_branch_shorthand_eligible} == 0 ]]; then
+    if (( is_on_default_branch )); then
         _dotTrace "on default branch - omitting branch name"
     else
         _dotTrace "not on default branch - using __git_ps1 for branch display"
@@ -271,26 +245,25 @@ function __print_git_pwd() {
     _dotTrace "branch prefix before anchored path: ${working_pwd}"
 
     local anchored_path
-    if [[ $git_repo_result == 1 ]]; then
+    if __git_is_in_dotgit_dir; then
         anchored_path=".git${PWD##*.git}"
     else
         # If we're in a git repo then show the current directory relative to the root of that repo.
-        # These commands wind up spitting out an extra slash, so backspace to remove it on the console.
-        anchored_path="$(echo -ne "$(git rev-parse --show-toplevel | xargs basename)/$(git rev-parse --show-prefix)")"
+        anchored_path="$(printf '%s' "$(git rev-parse --show-toplevel | xargs basename)/$(git rev-parse --show-prefix)")"
         anchored_path="${anchored_path%/}"
         anchored_path="$(__print_abbreviated_path "${anchored_path}" 0)"
     fi
 
-    echo -ne "${working_pwd}${anchored_path}"
+    printf '%s' "${working_pwd}${anchored_path}"
     _dotTrace_exit
 }
 
 function __git_branch_color_hint() {
     if __git_is_nothing_to_commit; then
-        echo -ne "green"
+        printf 'green'
     elif __git_is_detached_head; then
-        echo -ne "red"
+        printf 'red'
     else
-        echo -ne "yellow"
+        printf 'yellow'
     fi
 }

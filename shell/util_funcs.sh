@@ -8,7 +8,6 @@ if ! declare -f __is_shell_zsh &>/dev/null; then
     }
 fi
 
-
 alias myip='curl http://ipecho.net/plain; echo'
 
 # kill_port_proc <port>
@@ -19,8 +18,15 @@ function kill_port_proc() {
 }
 
 function make_python_venv() {
+    _dotTrace_enter "$@"
     python3 -m venv ./.venv
+    local rc=$?
+    if (( rc != 0 )); then
+        _dotTrace_exit "$rc"
+        return "$rc"
+    fi
     cd .; cd -
+    _dotTrace_exit 0
 }
 
 function wintitle() {
@@ -29,7 +35,7 @@ function wintitle() {
         return 1
     fi
 
-    echo -ne "\e]0;${1}\a"
+    printf '\e]0;%s\a' "$1"
 }
 
 # https://unix.stackexchange.com/questions/481285/linux-how-to-get-window-title-with-just-shell-script
@@ -131,7 +137,7 @@ if __is_shell_zsh; then
         local parts=(${(s/:/)color_value})
         # shellcheck disable=SC2128
         for ls_color in $parts; do
-            echo -ne "\e[${ls_color##*=}m${ls_color%%=*}\e[0m "
+            printf '\e[%sm%s\e[0m ' "${ls_color##*=}" "${ls_color%%=*}"
         done
         echo ""
     }
@@ -149,7 +155,7 @@ else
 
         # Iterate over the parts and print them
         for ls_color in "${parts[@]}"; do
-            echo -ne "\e[${ls_color##*=}m${ls_color%%=*}\e[0m "
+            printf '\e[%sm%s\e[0m ' "${ls_color##*=}" "${ls_color%%=*}"
         done
         echo ""
     }
@@ -178,9 +184,11 @@ function bootstrap_fonts() {
 
     local nf_version
     nf_version=$(wget -q -O - "https://api.github.com/repos/ryanoasis/nerd-fonts/releases/latest" | grep "\"name\"" | head -n 1 | cut -d '"' -f 4)
+    echo "Resolved nerd-fonts version: ${nf_version}"
 
     for font_family in "${font_families[@]}"; do
         local font_url="https://github.com/ryanoasis/nerd-fonts/releases/download/${nf_version}/${font_family}.zip"
+        echo "Downloading ${font_family} from ${font_url}"
         wget -O "$download_dir/${font_family}.zip" "${font_url}"
         unzip -f -o -d "$font_dir" "$download_dir/${font_family}.zip" "*.ttf"
         rm "$download_dir/${font_family}.zip"
@@ -195,6 +203,7 @@ function bootstrap_fonts() {
 function bootstrap_apt_packages() {
     sudo apt update
 
+    echo "Installing core apt packages"
     sudo apt install -y \
         build-essential \
         wget \
@@ -223,6 +232,7 @@ function bootstrap_apt_packages() {
         default-jdk
 
     if command -v snap &> /dev/null; then
+        echo "Installing snap packages"
         sudo snap install zig --classic --beta
         sudo snap install code --classic
         sudo snap install spotify
@@ -230,12 +240,14 @@ function bootstrap_apt_packages() {
 
     # TODO: Initialize node and nvm
     #curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.0/install.sh | bash
+    echo "Installing Google Chrome .deb"
     wget -O ~/Downloads/google-chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
     sudo dpkg -i ~/Downloads/google-chrome.deb || sudo apt install -f -y
     rm ~/Downloads/google-chrome.deb
 
     mkdir -p ~/source
 
+    echo "Cloning jsonnet and ghostty sources"
     git clone https://github.com/google/jsonnet.git ~/source/jsonnet
     pushd ~/source/jsonnet
 
@@ -256,6 +268,7 @@ function bootstrap_apt_packages() {
 
     sudo apt update
 
+    echo "Installing eza apt package"
     sudo apt install -y \
         eza
 }
@@ -269,9 +282,11 @@ function bootstrap_brew_packages() {
 
     eval "$(/opt/homebrew/bin/brew shellenv)"
 
+    echo " >> Updating Homebrew"
     brew update
 
     # Consider whether to add Bartender.
+    echo " >> Installing Homebrew casks"
     brew install --cask \
         iterm2 \
         visual-studio-code \
@@ -289,6 +304,7 @@ function bootstrap_brew_packages() {
     # brew install --cask adobe-creative-cloud
     # brew install --cask dotnet-sdk
 
+    echo " >> Installing Homebrew packages"
     brew install \
         zsh \
         bash \
@@ -304,22 +320,28 @@ function bootstrap_brew_packages() {
         openjdk \
         flock \
         tmux \
+        imagemagick \
+        ghc \
         python@3
 
+    echo "Linking openjdk@21"
     brew install openjdk@21
     # Instructions from that keg...
     sudo ln -sfn /opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk /Library/Java/JavaVirtualMachines/openjdk-21.jdk
 
+    echo "Installing Docker tooling"
     brew install --cask \
         docker
     brew install \
         docker-machine \
         docker-compose
 
+    echo "Installing gng"
     brew tap gdubw/gng
     brew install gng
 
     # https://github.com/Genymobile/scrcpy
+    echo "Installing scrcpy build deps"
     brew install \
         sdl2 \
         ffmpeg \
@@ -341,6 +363,7 @@ function bootstrap_android_sdk() {
     local COMMANDLINETOOLSZIP_FILENAME="commandlinetools-linux-10406996_latest.zip"
     local COMMANDLINETOOLSZIP_URL="https://dl.google.com/android/repository/${COMMANDLINETOOLSZIP_FILENAME}"
 
+    echo "Downloading Android commandline tools: ${COMMANDLINETOOLSZIP_FILENAME}"
     wget "$COMMANDLINETOOLSZIP_URL"
 
     unzip "./${COMMANDLINETOOLSZIP_FILENAME}" -d "$ANDROID_HOME"
@@ -350,7 +373,9 @@ function bootstrap_android_sdk() {
     mv "$ANDROID_HOME/cmdline-tools/lib" "$ANDROID_HOME/cmdline-tools/latest/"
     mv "$ANDROID_HOME/cmdline-tools/bin" "$ANDROID_HOME/cmdline-tools/latest/"
 
+    echo "Accepting SDK licenses"
     yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses
+    echo "Installing platform-tools and android-34"
     "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "platforms;android-34"
 
     rm "./${COMMANDLINETOOLSZIP_FILENAME}"
@@ -363,5 +388,4 @@ function bootstrap_kde_plasma() {
     sudo add-apt-repository ppa:kubuntu-ppa/backports -y
     sudo apt update
     sudo apt install plasma-desktop -y
-
 }
