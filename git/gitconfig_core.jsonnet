@@ -1,20 +1,24 @@
 {
     sections: {
         core: {
-            editor: "vim"
+            editor: "vim",
         },
 
         user: {
             email: "joe@lifequakesoftware.com",
-            name: "Joe Castro"
+            name: "Joe Castro",
         },
 
         init: {
-	        defaultBranch: "main"
+	        defaultBranch: "main",
         },
 
         pull: {
-            rebase: true
+            rebase: true,
+        },
+
+        push: {
+            autoSetupRemote: true,
         },
 
         'filter "lfs"': {
@@ -39,7 +43,7 @@
             meta: "blue",
             frag: "magenta",
             old: "red",
-            new: "green"
+            new: "green",
         },
 
         'color "status"': {
