@@ -4,7 +4,8 @@ local ext_vars = {
     is_macos: std.extVar('kernel') == 'darwin',
     is_linux: std.extVar('kernel') == 'linux',
     is_localhost: std.extVar('is_localhost') == 'true',
-    hostname: std.extVar('hostname')
+    hostname: std.extVar('hostname'),
+    trace_startup: std.extVar('trace_startup') == 'true',
 };
 
 local config_dir = '.config/dotShell';
@@ -69,7 +70,8 @@ local file_maps = [
 local directory_maps = [
     ['vim/colors', '.vim/colors'],
     ['svg', config_dir + '/svg'],
-    ['wallpaper', config_dir + '/wallpaper'],
+    // Only copy wallpaper images; Jsonnet stays in repo.
+    ['images', config_dir + '/wallpaper'],
 ];
 
 local vim_pack_plugin_start_repos = [

@@ -1,4 +1,4 @@
-local wallpapers = import '../wallpaper/wallpapers.libsonnet';
+local wallpapers = import '../wallpaper/wallpaper.libsonnet';
 local color_defs = import '../shell/color_definitions.libsonnet';
 local apply_configs = import '../apply_configs.jsonnet';
 
@@ -57,7 +57,6 @@ local ItermColorPreset(name, color_scheme, extended_colors) = {
     [if extended_colors.tab != null then "Tab Color"]: ItermColor(extended_colors.tab)
 };
 
-local ItermColorBlack = ItermColor(Colors.Black);
 local ItermColorWhite = ItermColor(Colors.White);
 {
     guids:: [
@@ -208,11 +207,13 @@ local ItermColorWhite = ItermColor(Colors.White);
         "Y Origin": 648.0
     },
     Profiles:: {
-        ZshTheHardWay: $.ItermProfile("Zsh the Hard Way", Colors.White, $.private_guids[0], wallpapers.hokusai_wave),
-        BashTheOldWay: $.ItermProfile("Bash the Old Way", Colors.White, $.private_guids[1], wallpapers.abstract_pastel) {
+        HomebrewZsh: $.ItermProfile("Zsh", Colors.White, $.private_guids[0], wallpapers.backgrounds.hokusai_wave) {
+            "Command": "/opt/homebrew/bin/zsh",
+        },
+        HomebrewBash: $.ItermProfile("Bash", Colors.White, $.private_guids[1], wallpapers.backgrounds.abstract_pastel) {
             "Command": "/opt/homebrew/bin/bash",
         },
-        HotkeyWindow: $.ItermProfile("Guake Window", Colors.White, $.private_guids[2], wallpapers.quake) {
+        GuakeWindow: $.ItermProfile("Guake", Colors.White, $.private_guids[2], wallpapers.backgrounds.quake) {
             "Has Hotkey": true,
             "Horizontal Spacing": 1.0,
             "HotKey Activated By Modifier": false,

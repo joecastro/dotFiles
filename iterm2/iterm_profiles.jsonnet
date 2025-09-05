@@ -3,14 +3,14 @@ local color_defs = import '../shell/color_definitions.libsonnet';
 
 {
     Profiles: [
-        iterm.Profiles.ZshTheHardWay,
-        iterm.Profiles.BashTheOldWay,
-        iterm.Profiles.HotkeyWindow,
+        iterm.Profiles.HomebrewZsh,
+        iterm.Profiles.HomebrewBash,
+        iterm.Profiles.GuakeWindow,
     ],
 
     WindowArrangements: [],
 
-    DefaultProfile: iterm.Profiles.ZshTheHardWay,
+    DefaultProfile: $.Profiles[0],
 
     CustomColorPresets: {
         [scheme.key]: iterm.ITermColorPreset(scheme.key, scheme.value, color_defs.Schemes.ITerm.terminal_colors)

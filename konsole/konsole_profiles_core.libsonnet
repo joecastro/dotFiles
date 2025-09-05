@@ -1,6 +1,6 @@
 local konsole_configs = import './konsole_definitions.libsonnet';
 local color_defs = import '../shell/color_definitions.libsonnet';
-local wallpapers = import '../wallpaper/wallpapers.libsonnet';
+local wallpapers = import '../wallpaper/wallpaper.libsonnet';
 local apply_configs = import '../apply_configs.jsonnet';
 
 local host = apply_configs.host;
@@ -15,7 +15,7 @@ local bash_profile = konsole_configs.KonsoleProfileWithColorscheme(
     'Bash',
     color_defs.Schemes.Gruvbox,
     wallpapers.icons.tux.target_path(host),
-    wallpapers.abstract_pastel.target_path(host),
+    wallpapers.backgrounds.abstract_pastel.target_path(host),
     '/usr/bin/bash');
 
 local zsh_profile = konsole_configs.KonsoleProfileWithColorscheme(
@@ -29,7 +29,7 @@ local quake_profile = konsole_configs.KonsoleProfileWithColorscheme(
     'Quake',
     color_defs.Schemes['Red Sands'],
     wallpapers.icons.quake.target_path(host),
-    wallpapers.quake.target_path(host));
+    wallpapers.backgrounds.quake.target_path(host));
 
 local optional_android_profiles = if std.objectHas(host.env_vars.properties, 'ANDROID_REPO_ROOT') then
     [

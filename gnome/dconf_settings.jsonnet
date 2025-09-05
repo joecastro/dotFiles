@@ -1,5 +1,4 @@
 local color_defs = import '../shell/color_definitions.libsonnet';
-local wallpapers = import '../wallpaper/wallpapers.libsonnet';
 
 local mouse_settings = {
     'left-handed': true,
@@ -143,4 +142,3 @@ manifestDconfIni({
     'org/gnome/shell/desktop/background': background_settings('/usr/share/backgrounds/gnome/fold-l.jpg'),
     'org/gnome/shell/extensions/dash-to-panel': dash_to_panel_settings,
 })
-

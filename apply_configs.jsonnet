@@ -1,6 +1,6 @@
 local color_defs = import './shell/color_definitions.libsonnet';
 local apply_configs_core = import './apply_configs_core.jsonnet';
-local wallpapers = import './wallpaper/wallpapers.libsonnet';
+local wallpapers = import './wallpaper/wallpaper.libsonnet';
 
 local localhost_hostname = apply_configs_core.ext_vars.hostname;
 
@@ -18,8 +18,8 @@ local localhost = apply_configs_core.Host(
     null, // home
     wallpapers.icons.tux,
     localhost_color,
-    wallpapers.abstract_blue,
-    wallpapers.android_backpack
+    wallpapers.backgrounds.abstract_blue,
+    wallpapers.android_backgrounds.backpack
 );
 
 {

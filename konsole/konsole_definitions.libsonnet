@@ -1,5 +1,4 @@
 local color_defs = import '../shell/color_definitions.libsonnet';
-local wallpapers = import '../wallpaper/wallpapers.libsonnet';
 
 local KonsoleColor(color) = {
     Color: color.rgb255,

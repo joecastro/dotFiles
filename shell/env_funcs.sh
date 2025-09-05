@@ -146,8 +146,8 @@ function _dotTrace_enter() {
         else
             func_name="${FUNCNAME[1]}"
             # Prefer explicitly forwarded args
-            if (( $# > 0 )); then
-                func_args="$*"
+        if (( $# > 0 )); then
+                        func_args="$*"
             else
                 # Bash: BASH_ARGV contains the arguments to the current function, but in reverse order
                 # $BASH_ARGC[1] is the number of arguments to the calling function
@@ -882,43 +882,32 @@ else
 fi
 
 function __cute_startup_time() {
-    # Prefer high-resolution timing when available (bash 5+/zsh: EPOCHREALTIME)
-    local secs="" formatted=""
+    _dotTrace_enter "$@"
 
-    if [[ -n "${EPOCHREALTIME:-}" && -n "${DOTFILES_INIT_EPOCHREALTIME_START:-}" ]]; then
-        local now="${EPOCHREALTIME}"
-        # Calculate elapsed seconds to millisecond precision
-        secs="$(awk -v n="$now" -v s="$DOTFILES_INIT_EPOCHREALTIME_START" 'BEGIN { printf "%.3f", (n - s) }')"
-        formatted="${secs}s"
-    elif [[ -n "${SECONDS:-}" ]]; then
-        secs="${SECONDS}"
-        formatted="${SECONDS}s"
-    else
-        # As a final fallback, skip reporting
-            return 1
+    if [[ -z "${DOTFILES_INIT_EPOCHREALTIME_END}" ]]; then
+        if [[ -n "${EPOCHREALTIME:-}" ]]; then
+            DOTFILES_INIT_EPOCHREALTIME_END="${EPOCHREALTIME}"
+        else
+            DOTFILES_INIT_EPOCHREALTIME_END="$(date +%s.%N)"
         fi
+        export DOTFILES_INIT_EPOCHREALTIME_END
+    fi
 
-    # Prepare display with clock icon
-    local display_str
-    display_str="${ICON_MAP[CLOCK]} ${formatted}"
+    local secs
+    secs="$(awk -v n="$DOTFILES_INIT_EPOCHREALTIME_END" -v s="${DOTFILES_INIT_EPOCHREALTIME_START:0}" 'BEGIN { printf "%.3f", (n - s) }')"
+    local display_str="${ICON_MAP[CLOCK]} ${secs}s"
 
     # Highlight slow startups (> 3.000 seconds) in red
     local -i is_slow=0
-    if [[ -n "${secs}" ]]; then
-        if [[ "$secs" == *.* ]]; then
-            # float compare via awk
-            is_slow="$(awk -v d="$secs" 'BEGIN { if (d > 3.0) print 1; else print 0 }')"
-        else
-            # integer seconds
-            if (( secs > 3 )); then is_slow="1"; fi
-        fi
-    fi
+    is_slow="$(awk -v d="$secs" 'BEGIN { if (d > 3.0) print 1; else print 0 }')"
 
     if (( is_slow == 1 )); then
         __echo_colored_stdout red "${display_str}"
     else
         printf '%s' "${display_str}"
     fi
+
+    _dotTrace_exit 0
 }
 
 function __cute_shell_header() {

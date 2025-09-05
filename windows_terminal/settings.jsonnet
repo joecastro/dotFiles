@@ -1,8 +1,6 @@
 local color_defs = import '../shell/color_definitions.libsonnet';
 
 local Schemes = color_defs.Schemes;
-local Colors = color_defs.Colors;
-local ColorFromHex = color_defs.ColorFromHex;
 
 local CopyCommand = {
     command:
@@ -72,12 +70,12 @@ local ProfileBase(name, scheme, source, guid, hidden=false) = {
 
 local profiles = {
     WindowsPowershell: ProfileBase("Windows PowerShell", schemes.CampbellPowershell, null, "61c54bbd-c2c6-5271-96e7-009a87ff44bf") + {
-        backgroundImage: "%DOTFILES_SRC_DIR%\\wallpaper\\windows_bliss.jpg",
+        backgroundImage: "%DOTFILES_SRC_DIR%\\images\\windows_bliss.jpg",
         backgroundImageOpacity: 0.4,
         commandline: "%SystemRoot%\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
     },
     CommandPrompt: ProfileBase("Command Prompt", schemes.Campbell, null, "0caa0dad-35be-5f56-a8ff-afceeeaa6101") + {
-        backgroundImage: "%DOTFILES_SRC_DIR%\\wallpaper\\vista_flare.jpg",
+        backgroundImage: "%DOTFILES_SRC_DIR%\\images\\vista_flare.jpg",
         backgroundImageOpacity: 0.5,
         commandline: "%SystemRoot%\\System32\\cmd.exe",
         "experimental.retroTerminalEffect": true,
@@ -86,7 +84,7 @@ local profiles = {
     },
     GitBash: ProfileBase("Git Bash", schemes['One Half Dark'], "Git", "2ece5bfe-50ed-5f3a-ab87-5cd4baafed2b"),
     Ubuntu: ProfileBase("Ubuntu", schemes.Ubuntu, "Windows.Terminal.Wsl", "17bf3de4-5353-5709-bcf9-835bd952a95e") + {
-        backgroundImage: "%DOTFILES_SRC_DIR%\\wallpaper\\ubuntu_purple.jpg",
+        backgroundImage: "%DOTFILES_SRC_DIR%\\images\\ubuntu_purple.jpg",
         backgroundImageOpacity: 0.7,
         opacity: 70,
     },
