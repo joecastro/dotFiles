@@ -238,7 +238,7 @@ function __update_prompt() {
 
     if [[ "${$(__cache_get UPDATE_PROMPT_PWD)}" == "${PWD}" ]]; then
         _dotTrace "no change"
-        _dotTrace_exit
+        _dotTrace_exit 0
         return
     fi
     __cache_put UPDATE_PROMPT_PWD "${PWD}"

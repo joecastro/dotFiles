@@ -49,3 +49,37 @@ function iterm_set_color() {
 function iterm_get_attention() {
     printf "\033]" && printf "1337;RequestAttention=fireworks" && printf "\a"
 }
+
+function iterm_set_badge_text() {
+    local badge_text="$1"
+    printf "\033]1337;SetBadgeFormat=%s\007" "$(echo -n "${badge_text}" | base64)"
+}
+
+function __iterm_badge_nodeenv() {
+    _dotTrace_enter "$@"
+
+    if ! __is_in_node_project; then
+        iterm_set_badge_text ""
+        _dotTrace "Not in a Node.js project"
+        _dotTrace_exit 0
+        return
+    fi
+
+    if [[ -z "$APP_ENV" ]]; then
+        iterm_set_badge_text ""
+        _dotTrace "APP_ENV is not set"
+        _dotTrace_exit 0
+        return
+    fi
+
+    local badge_emoji="${EMOJI_ICON_MAP[X]}"
+    case "$APP_ENV" in
+        production) badge_emoji="${EMOJI_ICON_MAP[ALARM]}" ;;
+        staging)    badge_emoji="${EMOJI_ICON_MAP[TEST_TUBE]}" ;;
+        dev)        badge_emoji="${EMOJI_ICON_MAP[TOOL]}" ;;
+        *)          badge_emoji="${EMOJI_ICON_MAP[X]}" ;;
+    esac
+    _dotTrace "Setting badge to: $badge_emoji APP_ENV=$APP_ENV"
+    iterm_set_badge_text "$badge_emoji APP_ENV=$APP_ENV"
+    _dotTrace_exit 0
+}

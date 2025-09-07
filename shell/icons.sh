@@ -62,6 +62,11 @@ declare -A EMOJI_ICON_MAP=(
     [TOOLS]=🛠️
     [NODEJS]=🔩
     [CLOCK]=🕰️
+    [X]=❌
+    [QUESTION]=❓
+    [ALARM]=🚨
+    [TEST_TUBE]=🧪
+    [ALERT]=⚠️
     [APPLE_FINDER]= # Only legible on MacOS and iOS
     ) > /dev/null 2>&1
 
@@ -120,6 +125,11 @@ declare -A NF_ICON_MAP=(
     [TOOLS]=
     [NODEJS]=
     [CLOCK]=
+    [X]=󰅖
+    [QUESTION]=
+    [ALARM]=󰞎
+    [TEST_TUBE]=
+    [ALERT]=
     [APPLE_FINDER]=󰀶
     ) > /dev/null 2>&1
 

@@ -112,13 +112,126 @@ function _stack_print() {
     echo
 }
 
+# Prints a high-resolution seconds timestamp as a float-like string.
+function __time_now() {
+    if [[ -n "${EPOCHREALTIME:-}" ]]; then
+        printf '%s' "${EPOCHREALTIME}"
+        return 0
+    fi
+    if [[ -n "${SECONDS:-}" ]]; then
+        printf '%s' "${SECONDS}.000"
+        return 0
+    fi
+    # Fallback: date; precision depends on platform (may be seconds)
+    if date +%s.%N 2>/dev/null | grep -q '\.'; then
+        date +%s.%N
+        return 0
+    fi
+
+    date +%s 2>/dev/null
+}
+
+# Prints end-start in seconds with millisecond precision.
+# Use __time_now if end is omitted.
+function __time_delta() {
+    local start="$1"
+    local end="${2:-}"
+    if [[ -z "$end" ]]; then
+        end="$(__time_now)"
+    fi
+
+    awk -v n="$end" -v s="$start" 'BEGIN { printf "%.3f", (n - s) }'
+}
+
+# Format an epoch seconds value (float-like) as HH:MM:SS.mmm
+function __time_format() {
+    if [[ -z "$1" ]]; then
+        date +%T.%3N
+        return 0
+    fi
+
+    local epoch_val="$1"
+    local sec_part="${epoch_val%.*}"
+    local frac_part="${epoch_val#*.}"
+    local msec="000"
+    if [[ -n "$frac_part" && "$frac_part" != "$epoch_val" ]]; then
+        msec="$(printf '%03d' "${frac_part:0:3}")"
+    fi
+    local hms
+    if date -r "$sec_part" +%T > /dev/null 2>&1; then
+        hms="$(date -r "$sec_part" +%T)"
+    elif date -d "@$sec_part" +%T > /dev/null 2>&1; then
+        hms="$(date -d "@$sec_part" +%T)"
+    else
+        hms="$(date +%T)"
+    fi
+    printf '%s.%s' "$hms" "$msec"
+}
+
+function __dotTrace_print() {
+    local indent="$1"
+    local trace_type="$2"
+    local timestamp=""
+    local content="$4"
+
+    if [[ -n "${TRACE_DOTFILES_TIMING}" ]]; then
+        timestamp="$(__time_format "$3"): "
+    fi
+
+    printf '%s%s%s %s\n' "$timestamp" "${indent}" "${trace_type}" "${content}" >&2
+}
+
+function __dotTrace_flushPending() {
+    # Usage: __dotTrace_flushPending [exit_status]
+    # There are two modes for this function:
+    # - TRACE_ENTER: flush a pending enter line (no args)
+    # no-op if no pending state. Prints the pending ENTER line and clears state.
+    # - TRACE_FUNCTION: flush a function exit summary (with exit_status arg)
+    # Modifies the pending state to generate a one-line summary of the function.
+    # exit_status argument implies mode=TRACE_FUNCTION.
+    local -i status_val=0
+    local mode="TRACE_ENTER"
+    if (( $# > 0 )); then
+        mode="TRACE_FUNCTION"
+        status_val="${1}"
+    fi
+
+    if [[ -z "${TRACE_DOTFILES_PENDING_LABEL:-}" ]]; then
+        return 1
+    fi
+
+    # If this is an enter flush then the current indent is too deep by one level
+    local indent_prefix="${TRACE_DOTFILES_ACTIVE_INDENT}"
+    if [[ "${mode}" == "TRACE_ENTER" ]]; then
+        indent_prefix="${TRACE_DOTFILES_ACTIVE_INDENT%  }"
+    fi
+
+    local status_suffix=""
+    if [[ "${mode}" == "TRACE_FUNCTION" ]]; then
+        local formatted_duration="$(__time_delta "${TRACE_DOTFILES_PENDING_START}")"
+        status_suffix=" status=${status_val}, duration: ${formatted_duration}s"
+    fi
+
+    __dotTrace_print "${indent_prefix}" "${mode}" "${TRACE_DOTFILES_PENDING_START}" "${TRACE_DOTFILES_PENDING_LABEL}${status_suffix}"
+
+    unset TRACE_DOTFILES_PENDING_LABEL
+    unset TRACE_DOTFILES_PENDING_START
+    return 0
+}
+
+function __dotTrace_incrementIndent() {
+    TRACE_DOTFILES_ACTIVE_INDENT="${TRACE_DOTFILES_ACTIVE_INDENT:-}  "
+}
+
+function __dotTrace_decrementIndent() {
+    TRACE_DOTFILES_ACTIVE_INDENT="${TRACE_DOTFILES_ACTIVE_INDENT%  }"
+}
+
 function _dotTrace() {
     if [[ -n "${TRACE_DOTFILES}" ]]; then
-        local indent_depth=""
-        for ((i=1; i < $(_stack_size TRACE_DOTFILES_STACK); i++)); do
-            indent_depth+="  "
-        done
-        echo "${indent_depth}TRACE $(date +%T.%3N): $*" >&2
+        # If there's a pending ENTER for this frame, flush it now
+        __dotTrace_flushPending
+        __dotTrace_print "${TRACE_DOTFILES_ACTIVE_INDENT}" "TRACE" "$(__time_now)" "$*"
     fi
 }
 
@@ -126,56 +239,48 @@ function _dotTrace_enter() {
     if [[ -n "${TRACE_DOTFILES}" ]]; then
         _stack_safe_declare TRACE_DOTFILES_STACK
 
-        local indent_depth=""
-        for ((i=1; i < $(_stack_size TRACE_DOTFILES_STACK); i++)); do
-            indent_depth+="  "
-        done
+        # Flush any pending enter for the parent frame before nesting
+        __dotTrace_flushPending
 
         local func_name=""
-        local func_args=""
+        # If indent is zero augment this line with the caller's caller
+        local extra_label=""
         if [[ -n "${ZSH_VERSION}" ]]; then
             # In zsh, $funcstack[1] is the current function; the caller is [2]
             # shellcheck disable=SC2154
             func_name="${funcstack[2]:-<toplevel>}"
-            # Prefer explicitly forwarded args (from caller using: _dotTrace_enter "$@")
-            if (( $# > 0 )); then
-                func_args="$*"
-            else
-                func_args=""
+            if [[ -z "${TRACE_DOTFILES_ACTIVE_INDENT}" ]]; then
+                extra_label=" (caller: ${funcstack[3]:-<toplevel>})"
             fi
         else
             func_name="${FUNCNAME[1]}"
-            # Prefer explicitly forwarded args
-        if (( $# > 0 )); then
-                        func_args="$*"
-            else
-                # Bash: BASH_ARGV contains the arguments to the current function, but in reverse order
-                # $BASH_ARGC[1] is the number of arguments to the calling function
-                local -i argc=${BASH_ARGC[1]:-0}
-                if (( argc > 0 )); then
-                    for ((i=argc-1; i>=0; i--)); do
-                        func_args="${BASH_ARGV[i]} ${func_args}"
-                    done
-                    func_args="${func_args%% }"
-                fi
+            if [[ -z "${TRACE_DOTFILES_ACTIVE_INDENT}" ]]; then
+                extra_label=" (caller: ${FUNCNAME[2]:-<toplevel>})"
             fi
         fi
-        _stack_push TRACE_DOTFILES_STACK "$func_name"
 
-        echo "${indent_depth}TRACE_ENTER $(date +%T.%3N): $(_stack_top TRACE_DOTFILES_STACK)($func_args)" >&2
+        _stack_push TRACE_DOTFILES_STACK "$func_name"
+        __dotTrace_incrementIndent
+
+        # Defer the enter line; print it on first inner activity
+        TRACE_DOTFILES_PENDING_LABEL="${func_name}($*)$extra_label"
+        TRACE_DOTFILES_PENDING_START="$(__time_now)"
     fi
 }
 
 function _dotTrace_exit() {
     # Capture caller's last exit code immediately
     local -i exit_status=${1:-$?}
-    if [[ -n "${TRACE_DOTFILES}" ]]; then
-        local indent_depth=""
-        for ((i=1; i < $(_stack_size TRACE_DOTFILES_STACK); i++)); do
-            indent_depth+="  "
-        done
-        local current="$(_stack_top TRACE_DOTFILES_STACK)"
-        echo "${indent_depth}TRACE_EXIT  $(date +%T.%3N): ${current} -> status=${exit_status}" >&2
+    if [[ -n "${TRACE_DOTFILES}" ]] ; then
+        # Restore indent to the entry level for this frame
+        __dotTrace_decrementIndent
+
+        # Try to print the single-line function summary; fall back to EXIT
+        if ! __dotTrace_flushPending "${exit_status}"; then
+            local func_name
+            func_name=$(_stack_top TRACE_DOTFILES_STACK)
+            __dotTrace_print "${TRACE_DOTFILES_ACTIVE_INDENT}" "TRACE_EXIT" "$(__time_now)" "${func_name} status=${exit_status}"
+        fi
         _stack_pop TRACE_DOTFILES_STACK
     fi
     return ${exit_status}
@@ -186,6 +291,9 @@ function toggle_trace_dotfiles() {
         unset TRACE_DOTFILES
     else
         export TRACE_DOTFILES=1
+        if [[ -n "$1" ]]; then
+            TRACE_DOTFILES_TIMING=1
+        fi
     fi
 }
 
@@ -704,7 +812,6 @@ if ! __is_shell_old_bash; then
             printf '%s' "${PWD##*/}"
         fi
 
-        _dotTrace "done"
         _dotTrace_exit 0
         return
     }
@@ -852,9 +959,11 @@ typeset -a VIRTUALENV_ID_FUNCS=( \
     NODE_VIRTUALENV_SYNCED_ID)
 
 function __virtualenv_info() {
+    _dotTrace_enter "$@"
     local suffix="${1:-}"
     local -i has_virtualenv=1
     for value in "${VIRTUALENV_ID_FUNCS[@]}"; do
+        _dotTrace "Checking virtualenv: $value"
         if [[ -n ${ZSH_VERSION:-} ]]; then
             eval "arr=(\"\${${value}[@]}\")"
         else
@@ -864,6 +973,7 @@ function __virtualenv_info() {
         ICON="${ICON_MAP[${arr[@]:1:1}]}"
         ICON_COLOR="${arr[@]:2:1}"
         if eval "${ID_FUNC}"; then
+            _dotTrace "Found virtualenv with $ID_FUNC"
             __echo_colored "${ICON_COLOR}" "${ICON}"
             has_virtualenv=0
         fi
@@ -871,7 +981,9 @@ function __virtualenv_info() {
     if [[ "${has_virtualenv}" == "0" ]]; then
         printf '%s' "${suffix}"
     fi
-    return ${has_virtualenv}
+
+    _dotTrace_exit ${has_virtualenv}
+    return
 }
 
 # Robust array declaration for both bash and zsh
@@ -885,16 +997,12 @@ function __cute_startup_time() {
     _dotTrace_enter "$@"
 
     if [[ -z "${DOTFILES_INIT_EPOCHREALTIME_END}" ]]; then
-        if [[ -n "${EPOCHREALTIME:-}" ]]; then
-            DOTFILES_INIT_EPOCHREALTIME_END="${EPOCHREALTIME}"
-        else
-            DOTFILES_INIT_EPOCHREALTIME_END="$(date +%s.%N)"
-        fi
+        DOTFILES_INIT_EPOCHREALTIME_END="$(__time_now)"
         export DOTFILES_INIT_EPOCHREALTIME_END
     fi
 
     local secs
-    secs="$(awk -v n="$DOTFILES_INIT_EPOCHREALTIME_END" -v s="${DOTFILES_INIT_EPOCHREALTIME_START:0}" 'BEGIN { printf "%.3f", (n - s) }')"
+    secs="$(__time_delta "${DOTFILES_INIT_EPOCHREALTIME_START:0}" "$DOTFILES_INIT_EPOCHREALTIME_END")"
     local display_str="${ICON_MAP[CLOCK]} ${secs}s"
 
     # Highlight slow startups (> 3.000 seconds) in red
@@ -1039,6 +1147,12 @@ function __do_iterm2_shell_integration() {
 
     # shellcheck source=SCRIPTDIR/iterm2_funcs.sh
     [[ -f "${DOTFILES_CONFIG_ROOT}/iterm2_funcs.sh" ]] && source "${DOTFILES_CONFIG_ROOT}/iterm2_funcs.sh"
+
+    # TODO: Add a similar hook for bash PROMPT_COMMAND
+    if __is_shell_zsh; then
+        precmd_functions=($precmd_functions __iterm_badge_nodeenv)
+    fi
+
     _dotTrace_exit 0
 }
 

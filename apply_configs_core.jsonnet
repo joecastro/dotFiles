@@ -173,6 +173,12 @@ local less_termcaps_properties = {
     MANPAGER: 'less -s -M +Gg',
 };
 
+local debug_properties = if ext_vars.trace_startup
+    then {
+        TRACE_DOTFILES: '1',
+    }
+    else {};
+
 local env_vars = {
     properties: {
         // XDG_CONFIG_HOME: '${XDG_CONFIG_HOME:-$HOME/.config}',
@@ -183,7 +189,7 @@ local env_vars = {
         EXPECT_NERD_FONTS: '${EXPECT_NERD_FONTS:-0}',
         DOTFILES_INIT_EPOCHREALTIME_START: "${EPOCHREALTIME:-}",
         NVM_DIR: "$HOME/.nvm",
-    } + less_termcaps_properties,
+    } + debug_properties + less_termcaps_properties,
     interactive_directives: less_termcaps_directives,
     aliases: {
         '...': 'cd ../..',
