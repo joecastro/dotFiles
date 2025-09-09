@@ -284,7 +284,7 @@ __do_eza_aliases
 case "$(__effective_distribution)" in
 "MACOS")
     # echo "MacOS zshrc load complete"
-    if command -v brew > /dev/null; then
+    if __has_homebrew; then
         gnubin_path="$(brew --prefix)/opt/coreutils/libexec/gnubin"
         if [ -d "${gnubin_path}" ]; then
             path=("${gnubin_path}" "${path[@]}")

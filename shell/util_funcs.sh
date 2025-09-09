@@ -2,12 +2,7 @@
 
 #pragma once
 #pragma requires debug.sh
-
-if ! declare -f __is_shell_zsh &>/dev/null; then
-    function __is_shell_zsh() {
-        [[ -n "$ZSH_VERSION" ]]
-    }
-fi
+#pragma requires platform.sh
 
 alias myip='curl http://ipecho.net/plain; echo'
 
@@ -276,7 +271,7 @@ function bootstrap_apt_packages() {
 
 function bootstrap_brew_packages() {
     # https://brew.sh
-    if ! command -v brew; then
+    if ! __has_homebrew; then
         echo " >> Installing Homebrew..."
         /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
     fi

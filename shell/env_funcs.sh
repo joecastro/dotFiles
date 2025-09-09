@@ -916,20 +916,32 @@ function __do_iterm2_shell_integration() {
 
 function __do_vscode_shell_integration() {
     _dotTrace_enter "$@"
-    if __is_on_macos && ! __is_ssh_session && ! command -v code &> /dev/null; then
-        __cute_shell_header_add_warning "VSCode CLI unavailable. Check https://code.visualstudio.com/docs/setup/mac"
+
+    local -i has_code_cmd=0
+    if command -v code &> /dev/null; then
+        has_code_cmd=1
     fi
 
-    if ! __is_vscode_terminal; then
+    if (( has_code_cmd == 0 )); then
+        if __is_on_macos && ! __is_ssh_session; then
+            __cute_shell_header_add_warning "VSCode CLI 'code' unavailable.  Check https://code.visualstudio.com/docs/setup/mac"
+        fi
         _dotTrace_exit 0
         return
     fi
 
-    if __is_shell_zsh; then
-        if command -v code &> /dev/null; then
+    if __is_vscode_terminal; then
+        if (( has_code_cmd == 0 )); then
+            echo "VSCode terminal detected but 'code' CLI unavailable"
+        fi
+        if __is_shell_bash; then
+            # shellcheck disable=SC1090
+            source "$(code --locate-shell-integration-path bash)"
+        elif __is_shell_zsh; then
             # shellcheck disable=SC1090
             source "$(code --locate-shell-integration-path zsh)"
         fi
     fi
+
     _dotTrace_exit 0
 }

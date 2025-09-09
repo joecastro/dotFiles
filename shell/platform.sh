@@ -52,12 +52,33 @@ function __is_shell_bash() { [[ -n "${BASH_VERSION}" ]]; }
 function __is_shell_old_bash() { __is_shell_bash && (( BASH_VERSINFO[0] < 4 )); }
 function __is_shell_zsh() { [[ -n "${ZSH_VERSION}" ]]; }
 
+function __has_citc() { command -v citctools > /dev/null; }
+
+[ -d "$HOME/.rbenv/bin" ] && export PATH="$HOME/.rbenv/bin:$PATH"
+[ -x "$(command -v rbenv)" ] && eval "$(rbenv init -)"
+
+function __has_rbenv() { command -v rbenv > /dev/null; }
+
+# Set PATH, MANPATH, etc., for Homebrew.
+[ -d "/opt/homebrew/bin" ] && eval "$(/opt/homebrew/bin/brew shellenv)"
+
+function __has_homebrew() { command -v brew > /dev/null; }
+
 function __is_homebrew_bin() {
     local bin_path="$1"
     [[ $bin_path == ${HOMEBREW_PREFIX:-/opt/homebrew}/bin/* ]]
 }
 
-function __has_citc() { command -v citctools > /dev/null; }
+[ -s ~/.cargo/env ] && source ~/.cargo/env
+
+function __has_cargo() { command -v cargo > /dev/null; }
+
+[ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh"
+
+if __is_shell_bash; then
+    [ -s "$NVM_DIR/bash_completion" ] && source "$NVM_DIR/bash_completion"
+fi
+function __has_nvm() { [[ -s "$NVM_DIR/nvm.sh" ]]; }
 
 function __is_bash_preexec_loaded() {
     __is_shell_bash && \
