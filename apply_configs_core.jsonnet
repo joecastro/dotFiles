@@ -39,6 +39,7 @@ local curl_maps = [
     ['https://iterm2.com/shell_integration/bash', 'curl/iterm2_shell_integration.bash', config_dir + '/'],
     ['https://raw.githubusercontent.com/eza-community/eza/main/completions/zsh/_eza', 'curl/_eza', config_dir + '/zfuncs/'],
     ['https://raw.githubusercontent.com/mafredri/zsh-async/v1.8.6/async.zsh', 'curl/async.zsh', config_dir + '/zfuncs/async'],
+    ['https://raw.githubusercontent.com/rcaloras/bash-preexec/0.6.0/bash-preexec.sh', 'curl/bash-preexec.sh', config_dir + '/bash/bash-preexec.sh'],
 ];
 
 local file_maps = [
@@ -51,6 +52,7 @@ local file_maps = [
     ['konsole/konsole_funcs.sh', config_dir + '/'],
     ['shell/env_funcs.sh', config_dir + '/'],
     ['shell/platform.sh', config_dir + '/'],
+    ['shell/debug.sh', config_dir + '/'],
     ['shell/cache.sh', config_dir + '/'],
     ['shell/icons.sh', config_dir + '/'],
     ['shell/git_funcs.sh', config_dir + '/'],
@@ -186,7 +188,7 @@ local env_vars = {
         LSCOLORS: 'GxDxbxhbcxegedabagacad',
         LS_COLORS: 'di=1;36:ln=1;33:so=31:pi=37;41:ex=32:bd=34;46:cd=34;43:su=30;41:sg=30;46:tw=30;42:ow=30;43',
         EDITOR: 'vim',
-        EXPECT_NERD_FONTS: '${EXPECT_NERD_FONTS:-0}',
+        EXPECT_NERD_FONTS: '${EXPECT_NERD_FONTS:-1}',
         DOTFILES_INIT_EPOCHREALTIME_START: "${EPOCHREALTIME:-}",
         NVM_DIR: "$HOME/.nvm",
     } + debug_properties + less_termcaps_properties,
@@ -202,7 +204,8 @@ local localhost_env_vars = env_vars + {
         DOTFILES_SRC_HOME: ext_vars.cwd,
     },
     aliases+: {
-        dotGo: 'pushd $DOTFILES_SRC_HOME'
+        dotGo: 'pushd $DOTFILES_SRC_HOME',
+        dotCode: 'code $DOTFILES_SRC_HOME',
     },
 };
 

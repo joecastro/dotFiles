@@ -11,6 +11,7 @@ source ~/.profile
 __is_shell_interactive || return
 
 #pragma requires colors.sh
+#pragma requires debug.sh
 #pragma requires completion/git-completion.bash
 
 # PS1 components
@@ -63,7 +64,7 @@ function __print_git_worktree_prompt() {
 }
 
 function __generate_static_prompt_part() {
-    local host_color="${COLOR_ANSI[yellow]}"
+    local host_color="${COLOR_ANSI_YELLOW}"
     local host_display="\h"
 
     if is_valid_rgb "${HOST_COLOR:-}"; then
@@ -76,14 +77,14 @@ function __generate_static_prompt_part() {
         host_display="${LOCALHOST_PREFERRED_DISPLAY}"
     fi
 
-    printf '%s' "${COLOR_ANSI[green]}\u${COLOR_ANSI[yellow]}@${host_color}${host_display}${RESET} "
+    printf '%s' "${COLOR_ANSI_GREEN}\u${COLOR_ANSI_YELLOW}@${host_color}${host_display}${RESET} "
 }
 
 function __generate_preamble_color() {
     case "$1" in
-        Git)   printf '%s' "${COLOR_ANSI[green]}" ;;
-        Repo)  printf '%s' "${COLOR_ANSI[yellow]}" ;;
-        Piper) printf '%s' "${COLOR_ANSI[blue]}" ;;
+        Git)   printf '%s' "${COLOR_ANSI_GREEN}" ;;
+        Repo)  printf '%s' "${COLOR_ANSI_YELLOW}" ;;
+        Piper) printf '%s' "${COLOR_ANSI_BLUE}" ;;
         *)     printf '%s' "${RESET}" ;;
     esac
 }
@@ -123,7 +124,7 @@ function __generate_prompt() {
     local ELEVATED_END_OF_PROMPT_ICON="#"
 
     local preamble=""
-    preamble+="${COLOR_ANSI[red]}${PS1_PREAMBLE_PREFIX}"
+    preamble+="${COLOR_ANSI_RED}${PS1_PREAMBLE_PREFIX}"
     preamble+="$(__generate_preamble_color "$1")"
     # shellcheck disable=SC2016
     preamble+='$(__cute_time_prompt) $(__virtualenv_info " ")'
@@ -139,17 +140,9 @@ function __generate_prompt() {
     _dotTrace_exit
 }
 
-function __patch_ghostty_shell_integration() {
-    _dotTrace_enter "$@"
-    _dotTrace_exit 0
-}
-
 function __cute_prompt_command() {
     local -i last_exit=$?  # capture immediately!
     _dotTrace_enter "$@"
-
-    __patch_ghostty_shell_integration
-
     _dotTrace "Previous PS1: \"${PS1}\" and last exit code: ${last_exit}"
 
     if [ ${last_exit} -ne 0 ]; then
@@ -204,12 +197,20 @@ function __cute_prompt_command() {
 }
 
 PS1=""
-PROMPT_COMMAND=__cute_prompt_command
-export PROMPT_COMMAND
 export PS1
 
+if __is_bash_preexec_loaded; then
+    # PROMPT_COMMAND was already hooked. Don't override it.
+    precmd_functions+=("__cute_prompt_command")
+else
+    PROMPT_COMMAND=__cute_prompt_command
+    export PROMPT_COMMAND
+fi
+
 # Workaround for https://github.com/ghostty-org/ghostty/discussions/5582
-if __is_ghostty_terminal && ! __is_ssh_session; then
+# Ghostty is using bash-preexec for its shell integration which only works
+# on newer bash anyways.
+if __is_ghostty_terminal && ! __is_shell_old_bash && ! __is_ssh_session; then
 
 _dotTrace "Setting up Ghostty shell integration"
 
@@ -321,28 +322,47 @@ function __ghostty_preexec2() {
     _dotTrace_exit "$rc"
 }
 
-HAS_UPDATED_FOR_GHOSTTY=1
+function __array_index_of() {
+    local array_name="$1"
+    local item="$2"
+    local -n arr="$array_name"
+    for i in "${!arr[@]}"; do
+        if [[ "${arr[$i]}" == "$item" ]]; then
+            printf '%d' "$i"
+            return 0
+        fi
+    done
+    return 1
+}
 
-function __patch_ghostty_shell_integration() {
+function __patch_array() {
     _dotTrace_enter "$@"
-
-    if [ "$HAS_UPDATED_FOR_GHOSTTY" -eq 0 ]; then
-        _dotTrace "Ghostty shell integration already updated"
-        _dotTrace_exit "$?"
+    # Usage: __patch_array array_name old_item new_item
+    local array_name="$1"
+    local old_item="$2"
+    local new_item="$3"
+    local -n arr="$array_name"
+    local idx
+    if idx=$(__array_index_of "$array_name" "$old_item"); then
+        arr[$idx]="$new_item"
+        _dotTrace_exit 0
         return
     fi
 
-    _dotTrace "Updating Ghostty shell integration"
-    preexec_functions=("${preexec_functions[@]/__ghostty_preexec/__ghostty_preexec2}")
-    precmd_functions=("${precmd_functions[@]/__ghostty_precmd/__ghostty_precmd2}")
-    preexec_functions+=(__ghostty_preexec2)
-    precmd_functions+=(__ghostty_precmd2)
-
-    HAS_UPDATED_FOR_GHOSTTY=0
-    _dotTrace "Ghostty shell integration updated"
-
-    _dotTrace_exit "$?"
+    _dotTrace "'$old_item' not found in array '$array_name'"
+    arr+=("$new_item")
+    _dotTrace_exit
 }
+
+__patch_array precmd_functions "__ghostty_precmd" "__ghostty_precmd2"
+__patch_array preexec_functions "__ghostty_preexec" "__ghostty_preexec2"
+
+unset -f __array_index_of
+unset -f __patch_array
+
+HAS_UPDATED_FOR_GHOSTTY=1
+
+_dotTrace "Ghostty shell integration updated"
 
 fi
 

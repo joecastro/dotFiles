@@ -9,6 +9,7 @@ import platform
 import plistlib
 import re
 import subprocess
+import shlex
 import sys
 from dataclasses import dataclass, field, fields, is_dataclass
 from datetime import datetime
@@ -404,8 +405,23 @@ def preprocess_curl_files(host: Host, verbose: bool = False) -> list:
                    for src, dest in host.curl_maps.items()}
     ops = ensure_directories_exist_ops([os.path.dirname(d) for d in full_paths.values()])
 
-    curl_prefix = ['curl', '-s', '-S'] if not verbose else ['curl']
-    ops.extend([curl_prefix + ['-L', src, '-o', dest] for src, dest in full_paths.items()])
+    # Build robust curl commands that fail on HTTP errors and verify file exists
+    def make_curl_check_cmd(src: str, dest: str) -> list[str]:
+        flags = ['-fL']  # fail on HTTP errors, follow redirects
+        if not verbose:
+            flags.extend(['-s', '-S'])  # silent but show errors
+        curl_cmd = ['curl', *flags, '-o', dest, src]
+
+        # Verify the output file is non-empty; remove if invalid
+        quoted_dest = shlex.quote(dest)
+        quoted_src = shlex.quote(src)
+        check_snippet = (
+            f"[ -s {quoted_dest} ] || {{ echo 'ERROR: Failed to download ' {quoted_src} '->' {quoted_dest} 1>&2; rm -f {quoted_dest}; exit 1; }}"
+        )
+        # Use sh -c to chain commands with a post-check
+        return ['sh', '-c', f"{make_shell_command(curl_cmd)} && {check_snippet}"]
+
+    ops.extend([make_curl_check_cmd(src, dest) for src, dest in full_paths.items()])
 
     return ops
 

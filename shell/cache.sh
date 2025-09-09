@@ -10,6 +10,9 @@ if __is_shell_old_bash; then
     function __cache_get_expiration() { return 1; }
     function __cache_get() { return 1; }
     function __cache_clear() { return 1; }
+    function __cache_print() { return 1; }
+    function __cache_save() { return 1; }
+    function __cache_load() { return 1; }
 
     return 1
 fi

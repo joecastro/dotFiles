@@ -2,6 +2,8 @@
 
 #pragma once
 
+#pragma requires debug.sh
+
 function repo_find() {
     _dotTrace_enter "$@"
     if __is_in_repo; then

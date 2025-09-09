@@ -58,3 +58,9 @@ function __is_homebrew_bin() {
 }
 
 function __has_citc() { command -v citctools > /dev/null; }
+
+function __is_bash_preexec_loaded() {
+    __is_shell_bash && \
+    ! __is_shell_old_bash && \
+    [[ -n "${bash_preexec_imported:-}" ]]
+}

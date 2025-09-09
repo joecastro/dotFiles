@@ -1,7 +1,14 @@
 #! /bin/bash
 
 #pragma once
+
+#pragma requires debug.sh
+#pragma requires platform.sh
 #pragma requires iterm2_color_funcs.sh
+
+if ! __is_iterm2_terminal; then
+    return
+fi
 
 declare -a ITERM_COLOR_KEYS=( \
     "fg" \

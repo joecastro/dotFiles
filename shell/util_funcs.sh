@@ -1,6 +1,7 @@
 #! /bin/bash
 
 #pragma once
+#pragma requires debug.sh
 
 if ! declare -f __is_shell_zsh &>/dev/null; then
     function __is_shell_zsh() {

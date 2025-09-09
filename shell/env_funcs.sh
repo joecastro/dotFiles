@@ -2,12 +2,14 @@
 
 #pragma once
 
+#pragma requires debug.sh
 #pragma requires platform.sh
 #pragma requires cache.sh
 #pragma requires icons.sh
 #pragma requires git_funcs.sh
 #pragma wants completion/git-prompt.sh
 #pragma wants konsole_funcs.sh
+#pragma wants iterm2_funcs.sh
 
 if [[ ":$PATH:" != *":${DOTFILES_CONFIG_ROOT}/bin:"* ]]; then
     PATH="${DOTFILES_CONFIG_ROOT}/bin:${PATH}"
@@ -16,286 +18,6 @@ fi
 if [[ ":$PATH:" != *":${HOME}/.local/bin:"* ]]; then
     PATH="${HOME}/.local/bin:${PATH}"
 fi
-
-
-## Stack implementation (portable bash/zsh): newline-delimited string
-# Declare a new stack (unconditionally)
-function _stack_declare() {
-    local name=$1
-    eval "$name=''"
-}
-
-# Declare stack only if not already defined
-function _stack_safe_declare() {
-    local name=$1
-    if ! eval "[[ \${$name+set} ]]" 2>/dev/null; then
-        eval "$name=''"
-    fi
-}
-
-    # Push a value onto the stack
-    function _stack_push() {
-        local name=$1 value=$2
-        local stack
-        eval 'stack="$'"$name"'"'
-        if [[ -z "$stack" ]]; then
-            stack="$value"
-        else
-            stack="${stack}"$'\n'"$value"
-        fi
-        eval "$name=\"\$stack\""
-    }
-
-# Pop the top value from the stack and print it
-function _stack_pop() {
-    local name=$1 stack top rest
-    eval 'stack="$'"$name"'"'
-    [ -z "$stack" ] && return 1
-
-    top="${stack##*$'\n'}"
-    rest="${stack%$'\n'*}"
-    [ "$top" = "$stack" ] && rest=''
-
-    eval "$name=\"\$rest\""
-}
-
-# Peek at the top value
-function _stack_top() {
-    local name=$1 stack
-    eval 'stack="$'"$name"'"'
-    [ -z "$stack" ] && return 1
-    printf '%s\n' "${stack##*$'\n'}"
-}
-
-# Get number of elements in the stack
-    function _stack_size() {
-        local name=$1 stack
-        eval 'stack="$'"$name"'"'
-        if [ -z "$stack" ]; then
-            echo 0
-            return
-        fi
-        local -i n=0
-        while IFS= read -r _; do
-            ((n++))
-        done <<< "$stack"
-        printf '%d\n' "$n"
-    }
-
-# Check if the stack is empty (returns 0 if empty)
-function _stack_is_empty() {
-    local name=$1 stack
-    eval 'stack="$'"$name"'"'
-    [ -z "$stack" ]
-}
-
-# Clear the stack
-function _stack_clear() {
-    local name=$1
-    eval "$name=''"
-}
-
-# Print stack elements joined by a given separator
-function _stack_print() {
-    local name=$1 sep=$2 stack first=1
-    eval 'stack="$'"$name"'"'
-    [ -z "$stack" ] && return
-
-    while IFS= read -r line; do
-        if [ $first -eq 1 ]; then
-            printf '%s' "$line"
-            first=0
-        else
-            printf '%s%s' "$sep" "$line"
-        fi
-    done <<< "$stack"
-    echo
-}
-
-# Prints a high-resolution seconds timestamp as a float-like string.
-function __time_now() {
-    if [[ -n "${EPOCHREALTIME:-}" ]]; then
-        printf '%s' "${EPOCHREALTIME}"
-        return 0
-    fi
-    if [[ -n "${SECONDS:-}" ]]; then
-        printf '%s' "${SECONDS}.000"
-        return 0
-    fi
-    # Fallback: date; precision depends on platform (may be seconds)
-    if date +%s.%N 2>/dev/null | grep -q '\.'; then
-        date +%s.%N
-        return 0
-    fi
-
-    date +%s 2>/dev/null
-}
-
-# Prints end-start in seconds with millisecond precision.
-# Use __time_now if end is omitted.
-function __time_delta() {
-    local start="$1"
-    local end="${2:-}"
-    if [[ -z "$end" ]]; then
-        end="$(__time_now)"
-    fi
-
-    awk -v n="$end" -v s="$start" 'BEGIN { printf "%.3f", (n - s) }'
-}
-
-# Format an epoch seconds value (float-like) as HH:MM:SS.mmm
-function __time_format() {
-    if [[ -z "$1" ]]; then
-        date +%T.%3N
-        return 0
-    fi
-
-    local epoch_val="$1"
-    local sec_part="${epoch_val%.*}"
-    local frac_part="${epoch_val#*.}"
-    local msec="000"
-    if [[ -n "$frac_part" && "$frac_part" != "$epoch_val" ]]; then
-        msec="$(printf '%03d' "${frac_part:0:3}")"
-    fi
-    local hms
-    if date -r "$sec_part" +%T > /dev/null 2>&1; then
-        hms="$(date -r "$sec_part" +%T)"
-    elif date -d "@$sec_part" +%T > /dev/null 2>&1; then
-        hms="$(date -d "@$sec_part" +%T)"
-    else
-        hms="$(date +%T)"
-    fi
-    printf '%s.%s' "$hms" "$msec"
-}
-
-function __dotTrace_print() {
-    local indent="$1"
-    local trace_type="$2"
-    local timestamp=""
-    local content="$4"
-
-    if [[ -n "${TRACE_DOTFILES_TIMING}" ]]; then
-        timestamp="$(__time_format "$3"): "
-    fi
-
-    printf '%s%s%s %s\n' "$timestamp" "${indent}" "${trace_type}" "${content}" >&2
-}
-
-function __dotTrace_flushPending() {
-    # Usage: __dotTrace_flushPending [exit_status]
-    # There are two modes for this function:
-    # - TRACE_ENTER: flush a pending enter line (no args)
-    # no-op if no pending state. Prints the pending ENTER line and clears state.
-    # - TRACE_FUNCTION: flush a function exit summary (with exit_status arg)
-    # Modifies the pending state to generate a one-line summary of the function.
-    # exit_status argument implies mode=TRACE_FUNCTION.
-    local -i status_val=0
-    local mode="TRACE_ENTER"
-    if (( $# > 0 )); then
-        mode="TRACE_FUNCTION"
-        status_val="${1}"
-    fi
-
-    if [[ -z "${TRACE_DOTFILES_PENDING_LABEL:-}" ]]; then
-        return 1
-    fi
-
-    # If this is an enter flush then the current indent is too deep by one level
-    local indent_prefix="${TRACE_DOTFILES_ACTIVE_INDENT}"
-    if [[ "${mode}" == "TRACE_ENTER" ]]; then
-        indent_prefix="${TRACE_DOTFILES_ACTIVE_INDENT%  }"
-    fi
-
-    local status_suffix=""
-    if [[ "${mode}" == "TRACE_FUNCTION" ]]; then
-        local formatted_duration="$(__time_delta "${TRACE_DOTFILES_PENDING_START}")"
-        status_suffix=" status=${status_val}, duration: ${formatted_duration}s"
-    fi
-
-    __dotTrace_print "${indent_prefix}" "${mode}" "${TRACE_DOTFILES_PENDING_START}" "${TRACE_DOTFILES_PENDING_LABEL}${status_suffix}"
-
-    unset TRACE_DOTFILES_PENDING_LABEL
-    unset TRACE_DOTFILES_PENDING_START
-    return 0
-}
-
-function __dotTrace_incrementIndent() {
-    TRACE_DOTFILES_ACTIVE_INDENT="${TRACE_DOTFILES_ACTIVE_INDENT:-}  "
-}
-
-function __dotTrace_decrementIndent() {
-    TRACE_DOTFILES_ACTIVE_INDENT="${TRACE_DOTFILES_ACTIVE_INDENT%  }"
-}
-
-function _dotTrace() {
-    if [[ -n "${TRACE_DOTFILES}" ]]; then
-        # If there's a pending ENTER for this frame, flush it now
-        __dotTrace_flushPending
-        __dotTrace_print "${TRACE_DOTFILES_ACTIVE_INDENT}" "TRACE" "$(__time_now)" "$*"
-    fi
-}
-
-function _dotTrace_enter() {
-    if [[ -n "${TRACE_DOTFILES}" ]]; then
-        _stack_safe_declare TRACE_DOTFILES_STACK
-
-        # Flush any pending enter for the parent frame before nesting
-        __dotTrace_flushPending
-
-        local func_name=""
-        # If indent is zero augment this line with the caller's caller
-        local extra_label=""
-        if [[ -n "${ZSH_VERSION}" ]]; then
-            # In zsh, $funcstack[1] is the current function; the caller is [2]
-            # shellcheck disable=SC2154
-            func_name="${funcstack[2]:-<toplevel>}"
-            if [[ -z "${TRACE_DOTFILES_ACTIVE_INDENT}" ]]; then
-                extra_label=" (caller: ${funcstack[3]:-<toplevel>})"
-            fi
-        else
-            func_name="${FUNCNAME[1]}"
-            if [[ -z "${TRACE_DOTFILES_ACTIVE_INDENT}" ]]; then
-                extra_label=" (caller: ${FUNCNAME[2]:-<toplevel>})"
-            fi
-        fi
-
-        _stack_push TRACE_DOTFILES_STACK "$func_name"
-        __dotTrace_incrementIndent
-
-        # Defer the enter line; print it on first inner activity
-        TRACE_DOTFILES_PENDING_LABEL="${func_name}($*)$extra_label"
-        TRACE_DOTFILES_PENDING_START="$(__time_now)"
-    fi
-}
-
-function _dotTrace_exit() {
-    # Capture caller's last exit code immediately
-    local -i exit_status=${1:-$?}
-    if [[ -n "${TRACE_DOTFILES}" ]] ; then
-        # Restore indent to the entry level for this frame
-        __dotTrace_decrementIndent
-
-        # Try to print the single-line function summary; fall back to EXIT
-        if ! __dotTrace_flushPending "${exit_status}"; then
-            local func_name
-            func_name=$(_stack_top TRACE_DOTFILES_STACK)
-            __dotTrace_print "${TRACE_DOTFILES_ACTIVE_INDENT}" "TRACE_EXIT" "$(__time_now)" "${func_name} status=${exit_status}"
-        fi
-        _stack_pop TRACE_DOTFILES_STACK
-    fi
-    return ${exit_status}
-}
-
-function toggle_trace_dotfiles() {
-    if [[ -n "${TRACE_DOTFILES}" ]]; then
-        unset TRACE_DOTFILES
-    else
-        export TRACE_DOTFILES=1
-        if [[ -n "$1" ]]; then
-            TRACE_DOTFILES_TIMING=1
-        fi
-    fi
-}
 
 function __is_ssh_session() {
     [ -n "${SSH_CLIENT}" ] || [ -n "${SSH_TTY}" ] || [ -n "${SSH_CONNECTION}" ]
@@ -989,9 +711,33 @@ function __virtualenv_info() {
 # Robust array declaration for both bash and zsh
 if [[ -n "${ZSH_VERSION:-}" ]]; then
     typeset -ga CUTE_HEADER_PARTS
+    typeset -ga CUTE_HEADER_WARNINGS
 else
     declare -a CUTE_HEADER_PARTS
+    declare -a CUTE_HEADER_WARNINGS
 fi
+
+# Utilities to add info/warnings to the cute header consistently
+function __cute_shell_header_add_info() {
+    local msg="${1:-}"
+    [[ -z "${msg}" ]] && return 0
+    # De-duplicate to avoid repeated entries
+    # shellcheck disable=SC2076
+    if [[ ! " ${CUTE_HEADER_PARTS[*]} " =~ " ${msg} " ]]; then
+        CUTE_HEADER_PARTS+=("${msg}")
+    fi
+}
+
+function __cute_shell_header_add_warning() {
+    local msg="${1:-}"
+    [[ -z "${msg}" ]] && return 0
+    msg="${ICON_MAP[WARNING]} ${msg}"
+    # De-duplicate warnings
+    # shellcheck disable=SC2076
+    if [[ ! " ${CUTE_HEADER_WARNINGS[*]} " =~ " ${msg} " ]]; then
+        CUTE_HEADER_WARNINGS+=("${msg}")
+    fi
+}
 
 function __cute_startup_time() {
     _dotTrace_enter "$@"
@@ -1020,52 +766,65 @@ function __cute_startup_time() {
 
 function __cute_shell_header() {
     _dotTrace_enter "$@"
-    if [[ "$1" != "--force" ]]; then
+    local -i force=0
+    if [[ "$1" == "--force" ]]; then
+        force=1
+    fi
+
+    if (( "$force" != 1 )); then
         if ! __is_shell_interactive; then
+            _dotTrace "Skipping cute header in non-interactive shell"
             _dotTrace_exit 0
             return
         fi
-        if (( SHLVL > 1 )); then
-            if __is_embedded_terminal; then
-                _dotTrace_exit 0
-                return
-            fi
+        if __is_embedded_terminal; then
+            _dotTrace "Skipping cute header in embedded terminal"
+            _dotTrace_exit 0
+            return
         fi
     fi
 
+    # Build line prefix for nested shells
+    local prefix=""
     if (( SHLVL > 1 )); then
         for ((i = 2; i <= SHLVL; i++)); do
-            printf '|'
+            prefix+="|"
         done
-        printf ' '
+        prefix+=" "
     fi
 
     local startup_part
     startup_part="$(__cute_startup_time)"
-    if [[ -n "$startup_part" ]]; then
-        echo "$(__cute_shell_path)" "$(__cute_shell_version)" "${CUTE_HEADER_PARTS[@]}" "$startup_part" "${ICON_MAP[MD_SNAPCHAT]}"
-    else
-        echo "$(__cute_shell_path)" "$(__cute_shell_version)" "${CUTE_HEADER_PARTS[@]}" "${ICON_MAP[MD_SNAPCHAT]}"
+    __cute_shell_header_add_info "${startup_part}"
+
+    # Print warnings, one per line, first (if any)
+    if (( ${#CUTE_HEADER_WARNINGS[@]} > 0 )); then
+        for __warn in "${CUTE_HEADER_WARNINGS[@]}"; do
+            printf '%s%s\n' "$prefix$__warn"
+        done
     fi
+
+    echo "${prefix}$(__cute_shell_path)" "$(__cute_shell_version)" "${CUTE_HEADER_PARTS[@]}" "${ICON_MAP[MD_SNAPCHAT]}"
+
     _dotTrace_exit 0
 }
 
 if __is_shell_interactive; then
-    CUTE_HEADER_PARTS+=("$(__cute_kernel)")
-    CUTE_HEADER_PARTS+=("$(__cute_host)")
-    CUTE_HEADER_PARTS+=("$(uname -m)")
+    __cute_shell_header_add_info "$(__cute_kernel)"
+    __cute_shell_header_add_info "$(__cute_host)"
+    __cute_shell_header_add_info "$(uname -m)"
 
-    if ! __is_shell_old_bash; then
-        if __is_tool_window; then
-            CUTE_HEADER_PARTS+=("${ICON_MAP[TOOLS]}")
-        fi
-    else
-        CUTE_HEADER_PARTS+=("!! Bash ${BASH_VERSINFO[0]} is old o_O !!")
+    if __is_shell_old_bash; then
+        __cute_shell_header_add_warning "Bash ${BASH_VERSINFO[0]} is old o_O"
     fi
 
-    CUTE_HEADER_PARTS+=("distro:$(__effective_distribution)")
+    if __is_tool_window; then
+        __cute_shell_header_add_info "${ICON_MAP[TOOLS]}"
+    fi
+
+    __cute_shell_header_add_info "distro:$(__effective_distribution)"
     if __is_embedded_terminal; then
-        CUTE_HEADER_PARTS+=("embedded:$(__embedded_terminal_info)")
+        __cute_shell_header_add_info "embedded:$(__embedded_terminal_info)"
     fi
 fi
 
@@ -1085,11 +844,7 @@ function __do_eza_aliases() {
     # if eza is installed prefer that to ls
     # options aren't the same, but I also need it less often...
     if ! command -v eza &> /dev/null; then
-        local eza_warning="!! eza not found !!"
-        # shellcheck disable=SC2076
-        if [[ ! " ${CUTE_HEADER_PARTS[*]} " =~ " ${eza_warning} " ]]; then
-            CUTE_HEADER_PARTS+=("${eza_warning}")
-        fi
+        __cute_shell_header_add_warning "eza not found"
         # echo "## Using native ls because missing eza"
         # by default, show slashes, follow symbolic links, colorize
         alias ls='ls -FHG'
@@ -1145,12 +900,15 @@ function __do_iterm2_shell_integration() {
         return
     fi
 
-    # shellcheck source=SCRIPTDIR/iterm2_funcs.sh
-    [[ -f "${DOTFILES_CONFIG_ROOT}/iterm2_funcs.sh" ]] && source "${DOTFILES_CONFIG_ROOT}/iterm2_funcs.sh"
-
-    # TODO: Add a similar hook for bash PROMPT_COMMAND
+    if __is_shell_bash; then
+        if declare -p precmd_functions &>/dev/null; then
+            precmd_functions+=("__iterm_badge_nodeenv")
+        else
+            __cute_shell_header_add_warning "bash-preexec not loaded"
+        fi
+    fi
     if __is_shell_zsh; then
-        precmd_functions=($precmd_functions __iterm_badge_nodeenv)
+        precmd_functions+=(__iterm_badge_nodeenv)
     fi
 
     _dotTrace_exit 0
@@ -1159,11 +917,7 @@ function __do_iterm2_shell_integration() {
 function __do_vscode_shell_integration() {
     _dotTrace_enter "$@"
     if __is_on_macos && ! __is_ssh_session && ! command -v code &> /dev/null; then
-        local vscode_warning="!! VSCode CLI unavailable. Check https://code.visualstudio.com/docs/setup/mac !!"
-        # shellcheck disable=SC2076
-        if [[ ! " ${CUTE_HEADER_PARTS[*]} " =~ " ${vscode_warning} " ]]; then
-            CUTE_HEADER_PARTS+=("${vscode_warning}")
-        fi
+        __cute_shell_header_add_warning "VSCode CLI unavailable. Check https://code.visualstudio.com/docs/setup/mac"
     fi
 
     if ! __is_vscode_terminal; then

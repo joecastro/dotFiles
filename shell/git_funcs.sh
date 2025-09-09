@@ -2,6 +2,7 @@
 
 #pragma once
 
+#pragma requires debug.sh
 #pragma requires icons.sh
 #pragma requires platform.sh
 #pragma requires completion/git-prompt.sh

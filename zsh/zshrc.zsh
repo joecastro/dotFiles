@@ -4,6 +4,8 @@
 
 #pragma validate-dotfiles
 
+#pragma requires colors.sh
+
 # In some contexts .zprofile isn't sourced (e.g. when started inside the Python debug console.)
 # shellcheck source=SCRIPTDIR/zsh/zprofile.zsh
 source ${ZDOTDIR:-$HOME}/.zprofile
@@ -146,8 +148,7 @@ precmd_functions=($precmd_functions __update_prompt)
 
 function __print_git_worktree_prompt() {
     if __git_is_in_worktree; then
-        local PINK_FLAMINGO_FG="%F{#ff5fff}"
-        echo -ne "%{$PINK_FLAMINGO_FG%}$(__print_git_worktree) "
+        echo -ne "%{%F{$PINK_FLAMINGO}%}$(__print_git_worktree) "
     fi
 }
 

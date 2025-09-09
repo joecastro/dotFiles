@@ -78,13 +78,13 @@ local ItermColorWhite = ItermColor(Colors.White);
         "a5f40a0d-b445-4bf1-bfcd-30bf34fa6905",
         "56dd2b39-28e7-450f-bb9e-242bcb37f4a9",
         "46c05cb5-a8ea-4abe-a301-02a75d6352bb",
-        "88f46a90-3f8e-4258-93e4-e08b1fcdb520",
-        "fe30c44a-f7f8-479e-9608-812f4e7d621c"
+        "fe30c44a-f7f8-479e-9608-812f4e7d621c",
     ],
     private_guids:: [
         "748cf42e-b25d-4113-9bc6-134455bf65e6",
         "FA66AC80-6AAA-4A3B-9CFE-B934F789D5EF",
-        "658b147e-4e39-48a1-8ecc-92eeed6c0104"
+        "658b147e-4e39-48a1-8ecc-92eeed6c0104",
+        "88f46a90-3f8e-4258-93e4-e08b1fcdb520",
     ],
     ItermProfileTemplate::
     {
@@ -213,7 +213,10 @@ local ItermColorWhite = ItermColor(Colors.White);
         HomebrewBash: $.ItermProfile("Bash", Colors.White, $.private_guids[1], wallpapers.backgrounds.abstract_pastel) {
             "Command": "/opt/homebrew/bin/bash",
         },
-        GuakeWindow: $.ItermProfile("Guake", Colors.White, $.private_guids[2], wallpapers.backgrounds.quake) {
+        NativeOldBash: $.ItermProfile("Old Bash (Debugging)", Colors.White, $.private_guids[2], wallpapers.backgrounds.abstract_pastel) {
+            "Command": "/bin/bash",
+        },
+        GuakeWindow: $.ItermProfile("Guake", Colors.White, $.private_guids[3], wallpapers.backgrounds.quake) {
             "Has Hotkey": true,
             "Horizontal Spacing": 1.0,
             "HotKey Activated By Modifier": false,
@@ -233,7 +236,7 @@ local ItermColorWhite = ItermColor(Colors.White);
                 "0x74-0x100000-0x0": {
                     "Action": 27,
                     "Label": "",
-                    "Text": $.private_guids[2],
+                    "Text": $.private_guids[3],
                     "Version": 1
                 }
             },

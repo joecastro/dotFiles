@@ -5,6 +5,7 @@ local color_defs = import '../shell/color_definitions.libsonnet';
     Profiles: [
         iterm.Profiles.HomebrewZsh,
         iterm.Profiles.HomebrewBash,
+        iterm.Profiles.NativeOldBash,
         iterm.Profiles.GuakeWindow,
     ],
 

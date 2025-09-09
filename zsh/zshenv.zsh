@@ -4,23 +4,12 @@
 
 #pragma validate-dotfiles
 
+#pragma requires debug.sh
+
 if [[ -z "$DOTFILES_INIT_EPOCHREALTIME_START" ]]; then
-    if (( $+TRACE_DOTFILES )); then
-        printf "[%s] [zshenv] Falling back to date implementation...\n" "$(date +%Y-%m-%dT%H:%M:%S%z)" >&2
-    fi
-    date_args="+%s.%N"
-    if ! date "$date_args" 2>/dev/null | grep -q '\.'; then
-        date_args="%s"
-    fi
-    DOTFILES_INIT_EPOCHREALTIME_START="$(date +"$date_args")"
-    if (( $+TRACE_DOTFILES )); then
-        printf "[%s] [zshenv] Inferred start time: %s using '%s %s'\n" \
-            "$(date +%Y-%m-%dT%H:%M:%S%z)" \
-            "${DOTFILES_INIT_EPOCHREALTIME_START}" \
-            "$(command -v date)" \
-            "$date_args" >&2
-    fi
-    unset date_args
+    _dotTrace "EPOCHREALTIME not set. Falling back to $(command -v date) for start time."
+    DOTFILES_INIT_EPOCHREALTIME_START="$(__time_now)"
+    _dotTrace "Inferred start time: $DOTFILES_INIT_EPOCHREALTIME_START"
 fi
 
 #pragma requires env_funcs.sh

@@ -4,8 +4,16 @@
 
 #pragma requires platform.sh
 
-# Suppress warnings on bash 3
-declare -A ICON_MAP=([NOTHING]="❌") > /dev/null 2>&1
+# On very old Bash (pre-4, no associative arrays), make ICON_MAP a scalar fallback.
+# In Bash, `${var[something]}` on a scalar expands to `${var}`; setting this to ❌
+# ensures `${ICON_MAP[ANY_KEY]}` reliably prints an X.
+if __is_shell_old_bash; then
+    declare -a ICON_MAP='❌'
+    export ICON_MAP
+    return 0
+fi
+
+declare -A ICON_MAP=([NOTHING]="❌")
 
 declare -A EMOJI_ICON_MAP=(
     [WINDOWS]=🪟
@@ -68,7 +76,7 @@ declare -A EMOJI_ICON_MAP=(
     [TEST_TUBE]=🧪
     [ALERT]=⚠️
     [APPLE_FINDER]= # Only legible on MacOS and iOS
-    ) > /dev/null 2>&1
+    )
 
 declare -A NF_ICON_MAP=(
     [WINDOWS]=
@@ -131,7 +139,7 @@ declare -A NF_ICON_MAP=(
     [TEST_TUBE]=
     [ALERT]=
     [APPLE_FINDER]=󰀶
-    ) > /dev/null 2>&1
+    )
 
 if __is_shell_zsh; then
     # shellcheck disable=SC2296
@@ -140,13 +148,13 @@ else
     declare -a ICON_MAP_KEYS=("${!EMOJI_ICON_MAP[@]}")
 fi
 
+IFS=$'\n' ICON_MAP_KEYS=($(sort <<<"${ICON_MAP_KEYS[*]}"))
+unset IFS
+
 function __refresh_icon_map() {
-    local USE_NERD_FONTS="$1"
-    if __is_shell_old_bash;
-        then return 1;
-    fi
+    local use_nerd_fonts="$1"
     unset "ICON_MAP[NOTHING]"
-    if [[ "${USE_NERD_FONTS}" == "0" ]]; then
+    if (( use_nerd_fonts )); then
         for key in "${ICON_MAP_KEYS[@]}"; do ICON_MAP[$key]=${NF_ICON_MAP[$key]}; done
     else
         for key in "${ICON_MAP_KEYS[@]}"; do ICON_MAP[$key]=${EMOJI_ICON_MAP[$key]}; done
@@ -160,5 +168,5 @@ function __print_icon_map() {
     done
 }
 
-__refresh_icon_map "${EXPECT_NERD_FONTS:-0}"
+__refresh_icon_map "${EXPECT_NERD_FONTS:-1}"
 export ICON_MAP
