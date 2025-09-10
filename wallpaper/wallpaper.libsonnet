@@ -40,9 +40,11 @@ local SvgImage(path) = {
 
     icons: {
         android: SvgImage("android.svg"),
+        bash: SvgImage("bash.svg"),
         google: SvgImage("google_logo.svg"),
         google_cloud: SvgImage("google_cloud_icon.svg"),
         quake: SvgImage("quake.svg"),
         tux: SvgImage("tux_simple.svg"),
+        zsh: SvgImage("zsh.svg"),
     },
 }

@@ -1,8 +1,9 @@
 #! /usr/bin/env bash
-
+# shellcheck disable=SC2034
 #pragma once
 
 #pragma requires debug.sh
+_dotTrace "Loading env_funcs.sh"
 #pragma requires platform.sh
 #pragma requires cache.sh
 #pragma requires icons.sh
@@ -43,7 +44,7 @@ function __repo_find_root() {
 }
 
 function __is_in_repo() {
-    _dotTrace_enter "$@"
+    _dotTrace_enter
     local current_dir
     # Use physical path resolution that works in both bash and zsh (portable on macOS/Linux)
     current_dir=$(pwd -P)
@@ -139,7 +140,7 @@ function __node_find_root() {
 }
 
 function __is_in_node_project() {
-    _dotTrace_enter "$@"
+    _dotTrace_enter
     local current_dir
     # Use physical path resolution that works in both bash and zsh (portable on macOS/Linux)
     current_dir=$(pwd -P)
@@ -625,8 +626,10 @@ function __embedded_terminal_info() {
         if [[ -n ${ZSH_VERSION:-} ]]; then
             eval "arr=(\"\${${value}[@]}\")"
         else
+            # shellcheck disable=SC1087
             eval "arr=(\"\${$value[@]}\")"
         fi
+        # shellcheck disable=SC2124
         ID_FUNC="${arr[@]:0:1}"
         ICON="${ICON_MAP[${arr[@]:1:1}]}"
         if eval "${ID_FUNC}"; then
@@ -689,10 +692,13 @@ function __virtualenv_info() {
         if [[ -n ${ZSH_VERSION:-} ]]; then
             eval "arr=(\"\${${value}[@]}\")"
         else
+            # shellcheck disable=SC1087
             eval "arr=(\"\${$value[@]}\")"
         fi
+        # shellcheck disable=SC2124
         ID_FUNC="${arr[@]:0:1}"
         ICON="${ICON_MAP[${arr[@]:1:1}]}"
+        # shellcheck disable=SC2124
         ICON_COLOR="${arr[@]:2:1}"
         if eval "${ID_FUNC}"; then
             _dotTrace "Found virtualenv with $ID_FUNC"
@@ -740,7 +746,7 @@ function __cute_shell_header_add_warning() {
 }
 
 function __cute_startup_time() {
-    _dotTrace_enter "$@"
+    _dotTrace_enter
 
     if [[ -z "${DOTFILES_INIT_EPOCHREALTIME_END}" ]]; then
         DOTFILES_INIT_EPOCHREALTIME_END="$(__time_now)"
@@ -794,13 +800,14 @@ function __cute_shell_header() {
     fi
 
     local startup_part
+    # shellcheck disable=SC2119
     startup_part="$(__cute_startup_time)"
     __cute_shell_header_add_info "${startup_part}"
 
     # Print warnings, one per line, first (if any)
     if (( ${#CUTE_HEADER_WARNINGS[@]} > 0 )); then
         for __warn in "${CUTE_HEADER_WARNINGS[@]}"; do
-            printf '%s%s\n' "$prefix$__warn"
+            printf '%s%s\n' "${prefix}" "${__warn}"
         done
     fi
 
@@ -855,6 +862,7 @@ function __do_eza_aliases() {
         # https://github.com/orgs/eza-community/discussions/239#discussioncomment-9834010
         alias kd='eza --group-directories-first'
         # Use a POSIX-valid function name; alias hyphenated names to it
+        # shellcheck disable=SC2329
         function kd_tree() {
             local arg="${1:-}"
             local -i level=3
@@ -945,3 +953,5 @@ function __do_vscode_shell_integration() {
 
     _dotTrace_exit 0
 }
+
+_dotTrace "Finished loading env_funcs.sh"

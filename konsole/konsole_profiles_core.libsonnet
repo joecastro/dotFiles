@@ -14,14 +14,14 @@ local localhost_profile = konsole_configs.KonsoleProfileWithColorscheme(
 local bash_profile = konsole_configs.KonsoleProfileWithColorscheme(
     'Bash',
     color_defs.Schemes.Gruvbox,
-    wallpapers.icons.tux.target_path(host),
+    wallpapers.icons.bash.target_path(host),
     wallpapers.backgrounds.abstract_pastel.target_path(host),
     '/usr/bin/bash');
 
 local zsh_profile = konsole_configs.KonsoleProfileWithColorscheme(
     'Zsh',
     color_defs.Schemes['Tango Dark'],
-    host.icon.target_path(host),
+    wallpapers.icons.zsh.target_path(host),
     host.primary_wallpaper.target_path(host),
     '/usr/bin/zsh',);
 

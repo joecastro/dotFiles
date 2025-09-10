@@ -1,5 +1,7 @@
 #! /bin/bash
 
+#pragma once
+
 # Stack implementation (portable bash/zsh): newline-delimited string
 
 # Declare a new stack (unconditionally)
@@ -165,11 +167,20 @@ function __dotTrace_print() {
     local timestamp=""
     local content="$4"
 
-    if [[ -n "${TRACE_DOTFILES_TIMING}" ]]; then
-        timestamp="$(__time_format "$3"): "
+
+    if [[ -z "${DOTFILES_INIT_EPOCHREALTIME_END}" ]]; then
+        # If the INIT check hasn't completed yet, I actually want to see what's
+        # causing a slow startup.
+        if [[ -z "${DOTFILES_INIT_EPOCHREALTIME_START}" ]]; then
+            timestamp="-0.000"
+        else
+            timestamp="$(__time_delta "${DOTFILES_INIT_EPOCHREALTIME_START}")"
+        fi
+    else
+        timestamp="$(__time_format "$3")"
     fi
 
-    printf '%s%s%s %s\n' "$timestamp" "${indent}" "${trace_type}" "${content}" >&2
+    printf '%s: %s%s %s\n' "$timestamp" "${indent}" "${trace_type}" "${content}" >&2
 }
 
 function __dotTrace_flushPending() {
@@ -196,7 +207,8 @@ function __dotTrace_flushPending() {
 
     local status_suffix=""
     if [[ "${mode}" == "TRACE_FUNCTION" ]]; then
-        local formatted_duration="$(__time_delta "${TRACE_DOTFILES_PENDING_START}")"
+        local formatted_duration
+        formatted_duration="$(__time_delta "${TRACE_DOTFILES_PENDING_START}")"
         status_suffix=", status: ${status_val}, duration: ${formatted_duration}s"
     fi
 
@@ -279,8 +291,7 @@ function toggle_trace_dotfiles() {
         unset TRACE_DOTFILES
     else
         export TRACE_DOTFILES=1
-        if [[ -n "$1" ]]; then
-            TRACE_DOTFILES_TIMING=1
-        fi
     fi
 }
+
+_dotTrace "Completed loading debug.sh"

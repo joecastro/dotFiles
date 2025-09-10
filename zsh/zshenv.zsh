@@ -17,3 +17,5 @@ fi
 #pragma requires macos_funcs.sh
 #pragma requires android_funcs.sh
 #pragma requires util_funcs.sh
+
+_dotTrace "Finished loading .zshenv"

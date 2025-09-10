@@ -3,6 +3,8 @@
 #pragma once
 
 #pragma validate-dotfiles
+#pragma requires debug.sh
+_dotTrace "Init loading .zshrc"
 
 #pragma requires colors.sh
 

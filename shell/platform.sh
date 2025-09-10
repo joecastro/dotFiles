@@ -2,6 +2,9 @@
 
 #pragma once
 
+#pragma requires debug.sh
+_dotTrace "Loading platform.sh"
+
 function __is_shell_interactive() { [[ $- == *i* ]]; }
 function __is_in_screen() { [ "${TERM}" = "screen" ]; }
 
@@ -54,11 +57,13 @@ function __is_shell_zsh() { [[ -n "${ZSH_VERSION}" ]]; }
 
 function __has_citc() { command -v citctools > /dev/null; }
 
+_dotTrace "Sourcing rbenv"
 [ -d "$HOME/.rbenv/bin" ] && export PATH="$HOME/.rbenv/bin:$PATH"
 [ -x "$(command -v rbenv)" ] && eval "$(rbenv init -)"
 
 function __has_rbenv() { command -v rbenv > /dev/null; }
 
+_dotTrace "Sourcing Homebrew"
 # Set PATH, MANPATH, etc., for Homebrew.
 [ -d "/opt/homebrew/bin" ] && eval "$(/opt/homebrew/bin/brew shellenv)"
 
@@ -69,15 +74,23 @@ function __is_homebrew_bin() {
     [[ $bin_path == ${HOMEBREW_PREFIX:-/opt/homebrew}/bin/* ]]
 }
 
+_dotTrace "Sourcing Rust"
+# shellcheck disable=SC1090
 [ -s ~/.cargo/env ] && source ~/.cargo/env
 
 function __has_cargo() { command -v cargo > /dev/null; }
 
+_dotTrace "Sourcing nvm"
+# shellcheck disable=SC1091
 [ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh"
 
+
 if __is_shell_bash; then
+    # shellcheck disable=SC1091
     [ -s "$NVM_DIR/bash_completion" ] && source "$NVM_DIR/bash_completion"
 fi
+_dotTrace "Finished loading nvm - This takes a stupidly long time on Linux... especially zsh."
+
 function __has_nvm() { [[ -s "$NVM_DIR/nvm.sh" ]]; }
 
 function __is_bash_preexec_loaded() {
@@ -85,3 +98,5 @@ function __is_bash_preexec_loaded() {
     ! __is_shell_old_bash && \
     [[ -n "${bash_preexec_imported:-}" ]]
 }
+
+_dotTrace "Finished loading platform.sh"

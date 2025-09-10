@@ -106,6 +106,7 @@ function __update_konsole_profile() {
 
 function __do_konsole_shell_integration() {
     _dotTrace_enter "$@"
+    #shellcheck disable=SC1091
     source "${DOTFILES_CONFIG_ROOT}/konsole_color_funcs.sh"
 
     if __is_shell_zsh; then
