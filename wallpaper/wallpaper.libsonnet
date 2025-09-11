@@ -27,6 +27,7 @@ local SvgImage(path) = {
         hokusai_cranes: BackgroundImageNode("hokusai_cranes.png"),
         hokusai_mt_fuji: BackgroundImageNode("hokusai_mt_fuji.png"),
         hokusai_wave: BackgroundImageNode("hokusai_wave.jpg"),
+        dolby: BackgroundImageNode("dolby.jpg", 0.6),
     },
 
     android_backgrounds: {

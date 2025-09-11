@@ -54,6 +54,7 @@ local file_maps = [
     ['shell/platform.sh', config_dir + '/'],
     ['shell/debug.sh', config_dir + '/'],
     ['shell/cache.sh', config_dir + '/'],
+    ['shell/stack.sh', config_dir + '/'],
     ['shell/icons.sh', config_dir + '/'],
     ['shell/git_funcs.sh', config_dir + '/'],
     ['shell/iterm2_funcs.sh', config_dir + '/'],

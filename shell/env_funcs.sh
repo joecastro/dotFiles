@@ -4,6 +4,8 @@
 
 #pragma requires debug.sh
 _dotTrace "Loading env_funcs.sh"
+
+#pragma requires stack.sh
 #pragma requires platform.sh
 #pragma requires cache.sh
 #pragma requires icons.sh
@@ -123,66 +125,126 @@ function __print_repo_worktree() {
 }
 
 function __node_is_in_project_root() {
+    # Returns 0 if the directory contains a package.json and is NOT inside a node_modules tree
     local candidate_dir="${1:-$PWD}"
+    # Ignore any path segments under node_modules to avoid treating installed packages as projects
+    case "/$candidate_dir/" in
+        */node_modules/*) return 1 ;;
+    esac
     [[ -f "${candidate_dir}/package.json" ]]
 }
 
 function __node_find_root() {
+    # Finds the nearest Node project root (package.json) from current_dir upward.
+    # Optimization: if already within CWD_NODE_ROOT, we do not scan above it.
     local current_dir="$1"
-    while [[ "$current_dir" != "/" ]]; do
+    local boundary=""
+
+    if [[ -n "${CWD_NODE_ROOT}" && "$current_dir" == "$CWD_NODE_ROOT"* ]]; then
+        boundary="$CWD_NODE_ROOT"
+    fi
+
+    while :; do
         if __node_is_in_project_root "$current_dir"; then
             printf '%s' "$current_dir"
             return 0
         fi
-        current_dir="$(dirname "$current_dir")"
+        if [[ -n "$boundary" && "$current_dir" == "$boundary" ]]; then
+            printf '%s' "$boundary"
+            return 0
+        fi
+        # Stop at filesystem root
+        [[ "$current_dir" == "/" ]] && break
+        # Move to parent directory (portable and fast)
+        local parent="${current_dir%/*}"
+        [[ -z "$parent" ]] && parent="/"
+        # If no progress, abort
+        [[ "$parent" == "$current_dir" ]] && break
+        current_dir="$parent"
     done
     return 1
+}
+
+# Maintain a stack of discovered Node project roots to support nested projects.
+# The active Node root is always the top of the stack.
+function __node_sync_root_stack() {
+    local current_dir="$1"
+    _stack_safe_declare NODE_ROOT_STACK
+
+    # Resolve the nearest Node root from the current directory (if any)
+    local new_root
+    if ! new_root=$(__node_find_root "$current_dir"); then
+        # Not in any Node project: clear state
+        _stack_clear NODE_ROOT_STACK
+        unset CWD_NODE_ROOT
+        return 1
+    fi
+
+    # Helper: check if A is an ancestor of or equal to B (directory-wise)
+    local top
+    top=$(_stack_top NODE_ROOT_STACK 2>/dev/null || true)
+
+    if [[ -z "$top" ]]; then
+        _stack_push NODE_ROOT_STACK "$new_root"
+    elif [[ "$new_root" == "$top" ]]; then
+        : # unchanged
+    elif [[ "$new_root" == "$top"/* ]]; then
+        # We moved into a deeper nested Node project
+        _stack_push NODE_ROOT_STACK "$new_root"
+    else
+        # We moved out of the current top; pop until an ancestor matches, then push if needed
+        while ! _stack_is_empty NODE_ROOT_STACK; do
+            top=$(_stack_top NODE_ROOT_STACK)
+            if [[ "$new_root" == "$top" || "$new_root" == "$top"/* ]]; then
+                break
+            fi
+            _stack_pop NODE_ROOT_STACK >/dev/null
+        done
+
+        top=$(_stack_top NODE_ROOT_STACK 2>/dev/null || true)
+        if [[ -z "$top" ]]; then
+            _stack_push NODE_ROOT_STACK "$new_root"
+        elif [[ "$new_root" != "$top" ]]; then
+            # new_root is a descendant of the current top (or sibling after pops)
+            _stack_push NODE_ROOT_STACK "$new_root"
+        fi
+    fi
+
+    # shellcheck disable=SC2155
+    export CWD_NODE_ROOT=$(_stack_top NODE_ROOT_STACK)
+    return 0
+}
+
+# Debug helper: print the Node root stack and active root
+function __print_node_root_stack() {
+    _stack_safe_declare NODE_ROOT_STACK
+    if _stack_is_empty NODE_ROOT_STACK; then
+        echo "Node root stack: <empty>"
+        echo "Active root: ${CWD_NODE_ROOT:-<unset>}"
+        return 1
+    fi
+
+    echo "Node root stack (bottom -> top):"
+    _stack_print NODE_ROOT_STACK " -> "
+    echo "Active root: ${CWD_NODE_ROOT:-<unset>}"
 }
 
 function __is_in_node_project() {
     _dotTrace_enter
     local current_dir
-    # Use physical path resolution that works in both bash and zsh (portable on macOS/Linux)
     current_dir=$(pwd -P)
-    if [[ -n "${CWD_NODE_ROOT}" && "$current_dir" == "$CWD_NODE_ROOT"* ]]; then
-        _dotTrace_exit 0
-        return
-    fi
-
-    if ! CWD_NODE_ROOT=$(__node_find_root "$current_dir"); then
-        unset CWD_NODE_ROOT
+    local prev_root="${CWD_NODE_ROOT:-}"
+    # Sync the Node root stack so nested projects are detected
+    if ! __node_sync_root_stack "$current_dir"; then
         _dotTrace_exit 1
         return
     fi
 
-    _dotTrace "updating node environment variables"
-    export CWD_NODE_ROOT
+    if [[ "$prev_root" != "$CWD_NODE_ROOT" ]]; then
+        _dotTrace "updating node environment variables"
+    fi
 
     _dotTrace_exit 0
-}
-
-function __is_in_initialized_node_project() {
-    __is_in_node_project && [ -d "${CWD_NODE_ROOT}/node_modules" ]
-}
-
-function __is_in_uninitialized_node_project() {
-    __is_in_node_project && [ ! -d "${CWD_NODE_ROOT}/node_modules" ]
-}
-
-function __is_in_stale_node_project() {
-    if ! __is_in_initialized_node_project; then
-        return 1
-    fi
-
-    if npm ls --depth=0 >/dev/null 2>&1; then
-        return 1
-    else
-        return 0
-    fi
-}
-
-function __is_in_synchronized_node_project() {
-    __is_in_node_project && ! __is_in_uninitialized_node_project && ! __is_in_stale_node_project
 }
 
 # Check node_modules existence & freshness at the project root
@@ -409,27 +471,6 @@ function __echo_colored_stdout() {
     printf '\e[%sm%s\e[0m' "$code" "$text"
 }
 
-function __print_abbreviated_path() {
-    local input_string="$1"
-    local -i expand_prefix=${2:-1}
-    local result=""
-    local part
-    while [[ "$input_string" == *"/"* ]]; do
-        part="${input_string%%/*}"
-        if [[ $expand_prefix -eq 0 || ${#part} -le 3 ]]; then
-            result+="$part/"
-        else
-            result+="${part:0:1}/"
-        fi
-        expand_prefix=1
-        input_string="${input_string#*/}"
-    done
-    result+="${input_string}"
-    printf '%s' "${result}"
-}
-
-
-
 if ! __is_shell_old_bash; then
 
     function __cute_pwd_lookup() {
@@ -484,7 +525,7 @@ if ! __is_shell_old_bash; then
             return 0
         fi
 
-        case "${ACTIVE_DIR##*/}" in
+        case "$(echo "${ACTIVE_DIR##*/}" | tr '[:upper:]' '[:lower:]')" in
         "src")
             printf '%s' "${ICON_MAP[COD_SAVE]}"
             return 0
@@ -501,8 +542,20 @@ if ! __is_shell_old_bash; then
             printf '%s' "${ICON_MAP[CLOUD]}"
             return 0
             ;;
-        "$USER")
+        "$(echo "$USER" | tr '[:upper:]' '[:lower:]')")
             printf '%s' "${ICON_MAP[ACCOUNT]}"
+            return 0
+            ;;
+        "apps")
+            printf '%s' "${ICON_MAP[APPS]}"
+            return 0
+            ;;
+        "www" | "web" | "website" | "websites")
+            printf '%s' "${ICON_MAP[WEB]}"
+            return 0
+            ;;
+        "ios")
+            printf '%s' "${ICON_MAP[IOS]}"
             return 0
             ;;
         esac
@@ -516,12 +569,6 @@ if ! __is_shell_old_bash; then
         local is_short=1
         if [[ "$1" == "--short" ]]; then
             is_short=0
-        fi
-
-        if [[ $is_short != 0 ]] && __git_is_in_repo; then
-            __print_git_pwd
-            _dotTrace_exit 0
-            return
         fi
 
         if [[ $is_short != 0 ]]; then
@@ -554,6 +601,38 @@ else
         printf '%s' "${parent_dir##*/}/${PWD##*/}"
     }
 fi
+
+
+function __print_abbreviated_path() {
+    _dotTrace_enter "$@"
+    local input_string="$1"
+    local -i expand_prefix=${2:-1}
+    local result=""
+    local part
+    local lookup
+    while [[ "$input_string" == *"/"* ]]; do
+        part="${input_string%%/*}"
+        lookup="$(__cute_pwd_lookup "$part")"
+        if [[ -n "$lookup" ]]; then
+            result+="$lookup/"
+        elif [[ $expand_prefix -eq 0 || ${#part} -le 3 ]]; then
+            result+="$part/"
+        else
+            result+="${part:0:1}/"
+        fi
+        expand_prefix=1
+        input_string="${input_string#*/}"
+    done
+    lookup="$(__cute_pwd_lookup "$input_string")"
+    if [[ -n "$lookup" ]]; then
+        result+="$lookup"
+    else
+        result+="$input_string"
+    fi
+
+    printf '%s' "${result}"
+    _dotTrace_exit 0
+}
 
 function __cute_pwd_short() {
     __cute_pwd --short
@@ -667,21 +746,11 @@ function __effective_distribution() {
 typeset -a TMUX_VIRTUALENV_ID=("__is_in_tmux" "TMUX" "white")
 typeset -a VIM_VIRTUALENV_ID=("__is_in_vimruntime" "VIM" "green")
 typeset -a PYTHON_VIRTUALENV_ID=("__is_in_python_venv" "PYTHON" "blue")
-typeset -a WSL_WINDOWS_VIRTUALENV_ID=("__is_in_wsl_windows_drive" "WINDOWS" "blue")
-typeset -a WSL_LINUX_VIRTUALENV_ID=("__is_in_wsl_linux_drive" "LINUX_PENGUIN" "blue")
-typeset -a NODE_VIRTUALENV_UNINITIALIZED_ID=("__is_in_uninitialized_node_project" "NODEJS" "yellow")
-typeset -a NODE_VIRTUALENV_STALE_ID=("__is_in_stale_node_project" "NODEJS" "red")
-typeset -a NODE_VIRTUALENV_SYNCED_ID=("__is_in_synchronized_node_project" "NODEJS" "blue")
 
 typeset -a VIRTUALENV_ID_FUNCS=( \
     TMUX_VIRTUALENV_ID \
     VIM_VIRTUALENV_ID \
-    PYTHON_VIRTUALENV_ID \
-    WSL_WINDOWS_VIRTUALENV_ID \
-    WSL_LINUX_VIRTUALENV_ID \
-    NODE_VIRTUALENV_UNINITIALIZED_ID \
-    NODE_VIRTUALENV_STALE_ID \
-    NODE_VIRTUALENV_SYNCED_ID)
+    PYTHON_VIRTUALENV_ID )
 
 function __virtualenv_info() {
     _dotTrace_enter "$@"
@@ -800,6 +869,11 @@ function __cute_shell_header() {
     fi
 
     local startup_part
+    # Ensure END timestamp is recorded in the parent shell (not just in a subshell)
+    if [[ -z "${DOTFILES_INIT_EPOCHREALTIME_END}" ]]; then
+        DOTFILES_INIT_EPOCHREALTIME_END="$(__time_now)"
+        export DOTFILES_INIT_EPOCHREALTIME_END
+    fi
     # shellcheck disable=SC2119
     startup_part="$(__cute_startup_time)"
     __cute_shell_header_add_info "${startup_part}"

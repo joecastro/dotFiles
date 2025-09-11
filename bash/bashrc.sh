@@ -12,6 +12,7 @@ __is_shell_interactive || return
 
 #pragma requires colors.sh
 #pragma requires debug.sh
+#pragma requires git_funcs.sh
 #pragma requires completion/git-completion.bash
 
 # PS1 components
@@ -98,20 +99,20 @@ function __generate_dynamic_prompt_part() {
         Git)
             # shellcheck disable=SC2016
             dynamic_part+='$(__print_git_worktree_prompt)'
+            # shellcheck disable=SC2016
+            dynamic_part+='$(__print_git_pwd)'
             ;;
         Repo)
             # shellcheck disable=SC2016
             dynamic_part+='$(__print_repo_worktree) '
-            ;;
-        Piper)
             # shellcheck disable=SC2016
-            dynamic_part+='$(__print_citc_workspace) '
+            dynamic_part+='$(__cute_pwd)'
             ;;
         *)
+            # shellcheck disable=SC2016
+            dynamic_part+='$(__cute_pwd)'
             ;;
     esac
-    # shellcheck disable=SC2016
-    dynamic_part+='$(__cute_pwd)'
 
     printf '%s' "${dynamic_part}"
     _dotTrace_exit
@@ -174,8 +175,6 @@ function __cute_prompt_command() {
         new_style="Repo"
     elif __git_is_in_repo; then
         new_style="Git"
-    elif __has_citc && __is_in_citc; then
-        new_style="Piper"
     fi
     _dotTrace "new style: ${new_style}"
 
@@ -374,5 +373,36 @@ __do_eza_aliases
 if declare -f chjava &>/dev/null; then
     chjava 22
 fi
+
+_dotTrace "Sourcing rbenv"
+[ -d "$HOME/.rbenv/bin" ] && export PATH="$HOME/.rbenv/bin:$PATH"
+[ -x "$(command -v rbenv)" ] && eval "$(rbenv init -)"
+
+_dotTrace "Sourcing Homebrew"
+# Set PATH, MANPATH, etc., for Homebrew.
+[ -d "/opt/homebrew/bin" ] && eval "$(/opt/homebrew/bin/brew shellenv)"
+
+_dotTrace "Sourcing Rust"
+# shellcheck disable=SC1090
+[ -s ~/.cargo/env ] && source ~/.cargo/env
+
+_dotTrace "Sourcing nvm"
+if __has_homebrew && [[ -d "$(brew --prefix nvm)" ]]; then
+    _dotTrace "Using Homebrew nvm"
+    [ -s "$(brew --prefix nvm)/nvm.sh" ] && \. "$(brew --prefix nvm)/nvm.sh"
+    if __is_shell_bash; then
+        # shellcheck disable=SC1091
+        [ -s "$(brew --prefix nvm)/etc/bash_completion.d/nvm" ] && \. "$(brew --prefix nvm)/etc/bash_completion.d/nvm"
+    fi
+else
+    # shellcheck disable=SC1091
+    [ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh"
+
+    if __is_shell_bash; then
+        # shellcheck disable=SC1091
+        [ -s "$NVM_DIR/bash_completion" ] && source "$NVM_DIR/bash_completion"
+    fi
+fi
+_dotTrace "Finished loading nvm - This takes a stupidly long time on Linux... especially zsh."
 
 __cute_shell_header

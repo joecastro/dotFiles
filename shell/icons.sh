@@ -76,6 +76,16 @@ declare -A EMOJI_ICON_MAP=(
     [TEST_TUBE]=🧪
     [ALERT]=⚠️
     [APPLE_FINDER]= # Only legible on MacOS and iOS
+    [DOLBY]=🔊
+    [RUST]=🦀
+    [VUEJS]=🇻
+    [NEXTJS]=➡️
+    [REACT]=⚛️
+    [VITE]=⚡
+    [TAILWIND]=🌬️
+    [APPS]=🗂️
+    [WEB]=🌐
+    [IOS]=📱
     )
 
 declare -A NF_ICON_MAP=(
@@ -139,6 +149,16 @@ declare -A NF_ICON_MAP=(
     [TEST_TUBE]=
     [ALERT]=
     [APPLE_FINDER]=󰀶
+    [DOLBY]=󰚳
+    [RUST]=
+    [VUEJS]=
+    [NEXTJS]=
+    [REACT]=
+    [VITE]=
+    [TAILWIND]=󱏿
+    [APPS]=󰀻
+    [WEB]=󰖟
+    [IOS]= #󰀷
     )
 
 if __is_shell_zsh; then
@@ -148,6 +168,7 @@ else
     declare -a ICON_MAP_KEYS=("${!EMOJI_ICON_MAP[@]}")
 fi
 
+# shellcheck disable=SC2207
 IFS=$'\n' ICON_MAP_KEYS=($(sort <<<"${ICON_MAP_KEYS[*]}"))
 unset IFS
 

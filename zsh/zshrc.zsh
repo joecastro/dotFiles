@@ -149,9 +149,38 @@ preexec_functions=($preexec_functions _set_cursor_beam)
 precmd_functions=($precmd_functions __update_prompt)
 
 function __print_git_worktree_prompt() {
+    _dotTrace_enter
     if __git_is_in_worktree; then
         echo -ne "%{%F{$PINK_FLAMINGO}%}$(__print_git_worktree) "
     fi
+    _dotTrace_exit 0
+}
+
+function __print_node_project_info_prompt() {
+    _dotTrace_enter
+    if ! __is_in_node_project; then
+        _dotTrace_exit 0
+        return
+    fi
+
+    local -A node_dependency_icons=(
+        [react]="${ICON_MAP[REACT]}"
+        [vue]="${ICON_MAP[VUEJS]}"
+        [vite]="${ICON_MAP[VITE]}"
+        [tailwindcss]="${ICON_MAP[TAILWIND]}"
+        [next]="${ICON_MAP[NEXTJS]}"
+    )
+
+    local node_env="$ICON_MAP[NODEJS]"
+    for dep ico in "${(@kv)node_dependency_icons}"; do
+        if jq -e ".dependencies.${dep} // .devDependencies.${dep} // empty" "${CWD_NODE_ROOT}/package.json" >/dev/null 2>&1; then
+            _dotTrace "Found dependency ${dep} adding icon ${ico}"
+            node_env+="${ico}"
+        fi
+    done
+
+    echo -ne "%{%F{cyan}%}${node_env}%{%f%} "
+    _dotTrace_exit 0
 }
 
 function __print_last_command_status_prompt() {
@@ -201,17 +230,20 @@ function __generate_dynamic_prompt_part() {
 
     case "${style}" in
     "Git")
+        dynamic_part+='$(__print_node_project_info_prompt)'
         dynamic_part+='$(__print_git_worktree_prompt)'
+        dynamic_part+='$(__print_git_pwd)'
         ;;
     "Repo")
         dynamic_part+='$(__print_repo_worktree) '
-        ;;
-    "Piper")
-        dynamic_part+='$(__print_citc_workspace) '
+        dynamic_part+='$(__cute_pwd)'
         ;;
     *)
+        dynamic_part+='$(__cute_pwd)'
+        ;;
     esac
-    dynamic_part+='$(__cute_pwd)'
+
+    _dotTrace "Generated dynamic prompt part: ${dynamic_part}"
 
     echo -n "${dynamic_part}"
 }
@@ -254,8 +286,6 @@ function __update_prompt() {
         new_dynamic_style="Repo"
     elif __git_is_in_repo; then
         new_dynamic_style="Git"
-    elif __has_citc && __is_in_citc; then
-        new_dynamic_style="Piper"
     else
         new_dynamic_style="None"
     fi
@@ -282,12 +312,43 @@ __do_vscode_shell_integration
 __do_konsole_shell_integration
 __do_eza_aliases
 
+_dotTrace "Sourcing rbenv"
+[ -d "$HOME/.rbenv/bin" ] && export PATH="$HOME/.rbenv/bin:$PATH"
+[ -x "$(command -v rbenv)" ] && eval "$(rbenv init -)"
+
+_dotTrace "Sourcing Homebrew"
+# Set PATH, MANPATH, etc., for Homebrew.
+[ -d "/opt/homebrew/bin" ] && eval "$(/opt/homebrew/bin/brew shellenv)"
+
+_dotTrace "Sourcing Rust"
+# shellcheck disable=SC1090
+[ -s ~/.cargo/env ] && source ~/.cargo/env
+
+_dotTrace "Sourcing nvm"
+if __has_homebrew && [[ -d "$(brew --prefix nvm)" ]]; then
+    _dotTrace "Using Homebrew nvm"
+    [ -s "$(brew --prefix nvm)/nvm.sh" ] && \. "$(brew --prefix nvm)/nvm.sh"
+    if __is_shell_bash; then
+        # shellcheck disable=SC1091
+        [ -s "$(brew --prefix nvm)/etc/bash_completion.d/nvm" ] && \. "$(brew --prefix nvm)/etc/bash_completion.d/nvm"
+    fi
+else
+    # shellcheck disable=SC1091
+    [ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh"
+
+    if __is_shell_bash; then
+        # shellcheck disable=SC1091
+        [ -s "$NVM_DIR/bash_completion" ] && source "$NVM_DIR/bash_completion"
+    fi
+fi
+_dotTrace "Finished loading nvm - This takes a stupidly long time on Linux... especially zsh."
+
 # echo "Welcome to $(__effective_distribution)!"
 case "$(__effective_distribution)" in
 "MACOS")
     # echo "MacOS zshrc load complete"
     if __has_homebrew; then
-        gnubin_path="$(brew --prefix)/opt/coreutils/libexec/gnubin"
+        gnubin_path="$(brew --prefix coreutils &> /dev/null)/libexec/gnubin"
         if [ -d "${gnubin_path}" ]; then
             path=("${gnubin_path}" "${path[@]}")
         fi
@@ -303,6 +364,13 @@ case "$(__effective_distribution)" in
     export WIN_SYSTEM_ROOT="/mnt/${WIN_SYSTEM_DRIVE:0:1:l}"
     export WIN_USERNAME=$(powershell.exe '$env:UserName')
     export WIN_USERPROFILE=$(echo $(wslpath $(powershell.exe '$env:UserProfile')) | sed $'s/\r//')
+
+    typeset -a WSL_WINDOWS_VIRTUALENV_ID=("__is_in_wsl_windows_drive" "WINDOWS" "blue")
+    typeset -a WSL_LINUX_VIRTUALENV_ID=("__is_in_wsl_linux_drive" "LINUX_PENGUIN" "blue")
+
+    VIRTUALENV_ID_FUNCS+=( \
+        WSL_WINDOWS_VIRTUALENV_ID \
+        WSL_LINUX_VIRTUALENV_ID )
 
     # export WIN_USERPROFILE=$(wslpath $(powershell.exe '$env:UserProfile'))
 

@@ -1,109 +1,7 @@
 #! /bin/bash
 
 #pragma once
-
-# Stack implementation (portable bash/zsh): newline-delimited string
-
-# Declare a new stack (unconditionally)
-function _stack_declare() {
-    local name=$1
-    eval "$name=''"
-}
-
-# Declare stack only if not already defined
-function _stack_safe_declare() {
-    local name=$1
-    if ! eval "[[ \${$name+set} ]]" 2>/dev/null; then
-        eval "$name=''"
-    fi
-}
-
-# Push a value onto the stack
-function _stack_push() {
-    local name=$1
-    local value=$2
-    local stack
-    eval 'stack="$'"$name"'"'
-    if [[ -z "$stack" ]]; then
-        stack="$value"
-    else
-        stack="${stack}"$'\n'"$value"
-    fi
-    eval "$name=\"\$stack\""
-}
-
-# Pop the top value from the stack and print it
-function _stack_pop() {
-    local name=$1
-    local stack top rest
-    eval 'stack="$'"$name"'"'
-    [ -z "$stack" ] && return 1
-
-    top="${stack##*$'\n'}"
-    rest="${stack%$'\n'*}"
-    [ "$top" = "$stack" ] && rest=''
-
-    eval "$name=\"\$rest\""
-}
-
-# Peek at the top value
-function _stack_top() {
-    local name=$1
-    local stack
-    eval 'stack="$'"$name"'"'
-    [ -z "$stack" ] && return 1
-    printf '%s\n' "${stack##*$'\n'}"
-}
-
-# Get number of elements in the stack
-function _stack_size() {
-    local name=$1
-    local stack
-    eval 'stack="$'"$name"'"'
-    if [ -z "$stack" ]; then
-        echo 0
-        return
-    fi
-    local -i n=0
-    while IFS= read -r _; do
-        ((n++))
-    done <<< "$stack"
-    printf '%d\n' "$n"
-}
-
-# Check if the stack is empty (returns 0 if empty)
-function _stack_is_empty() {
-    local name=$1
-    local stack
-    eval 'stack="$'"$name"'"'
-    [ -z "$stack" ]
-}
-
-# Clear the stack
-function _stack_clear() {
-    local name=$1
-    eval "$name=''"
-}
-
-# Print stack elements joined by a given separator
-function _stack_print() {
-    local name=$1
-    local sep=$2
-    local stack
-    local first=1
-    eval 'stack="$'"$name"'"'
-    [ -z "$stack" ] && return
-
-    while IFS= read -r line; do
-        if [ $first -eq 1 ]; then
-            printf '%s' "$line"
-            first=0
-        else
-            printf '%s%s' "$sep" "$line"
-        fi
-    done <<< "$stack"
-    echo
-}
+#pragma requires stack.sh
 
 # Time helpers
 
@@ -145,8 +43,10 @@ function __time_format() {
     local sec_part="${epoch_val%.*}"
     local frac_part="${epoch_val#*.}"
     local msec="000"
-    if [[ -n "$frac_part" && "$frac_part" != "$epoch_val" ]]; then
-        msec="$(printf '%03d' "${frac_part:0:3}")"
+    # Build milliseconds via string padding/truncation to avoid integer parsing.
+    if [[ "$epoch_val" == *.* ]]; then
+        msec="${frac_part}000"
+        msec="${msec:0:3}"
     fi
     local hms
     if date -r "$sec_part" +%T > /dev/null 2>&1; then
@@ -161,13 +61,87 @@ function __time_format() {
 
 # Trace helpers
 
+# Returns an identifier for the current shell context (separates subshells).
+function __dotTrace_shell_pid() {
+    if [[ -n ${BASH_VERSION:-} ]]; then
+        if [[ -n ${BASHPID:-} ]]; then
+            printf '%s' "${BASHPID}"
+        else
+            printf '%s:%s:%s' "$$" "${BASH_SUBSHELL:-0}" "${SHLVL:-0}"
+        fi
+        return 0
+    fi
+    # zsh: include subshell depth and SHLVL for stable context separation
+    printf '%s:%s:%s' "$$" "${ZSH_SUBSHELL:-0}" "${SHLVL:-0}"
+}
+
+# Returns 0 if running inside a subshell context.
+function __dotTrace_is_subshell() {
+    if [[ -n ${ZSH_VERSION:-} ]]; then
+        (( ZSH_SUBSHELL > 0 ))
+        return $?
+    elif [[ -n ${BASH_VERSION:-} ]]; then
+        if [[ -n ${BASHPID:-} ]]; then
+            [[ "$$" != "${BASHPID}" ]]
+            return $?
+        fi
+        # Fallback: treat any BASH_SUBSHELL > 0 as subshell (older bash)
+        (( ${BASH_SUBSHELL:-0} > 0 ))
+        return $?
+    fi
+    return 1
+}
+
+# Returns a stable context anchor for the root interactive shell.
+function __dotTrace_root_ctx_id() {
+    printf '%s:%s' "$$" "${SHLVL:-0}"
+}
+
+# Returns numeric subshell depth (0 for top-level shell).
+function __dotTrace_subshell_depth() {
+    if [[ -n ${ZSH_VERSION:-} ]]; then
+        printf '%d' "${ZSH_SUBSHELL:-0}"
+        return 0
+    elif [[ -n ${BASH_VERSION:-} ]]; then
+        # In older bash, BASH_SUBSHELL still increments for ( ... ) and $() even if BASHPID is missing
+        printf '%d' "${BASH_SUBSHELL:-0}"
+        return 0
+    fi
+    printf '%d' 0
+}
+
+# Colorize a seconds string by threshold; returns colored numeric string.
+function __dotTrace_colorize_duration() {
+    local sec="$1"
+    # Normalize empty/invalid input
+    if [[ -z "$sec" ]]; then
+        printf '%s' "0.000"
+        return 0
+    fi
+    # Decide color by numeric comparison via awk
+    awk -v s="$sec" 'BEGIN { if (s > 0.100) exit 100; else if (s > 0.050) exit 50; else exit 0 }'
+    local rc=$?
+    local color=""
+    if (( rc == 100 )); then
+        color="31" # red
+    elif (( rc == 50 )); then
+        color="33" # yellow
+    fi
+    if [[ -n "$color" ]]; then
+        printf '\e[%sm%s\e[0m' "$color" "$sec"
+    else
+        printf '%s' "$sec"
+    fi
+}
+
 function __dotTrace_print() {
     local indent="$1"
     local trace_type="$2"
+    local ts_arg="$3"
     local timestamp=""
     local content="$4"
 
-
+    # Compute the printable timestamp
     if [[ -z "${DOTFILES_INIT_EPOCHREALTIME_END}" ]]; then
         # If the INIT check hasn't completed yet, I actually want to see what's
         # causing a slow startup.
@@ -177,10 +151,72 @@ function __dotTrace_print() {
             timestamp="$(__time_delta "${DOTFILES_INIT_EPOCHREALTIME_START}")"
         fi
     else
-        timestamp="$(__time_format "$3")"
+        timestamp="$(__time_format "$ts_arg")"
     fi
 
-    printf '%s: %s%s %s\n' "$timestamp" "${indent}" "${trace_type}" "${content}" >&2
+    # Compute and update the inter-trace gap baseline per context
+
+    # Compute and update the inter-trace gap
+    local now_ts
+    now_ts="$(__time_now)"
+    local gap_suffix=""
+    local ctx_pid
+    ctx_pid="$(__dotTrace_shell_pid)"
+    if [[ -n "${TRACE_DOTFILES_LAST_TS_PID}" && "${TRACE_DOTFILES_LAST_TS_PID}" != "${ctx_pid}" ]]; then
+        # New subshell (or different shell context): reset gap baseline
+        unset TRACE_DOTFILES_LAST_TS
+    fi
+    if [[ -n "${TRACE_DOTFILES_LAST_TS}" ]]; then
+        local gap_raw
+        gap_raw="$(__time_delta "${TRACE_DOTFILES_LAST_TS}" "$now_ts")"
+        if [[ "$trace_type" == "TRACE" || "$trace_type" == "TRACE_ENTER" ]]; then
+            local gap_colored
+            gap_colored="$(__dotTrace_colorize_duration "$gap_raw")"
+            gap_suffix=" gap: ${gap_colored}s"
+        fi
+    fi
+    TRACE_DOTFILES_LAST_TS="$now_ts"
+    TRACE_DOTFILES_LAST_TS_PID="$ctx_pid"
+
+    local type_label="$trace_type"
+    # Surround TRACE type with parens per subshell depth (relative to baseline).
+    local depth
+    depth="$(__dotTrace_subshell_depth)"
+    local anchor_id
+    anchor_id="$(__dotTrace_root_ctx_id)"
+    if [[ -n "${TRACE_DOTFILES_BASE_DEPTH_ANCHOR}" && "${TRACE_DOTFILES_BASE_DEPTH_ANCHOR}" != "${anchor_id}" ]]; then
+        unset TRACE_DOTFILES_BASE_SUBSHELL_DEPTH
+        unset TRACE_DOTFILES_BASE_SHLVL
+    fi
+    if [[ -z "${TRACE_DOTFILES_BASE_SUBSHELL_DEPTH}" ]]; then
+        TRACE_DOTFILES_BASE_SUBSHELL_DEPTH="${depth}"
+        TRACE_DOTFILES_BASE_DEPTH_ANCHOR="${anchor_id}"
+        TRACE_DOTFILES_BASE_SHLVL="${SHLVL:-0}"
+    fi
+    local rel_depth=$(( depth - ${TRACE_DOTFILES_BASE_SUBSHELL_DEPTH:-0} ))
+    # In bash, some nesting shows via SHLVL; include that as a fallback signal
+    local curr_shlvl=${SHLVL:-0}
+    local base_shlvl=${TRACE_DOTFILES_BASE_SHLVL:-0}
+    local shlvl_rel=$(( curr_shlvl - base_shlvl ))
+    if (( shlvl_rel > rel_depth )); then
+        rel_depth=$shlvl_rel
+    fi
+    if (( rel_depth < 0 )); then rel_depth=0; fi
+    if (( rel_depth > 0 )); then
+        local pfx="" sfx=""
+        local i
+        for (( i=0; i<rel_depth; i++ )); do
+            pfx+="("
+            sfx+=")"
+        done
+        type_label="${pfx}${type_label}${sfx}"
+    fi
+
+    # Depth limiting disabled
+
+    # Verbose depth/context annotation disabled
+
+    printf '%s: %s%s %s%s\n' "$timestamp" "${indent}" "${type_label}" "${content}" "${gap_suffix}" >&2
 }
 
 function __dotTrace_flushPending() {
@@ -207,9 +243,19 @@ function __dotTrace_flushPending() {
 
     local status_suffix=""
     if [[ "${mode}" == "TRACE_FUNCTION" ]]; then
-        local formatted_duration
+        local formatted_duration colored_duration
         formatted_duration="$(__time_delta "${TRACE_DOTFILES_PENDING_START}")"
-        status_suffix=", status: ${status_val}, duration: ${formatted_duration}s"
+        colored_duration="$(__dotTrace_colorize_duration "$formatted_duration")"
+        status_suffix=", status: ${status_val}, duration: ${colored_duration}s"
+    fi
+
+    # For top-level TRACE_ENTER, align subshell baseline to current depth so rel=0
+    if [[ "${mode}" == "TRACE_ENTER" && -z "${indent_prefix}" ]]; then
+        local __anchor_id __depth
+        __anchor_id="$(__dotTrace_root_ctx_id)"
+        __depth="$(__dotTrace_subshell_depth)"
+        TRACE_DOTFILES_BASE_SUBSHELL_DEPTH="${__depth}"
+        TRACE_DOTFILES_BASE_DEPTH_ANCHOR="${__anchor_id}"
     fi
 
     __dotTrace_print "${indent_prefix}" "${mode}" "${TRACE_DOTFILES_PENDING_START}" "${TRACE_DOTFILES_PENDING_LABEL}${status_suffix}"
@@ -238,33 +284,72 @@ function _dotTrace() {
 function _dotTrace_enter() {
     if [[ -n "${TRACE_DOTFILES}" ]]; then
         _stack_safe_declare TRACE_DOTFILES_STACK
+        _stack_safe_declare TRACE_DOTFILES_START_STACK
 
         # Flush any pending enter for the parent frame before nesting
         __dotTrace_flushPending
 
+        # Reset gap and baseline at top-level for this root context
+        local __ctx_pid __now_ts __depth __base_depth __rel_depth __anchor_id
+        __ctx_pid="$(__dotTrace_shell_pid)"
+        __now_ts="$(__time_now)"
+        __depth="$(__dotTrace_subshell_depth)"
+        __anchor_id="$(__dotTrace_root_ctx_id)"
+        __base_depth="${TRACE_DOTFILES_BASE_SUBSHELL_DEPTH:-}"
+        if [[ -z "$__base_depth" || "${TRACE_DOTFILES_BASE_DEPTH_ANCHOR}" != "$__anchor_id" ]]; then
+            TRACE_DOTFILES_BASE_SUBSHELL_DEPTH="$__depth"
+            TRACE_DOTFILES_BASE_DEPTH_ANCHOR="$__anchor_id"
+            __base_depth="$__depth"
+        fi
+        # If this is the root frame for a new sequence, force baseline to current depth
+        if _stack_is_empty TRACE_DOTFILES_STACK; then
+            TRACE_DOTFILES_BASE_SUBSHELL_DEPTH="$__depth"
+            TRACE_DOTFILES_BASE_DEPTH_ANCHOR="$__anchor_id"
+            __base_depth="$__depth"
+        fi
+        __rel_depth=$(( __depth - ${__base_depth:-0} ))
+        if (( __rel_depth <= 0 )); then
+            TRACE_DOTFILES_LAST_TS="$__now_ts"
+            TRACE_DOTFILES_LAST_TS_PID="$__ctx_pid"
+        fi
+
         local func_name=""
-        # If indent is zero augment this line with the caller's caller
+        # If this is the root frame, append caller (or <toplevel>)
         local extra_label=""
+        local -i is_root_frame=0
+        if _stack_is_empty TRACE_DOTFILES_STACK; then
+            is_root_frame=1
+        fi
         if [[ -n "${ZSH_VERSION}" ]]; then
             # In zsh, $funcstack[1] is the current function; the caller is [2]
             # shellcheck disable=SC2154
             func_name="${funcstack[2]:-<toplevel>}"
-            if [[ -z "${TRACE_DOTFILES_ACTIVE_INDENT}" ]] && [[ -n "${funcstack[3]}" ]]; then
-                extra_label=" caller: ${funcstack[3]}"
+            if (( is_root_frame )); then
+                local caller_label="${funcstack[3]:-<toplevel>}"
+                extra_label=" caller: ${caller_label}"
             fi
         else
             func_name="${FUNCNAME[1]}"
-            if [[ -z "${TRACE_DOTFILES_ACTIVE_INDENT}" ]] && [[ -n "${FUNCNAME[2]}" ]]; then
-                extra_label=" caller: ${FUNCNAME[2]}"
+            if (( is_root_frame )); then
+                local caller_label="${FUNCNAME[2]:-<toplevel>}"
+                extra_label=" caller: ${caller_label}"
             fi
         fi
 
         _stack_push TRACE_DOTFILES_STACK "$func_name"
         __dotTrace_incrementIndent
 
-        # Defer the enter line; print it on first inner activity
-        TRACE_DOTFILES_PENDING_LABEL="${func_name}($*)$extra_label"
-        TRACE_DOTFILES_PENDING_START="$(__time_now)"
+        # Defer the enter line; print on first inner activity
+        local now
+        now="$(__time_now)"
+        # Avoid stray spaces when there are no args
+        local arg_str=""
+        if (( $# > 0 )); then
+            arg_str="$*"
+        fi
+        TRACE_DOTFILES_PENDING_LABEL="${func_name}(${arg_str})$extra_label"
+        TRACE_DOTFILES_PENDING_START="$now"
+        _stack_push TRACE_DOTFILES_START_STACK "$now"
     fi
 }
 
@@ -275,13 +360,28 @@ function _dotTrace_exit() {
         # Restore indent to the entry level for this frame
         __dotTrace_decrementIndent
 
+        # Grab the start time for this frame (if any) to compute total duration
+        local frame_start=""
+        if ! _stack_is_empty TRACE_DOTFILES_START_STACK; then
+            frame_start=$(_stack_top TRACE_DOTFILES_START_STACK)
+        fi
+
         # Try to print the single-line function summary; fall back to EXIT
         if ! __dotTrace_flushPending "${exit_status}"; then
             local func_name
             func_name=$(_stack_top TRACE_DOTFILES_STACK)
-            __dotTrace_print "${TRACE_DOTFILES_ACTIVE_INDENT}" "TRACE_EXIT" "$(__time_now)" "${func_name} status=${exit_status}"
+            local duration_suffix=""
+            if [[ -n "$frame_start" ]]; then
+                local raw_dur="$(__time_delta "$frame_start")"
+                local colored_dur="$(__dotTrace_colorize_duration "$raw_dur")"
+                duration_suffix=", duration: ${colored_dur}s"
+            fi
+            __dotTrace_print "${TRACE_DOTFILES_ACTIVE_INDENT}" "TRACE_EXIT" "$(__time_now)" "${func_name}, status: ${exit_status}${duration_suffix}"
         fi
         _stack_pop TRACE_DOTFILES_STACK
+        if ! _stack_is_empty TRACE_DOTFILES_START_STACK; then
+            _stack_pop TRACE_DOTFILES_START_STACK >/dev/null
+        fi
     fi
     return ${exit_status}
 }
@@ -289,8 +389,18 @@ function _dotTrace_exit() {
 function toggle_trace_dotfiles() {
     if [[ -n "${TRACE_DOTFILES}" ]]; then
         unset TRACE_DOTFILES
+        unset TRACE_DOTFILES_LAST_TS
+        unset TRACE_DOTFILES_LAST_TS_PID
+        unset TRACE_DOTFILES_BASE_SUBSHELL_DEPTH
+        unset TRACE_DOTFILES_BASE_DEPTH_ANCHOR
+        unset TRACE_DOTFILES_BASE_SHLVL
     else
         export TRACE_DOTFILES=1
+        unset TRACE_DOTFILES_LAST_TS
+        unset TRACE_DOTFILES_LAST_TS_PID
+        unset TRACE_DOTFILES_BASE_SUBSHELL_DEPTH
+        unset TRACE_DOTFILES_BASE_DEPTH_ANCHOR
+        unset TRACE_DOTFILES_BASE_SHLVL
     fi
 }
 
