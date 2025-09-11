@@ -6,6 +6,7 @@
 #pragma requires icons.sh
 #pragma requires platform.sh
 #pragma requires completion/git-prompt.sh
+#pragma requires cache.sh
 
 function __git_is_in_repo() {
     _dotTrace_enter
@@ -66,14 +67,31 @@ function __git_is_in_worktree() {
 
 function __git_compare_upstream_changes() {
     _dotTrace_enter
-    # Fetch remote changes (use --quiet to suppress output)
-    # git fetch --quiet
 
     local upstream
     upstream=$(git rev-parse --abbrev-ref --symbolic-full-name "@{u}" 2>/dev/null)
     if [[ -z "$upstream" ]]; then
+        _dotTrace "no upstream; cannot compare"
         _dotTrace_exit 1
         return
+    fi
+
+    if [[ -n "${DISABLE_GIT_STATUS_FETCH}" ]]; then
+        _dotTrace "auto-fetch disabled via DISABLE_GIT_STATUS_FETCH"
+    else
+        local -i max_age
+        max_age=${GIT_STATUS_FETCH_MAX_AGE:-300}
+        local repo_id cache_key
+        repo_id=$(git rev-parse --git-dir 2>/dev/null | tr '/.' '__')
+        cache_key="GIT_STATUS_FETCH_${repo_id}_${upstream//\//_}"
+        if __cache_get "${cache_key}" >/dev/null; then
+            _dotTrace "auto-fetch skipped (cache hit): ${cache_key}"
+        else
+            _dotTrace "auto-fetching remotes (cache miss): ${cache_key}"
+            git fetch --quiet 2>/dev/null || true
+            __cache_put "${cache_key}" 1 "${max_age}"
+            _dotTrace "auto-fetch cached with ttl=${max_age}s"
+        fi
     fi
 
     local -i ahead=0 behind=0
@@ -92,16 +110,16 @@ function __git_compare_upstream_changes() {
 function __git_has_unpushed_changes() {
     _dotTrace_enter
     __git_compare_upstream_changes
-    local -i result=$?
-    result=$(( (result & 2) != 0 ))
+    local -i mask=$?
+    local -i result=$(( ((mask & 2) != 0) ? 0 : 1 ))
     _dotTrace_exit $result
 }
 
 function __git_has_remote_changes() {
     _dotTrace_enter
     __git_compare_upstream_changes
-    local -i result=$?
-    result=$(( (result & 4) != 0 ))
+    local -i mask=$?
+    local -i result=$(( ((mask & 4) != 0) ? 0 : 1 ))
     _dotTrace_exit $result
 }
 
