@@ -16,7 +16,7 @@ from datetime import datetime
 from functools import partial
 from itertools import chain
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, TypeAlias
 
 def mingify_path(path: str) -> str:
     path = re.sub(r'\\', '/', path)
@@ -62,6 +62,10 @@ def json_ready(obj: Any) -> Any:
         return sorted(list(obj))
     else:
         return obj
+
+RunCmd: TypeAlias = list[str]
+RunThunk: TypeAlias = Callable[[], Any]
+RunOp: TypeAlias = str | RunCmd | RunThunk
 
 
 @dataclass
@@ -184,7 +188,7 @@ class Config:
 config: Config = None
 
 
-def print_ops(ops: list, quiet: bool = False) -> None:
+def print_ops(ops: list[RunOp], quiet: bool = False) -> None:
     for entry in ops:
         if isinstance(entry, str):
             if entry.startswith(BASH_COMMAND_PREFIX):
@@ -203,7 +207,7 @@ def print_ops(ops: list, quiet: bool = False) -> None:
             raise TypeError('Unsupported operation type')
 
 
-def run_ops(ops: list, quiet: bool = False) -> None:
+def run_ops(ops: list[RunOp], quiet: bool = False) -> None:
     for entry in ops:
         if isinstance(entry, str):
             if entry.startswith(BASH_COMMAND_PREFIX):
@@ -291,7 +295,7 @@ def get_plugin_relative_target_path(repo: str) -> str:
     return f"{target_prefix}/{target_suffix}"
 
 
-def make_post_install_commands(host: Host) -> list[str]:
+def make_post_install_commands(host: Host) -> list[RunOp]:
     if not host.post_install_commands:
         return []
 
@@ -301,7 +305,7 @@ def make_post_install_commands(host: Host) -> list[str]:
     return ops
 
 
-def make_install_plugins_bash_commands(plugin_type: str, repo_list: list[str], install_root: str) -> list[str]:
+def make_install_plugins_bash_commands(plugin_type: str, repo_list: list[str], install_root: str) -> list[RunOp]:
     ops = [f'>> Updating {len(repo_list)} {plugin_type}']
     for repo in repo_list:
         target_path = f"{install_root}/{get_plugin_relative_target_path(repo)}"
@@ -320,7 +324,7 @@ def make_install_plugins_bash_commands(plugin_type: str, repo_list: list[str], i
     return ops
 
 
-def ensure_directories_exist_ops(paths: list[str], path_root: str=None, already_exists_ok: bool=True) -> list[str]:
+def ensure_directories_exist_ops(paths: list[str], path_root: str=None, already_exists_ok: bool=True) -> list[RunCmd]:
     def remove_parents_from_set(paths: set[str]) -> set[str]:
         return {d for d in paths if not any(subdir != d and subdir.startswith(d) for subdir in paths)}
 
@@ -338,7 +342,7 @@ def remove_children_from_set(paths: set[str]) -> list[str]:
     return sorted({d for d in paths if not any(subdir != d and d.startswith(subdir) for subdir in paths)})
 
 
-def copy_directories_local(source_root: str, source_dirs: list[str], dest_root: str, dest_dirs: list[str]) -> list:
+def copy_directories_local(source_root: str, source_dirs: list[str], dest_root: str, dest_dirs: list[str]) -> list[RunCmd]:
     ops = []
 
     ops.extend(ensure_directories_exist_ops(dest_dirs, dest_root))
@@ -397,7 +401,7 @@ def get_ext_vars(host: Host | None = None) -> dict:
     return standard_ext_vars
 
 
-def preprocess_curl_files(host: Host, verbose: bool = False) -> list:
+def preprocess_curl_files(host: Host, verbose: bool = False) -> list[RunOp]:
     if not host.curl_maps:
         return ['No curl maps found']
 
@@ -426,7 +430,7 @@ def preprocess_curl_files(host: Host, verbose: bool = False) -> list:
     return ops
 
 
-def preprocess_jsonnet_files(host: Host, source_dir: str, staging_dir: str, verbose: bool = False) -> list:
+def preprocess_jsonnet_files(host: Host, source_dir: str, staging_dir: str, verbose: bool = False) -> list[RunOp]:
     if not host.jsonnet_maps:
         return ['No jsonnet maps found']
 
@@ -442,7 +446,7 @@ def preprocess_jsonnet_files(host: Host, source_dir: str, staging_dir: str, verb
     ops.extend(jsonnet_commands)
     return ops
 
-def preprocess_jsonnet_directories(host, source_dir, staging_dir, verbose=False) -> list:
+def preprocess_jsonnet_directories(host, source_dir, staging_dir, verbose=False) -> list[RunOp]:
     if not host.jsonnet_multi_maps:
         return ['No jsonnet multimaps found']
 
@@ -460,7 +464,7 @@ def preprocess_jsonnet_directories(host, source_dir, staging_dir, verbose=False)
     return ops
 
 
-def copy_files_local(source_root, source_files, dest_root, dest_files, annotate: bool = False) -> list:
+def copy_files_local(source_root, source_files, dest_root, dest_files, annotate: bool = False) -> list[RunOp]:
     full_path_sources = [make_joined_path(src, source_root) for src in source_files]
     full_path_dests = [make_joined_path(dest, dest_root) for dest in dest_files]
 
@@ -481,7 +485,7 @@ def copy_files_local(source_root, source_files, dest_root, dest_files, annotate:
     return ops
 
 
-def install_vscode_extensions(host, verbose=False) -> list:
+def install_vscode_extensions(host, verbose=False) -> list[RunOp]:
     if host.is_localhost:
         return []
 
@@ -512,7 +516,7 @@ def install_vscode_extensions(host, verbose=False) -> list:
     return ops
 
 
-def make_finish_script(command_ops, script_path: str, verbose: bool) -> list:
+def make_finish_script(command_ops: list[RunOp], script_path: str, verbose: bool) -> list[RunOp]:
     def write_script():
         with open(script_path, 'w', encoding='utf-8') as f:
             f.write('#!/bin/bash\n\n')
@@ -534,7 +538,7 @@ def make_finish_script(command_ops, script_path: str, verbose: bool) -> list:
     return ops
 
 
-def clean_remote_dotfiles(host: Host, treat_as_localhost: bool=False) -> list:
+def clean_remote_dotfiles(host: Host, treat_as_localhost: bool=False) -> list[RunOp]:
     ops = [f'>> Cleaning existing configuration files for {host.hostname}']
 
     dirs_to_remove = [make_joined_path(d, host.home) for d in remove_children_from_set({host.config_dir}.union(host.directory_maps.values()))]
@@ -550,7 +554,7 @@ def clean_remote_dotfiles(host: Host, treat_as_localhost: bool=False) -> list:
     return ops
 
 
-def push_remote_staging(host: Host) -> list:
+def push_remote_staging(host: Host) -> list[RunOp]:
     ops = [f'Syncing dotFiles for {host.hostname} from local staging directory']
 
     ops.append(f'>> Copying {len(host.file_maps) + 1} files and {len(host.directory_maps)} folders to {host.hostname} home directory')
@@ -591,7 +595,7 @@ def process_macros_for_staged_file(host: Host, file: str) -> None:
             f.writelines(line + '\n' for line in modified_content)
 
 
-def stage_local(host: Host, verbose: bool = False, use_cache: bool = False) -> list:
+def stage_local(host: Host, verbose: bool = False, use_cache: bool = False) -> list[RunOp]:
     ops = [f'Staging dotFiles for {host.hostname} in {host.local_staging_dir}']
 
     if not use_cache:
@@ -647,7 +651,7 @@ def stage_local(host: Host, verbose: bool = False, use_cache: bool = False) -> l
     return ops
 
 
-def pull_remote(host: Host) -> list:
+def pull_remote(host: Host) -> list[RunOp]:
     snapshot_dir = host.local_staging_dir
     ops = [f'>> Recreating staged dotFiles for {host.hostname}']
 
@@ -764,12 +768,12 @@ def compare_user_settings(host: Host) -> None:
     print(f'diff "{snapshot_path}" "{gen_path}"')
 
 
-def push_sublimetext_windows_plugins() -> list:
+def push_sublimetext_windows_plugins() -> list[RunOp]:
     """Setup Sublime Text plugins for Windows."""
     return [['cp', 'sublime_text\\*', '%APPDATA%\\Sublime Text 2\\Packages\\User']]
 
 
-def push_gnome_settings() -> list:
+def push_gnome_settings() -> list[RunOp]:
     """Apply GNOME settings using dconf."""
     dconf_settings = parse_jsonnet_now(
         'gnome/dconf_settings.jsonnet',
