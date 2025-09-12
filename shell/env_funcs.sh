@@ -880,8 +880,8 @@ function __cute_shell_header() {
 
     # Print warnings, one per line, first (if any)
     if (( ${#CUTE_HEADER_WARNINGS[@]} > 0 )); then
-        for __warn in "${CUTE_HEADER_WARNINGS[@]}"; do
-            printf '%s%s\n' "${prefix}" "${__warn}"
+        for warn in "${CUTE_HEADER_WARNINGS[@]}"; do
+            printf '%s%s %s\n' "${prefix}" "${ICON_MAP[WARNING]}" "${warn}"
         done
     fi
 

@@ -307,11 +307,6 @@ RPROMPT="YYY"
 __update_prompt
 # RPOMPT+='%* '
 
-__do_iterm2_shell_integration
-__do_vscode_shell_integration
-__do_konsole_shell_integration
-__do_eza_aliases
-
 _dotTrace "Sourcing rbenv"
 [ -d "$HOME/.rbenv/bin" ] && export PATH="$HOME/.rbenv/bin:$PATH"
 [ -x "$(command -v rbenv)" ] && eval "$(rbenv init -)"
@@ -342,6 +337,11 @@ else
     fi
 fi
 _dotTrace "Finished loading nvm - This takes a stupidly long time on Linux... especially zsh."
+
+__do_iterm2_shell_integration
+__do_vscode_shell_integration
+__do_konsole_shell_integration
+__do_eza_aliases
 
 # echo "Welcome to $(__effective_distribution)!"
 case "$(__effective_distribution)" in

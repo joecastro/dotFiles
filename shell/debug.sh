@@ -368,12 +368,11 @@ function _dotTrace_exit() {
 
         # Try to print the single-line function summary; fall back to EXIT
         if ! __dotTrace_flushPending "${exit_status}"; then
-            local func_name
+            local func_name raw_dur colored_dur duration_suffix=""
             func_name=$(_stack_top TRACE_DOTFILES_STACK)
-            local duration_suffix=""
             if [[ -n "$frame_start" ]]; then
-                local raw_dur="$(__time_delta "$frame_start")"
-                local colored_dur="$(__dotTrace_colorize_duration "$raw_dur")"
+                raw_dur="$(__time_delta "$frame_start")"
+                colored_dur="$(__dotTrace_colorize_duration "$raw_dur")"
                 duration_suffix=", duration: ${colored_dur}s"
             fi
             __dotTrace_print "${TRACE_DOTFILES_ACTIVE_INDENT}" "TRACE_EXIT" "$(__time_now)" "${func_name}, status: ${exit_status}${duration_suffix}"
