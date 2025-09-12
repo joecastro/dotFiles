@@ -26,6 +26,9 @@ local localhost = apply_configs_core.Host(
     vim_pack_plugin_opt_repos: apply_configs_core.vim_pack_plugin_opt_repos,
     vim_pack_plugin_start_repos: apply_configs_core.vim_pack_plugin_start_repos,
     zsh_plugin_repos: apply_configs_core.zsh_plugin_repos,
+    // Promote generated dir names to top-level config for apply.py
+    jsonnet_output_dir: apply_configs_core.jsonnet_output_dir,
+    curl_output_dir: apply_configs_core.curl_output_dir,
 
     workspace_overrides: null,
     hosts: [

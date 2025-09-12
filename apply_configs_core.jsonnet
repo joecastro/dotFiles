@@ -11,35 +11,35 @@ local ext_vars = {
 local config_dir = '.config/dotShell';
 
 local jsonnet_maps = [
-    ['git/gitconfig.jsonnet', 'gen/gitconfig.ini', '.gitconfig'],
+    ['git/gitconfig.jsonnet', 'gitconfig.ini', '.gitconfig'],
     # env_vars needs to be in the home directory for bootstrapping zsh
-    ['shell/env_vars.jsonnet', 'gen/env_vars.sh', '.env_vars.sh'],
-    ['konsole/konsolerc.jsonnet', 'gen/konsolerc.ini', '.config/konsolerc'],
-    ['konsole/konsole_color_funcs.jsonnet', 'gen/konsole_color_funcs.sh', config_dir + '/'],
-    ['shell/iterm2_color_funcs.jsonnet', 'gen/iterm2_color_funcs.sh', config_dir + '/'],
+    ['shell/env_vars.jsonnet', 'env_vars.sh', '.env_vars.sh'],
+    ['konsole/konsolerc.jsonnet', 'konsolerc.ini', '.config/konsolerc'],
+    ['konsole/konsole_color_funcs.jsonnet', 'konsole_color_funcs.sh', config_dir + '/'],
+    ['shell/iterm2_color_funcs.jsonnet', 'iterm2_color_funcs.sh', config_dir + '/'],
 ];
 
 local jsonnet_localhost_mac_maps = [
-    ['vscode/user_settings.jsonnet', 'gen/vscode_user_settings.json', 'Library/Application Support/Code/User/settings.json']
+    ['vscode/user_settings.jsonnet', 'vscode_user_settings.json', 'Library/Application Support/Code/User/settings.json']
 ];
 
 local jsonnet_localhost_linux_maps = [
-    ['vscode/user_settings.jsonnet', 'gen/vscode_user_settings.json', '.config/Code/User/settings.json']
+    ['vscode/user_settings.jsonnet', 'vscode_user_settings.json', '.config/Code/User/settings.json']
 ];
 
 local jsonnet_multi_maps = [
-    ['konsole/konsole_configs_multiplex.jsonnet', 'gen/konsole_configs', '.local/share/konsole'],
+    ['konsole/konsole_configs_multiplex.jsonnet', 'konsole_configs', '.local/share/konsole'],
 ];
 
 local curl_maps = [
-    ['https://raw.githubusercontent.com/git/git/master/contrib/completion/git-prompt.sh', 'curl/git-prompt.sh', config_dir + '/completion/'],
-    ['https://raw.githubusercontent.com/git/git/master/contrib/completion/git-completion.bash', 'curl/git-completion.bash', config_dir + '/completion/'],
-    ['https://raw.githubusercontent.com/git/git/master/contrib/completion/git-completion.zsh', 'curl/git-completion.zsh', config_dir + '/zfuncs/_git'],
-    ['https://iterm2.com/shell_integration/zsh', 'curl/iterm2_shell_integration.zsh', config_dir + '/'],
-    ['https://iterm2.com/shell_integration/bash', 'curl/iterm2_shell_integration.bash', config_dir + '/'],
-    ['https://raw.githubusercontent.com/eza-community/eza/main/completions/zsh/_eza', 'curl/_eza', config_dir + '/zfuncs/'],
-    ['https://raw.githubusercontent.com/mafredri/zsh-async/v1.8.6/async.zsh', 'curl/async.zsh', config_dir + '/zfuncs/async'],
-    ['https://raw.githubusercontent.com/rcaloras/bash-preexec/0.6.0/bash-preexec.sh', 'curl/bash-preexec.sh', config_dir + '/bash/bash-preexec.sh'],
+    ['https://raw.githubusercontent.com/git/git/master/contrib/completion/git-prompt.sh', 'git-prompt.sh', config_dir + '/completion/'],
+    ['https://raw.githubusercontent.com/git/git/master/contrib/completion/git-completion.bash', 'git-completion.bash', config_dir + '/completion/'],
+    ['https://raw.githubusercontent.com/git/git/master/contrib/completion/git-completion.zsh', 'git-completion.zsh', config_dir + '/zfuncs/_git'],
+    ['https://iterm2.com/shell_integration/zsh', 'iterm2_shell_integration.zsh', config_dir + '/'],
+    ['https://iterm2.com/shell_integration/bash', 'iterm2_shell_integration.bash', config_dir + '/'],
+    ['https://raw.githubusercontent.com/eza-community/eza/main/completions/zsh/_eza', '_eza', config_dir + '/zfuncs/'],
+    ['https://raw.githubusercontent.com/mafredri/zsh-async/v1.8.6/async.zsh', 'async.zsh', config_dir + '/zfuncs/async'],
+    ['https://raw.githubusercontent.com/rcaloras/bash-preexec/0.6.0/bash-preexec.sh', 'bash-preexec.sh', config_dir + '/bash/bash-preexec.sh'],
 ];
 
 local file_maps = [
@@ -227,6 +227,9 @@ local Host(hostname, home, icon, color, primary_wallpaper, android_wallpaper) = 
     is_linux:: $.is_localhost && ext_vars.is_linux,
 
     config_dir: config_dir,
+    // Generated output directory names (consumed by apply.py)
+    jsonnet_output_dir:: 'gen',
+    curl_output_dir:: 'curl',
     curl_maps: curl_maps,
     jsonnet_maps: jsonnet_maps +
         if $.is_macos then jsonnet_localhost_mac_maps else
@@ -256,6 +259,10 @@ local Host(hostname, home, icon, color, primary_wallpaper, android_wallpaper) = 
     cwd: ext_vars.cwd,
 
     config_dir: config_dir,
+    // Directories under the staging root that receive generated artifacts
+    // Promote these to config so apply.py doesn't hardcode names
+    jsonnet_output_dir: 'gen',
+    curl_output_dir: 'curl',
 
     vim_pack_plugin_start_repos: vim_pack_plugin_start_repos,
     vim_pack_plugin_opt_repos: vim_pack_plugin_opt_repos,
