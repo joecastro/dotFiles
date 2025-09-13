@@ -26,6 +26,12 @@ function __git_root() {
         return 1
     fi
 
+    if __git_is_in_dotgit_dir; then
+        # If we're in the .git dir, return the parent directory of .git
+        git rev-parse --absolute-git-dir 2> /dev/null | xargs dirname
+        return
+    fi
+
     git rev-parse --show-toplevel 2> /dev/null
 }
 
@@ -55,6 +61,13 @@ function __git_is_nothing_to_commit() {
 
 function __git_is_in_worktree() {
     _dotTrace_enter
+
+    if __git_is_in_dotgit_dir; then
+        _dotTrace "in .git dir; not in worktree"
+        _dotTrace_exit 1
+        return
+    fi
+
     # git rev-parse --is-inside-work-tree | grep "true" > /dev/null 2>&1
     local root_worktree active_worktree
 
@@ -79,18 +92,18 @@ function __git_compare_upstream_changes() {
     if [[ -n "${DISABLE_GIT_STATUS_FETCH}" ]]; then
         _dotTrace "auto-fetch disabled via DISABLE_GIT_STATUS_FETCH"
     else
-        local -i max_age
-        max_age=${GIT_STATUS_FETCH_MAX_AGE:-300}
-        local repo_id cache_key
-        repo_id=$(git rev-parse --git-dir 2>/dev/null | tr '/.' '__')
-        cache_key="GIT_STATUS_FETCH_${repo_id}_${upstream//\//_}"
-        if __cache_get "${cache_key}" >/dev/null; then
-            _dotTrace "auto-fetch skipped (cache hit): ${cache_key}"
-        else
-            _dotTrace "auto-fetching remotes (cache miss): ${cache_key}"
+        local max_age=${GIT_STATUS_FETCH_MAX_AGE:-300.000}
+        local last_fetch fetch_age
+        if ! last_fetch=$(__git_last_fetch_epoch); then
+            last_fetch="0.000"
+        fi
+        fetch_age=$(__time_delta "$last_fetch")
+        _dotTrace "last fetch epoch: $last_fetch (age: ${fetch_age:-N/A}s, max allowed: ${max_age}s)"
+        if (( $(awk "BEGIN {print ($fetch_age > $max_age)}") )); then
+            _dotTrace "fetch age exceeds max age; performing git fetch"
             git fetch --quiet 2>/dev/null || true
-            __cache_put "${cache_key}" 1 "${max_age}"
-            _dotTrace "auto-fetch cached with ttl=${max_age}s"
+        else
+            _dotTrace "fetch age within max age; skipping git fetch"
         fi
     fi
 
@@ -121,6 +134,30 @@ function __git_has_remote_changes() {
     local -i mask=$?
     local -i result=$(( ((mask & 4) != 0) ? 0 : 1 ))
     _dotTrace_exit $result
+}
+
+__git_last_fetch_epoch() {
+    _dotTrace_enter
+
+    local fetch_head
+    fetch_head="$(git rev-parse --show-toplevel)/.git/FETCH_HEAD"
+
+    # bail if no fetch record yet
+    if [ ! -f "$fetch_head" ]; then
+        echo "" >&2
+        return 1
+    fi
+
+    local mtime
+    if stat --version >/dev/null 2>&1; then
+        # GNU stat (Linux)
+        mtime=$(stat -c %Y "$fetch_head")
+    else
+        # BSD/macOS stat
+        mtime=$(stat -f %m "$fetch_head")
+    fi
+
+    echo "$mtime"
 }
 
 function __git_is_on_default_branch() {
@@ -248,6 +285,7 @@ function __print_git_pwd() {
 
     local working_pwd=""
     local color_hint="green"
+    local style_hint="normal"
     local -i is_on_default_branch \
              is_in_dotgit \
              is_head_on_branch \
@@ -262,14 +300,23 @@ function __print_git_pwd() {
     is_in_dotgit=$(( $? == 0 ))
     __git_is_head_on_branch
     is_head_on_branch=$(( $? == 0 ))
-    __git_has_remote_changes
-    has_remote=$(( $? == 0 ))
-    __git_has_unpushed_changes
-    has_unpushed=$(( $? == 0 ))
-    __git_is_nothing_to_commit
-    is_unchanged=$(( $? == 0 ))
     __git_is_detached_head
     is_detached_head=$(( $? == 0 ))
+
+    if (( is_in_dotgit )); then
+        has_remote=0
+        has_unpushed=0
+        is_unchanged=1
+        color_hint="yellow"
+        style_hint="bold"
+    else
+        __git_is_nothing_to_commit
+        is_unchanged=$(( $? == 0 ))
+        __git_has_remote_changes
+        has_remote=$(( $? == 0 ))
+        __git_has_unpushed_changes
+        has_unpushed=$(( $? == 0 ))
+    fi
 
     if (( has_remote && has_unpushed )); then
         _dotTrace "both remote and unpushed changes detected"
@@ -310,25 +357,31 @@ function __print_git_pwd() {
         fi
     fi
 
-    working_pwd=$(__echo_colored "${color_hint}" "${working_pwd}")
-
-    working_pwd+=" ${ICON_MAP[COD_PINNED]}"
+    working_pwd=$(__echo_colored "${style_hint}" "${color_hint}" "${working_pwd} ")
+    working_pwd+="${ICON_MAP[PINNED_OUTLINE]}"
+    #working_pwd+=$(__echo_colored "normal" "red" "${ICON_MAP[PINNED]}")
 
     _dotTrace "branch prefix before anchored path: ${working_pwd}"
+    local repo_path
+    repo_path=$(__git_root)
 
-    local anchored_path
+    local anchored_path="${repo_path##*/}"
     if (( is_in_dotgit)); then
-        anchored_path=".git${PWD##*.git}"
+        anchored_path+="/.git${PWD##*.git}"
         _dotTrace "anchored_path (in .git dir): ${anchored_path}"
     else
+        local repo_prefix
         # If we're in a git repo then show the current directory relative to the root of that repo.
-        anchored_path="$(printf '%s' "$(git rev-parse --show-toplevel | xargs basename)/$(git rev-parse --show-prefix)")"
-        anchored_path="${anchored_path%/}"
+        repo_prefix="$(git rev-parse --show-prefix 2>/dev/null)"
+        repo_prefix="${repo_prefix%/}"
+
+        if [[ -n "$repo_prefix" ]]; then
+            anchored_path+="/$(__print_abbreviated_path "${repo_prefix}" "${repo_path}")"
+        fi
         _dotTrace "anchored_path: ${anchored_path}"
-        anchored_path="$(__print_abbreviated_path "${anchored_path}" 0)"
     fi
 
-    printf '%s' "${working_pwd}${anchored_path}"
+    printf "%s%s" "${working_pwd}" "${anchored_path}"
     _dotTrace_exit
 }
 

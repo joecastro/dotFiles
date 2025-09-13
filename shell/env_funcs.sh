@@ -113,14 +113,14 @@ function __print_repo_worktree() {
     __echo_colored "green" "${line}"
 
     local current_project
-    if current_project=$(repo_current_project); then
-        local current_branch
-        if current_branch=$(repo_current_project_branch); then
-            printf '%s' ":$(repo_current_project_branch_status)${current_branch}"
-        else
-            __echo_colored "green" ":$(__print_abbreviated_path "${current_project}")"
+        if current_project=$(repo_current_project); then
+            local current_branch
+            if current_branch=$(repo_current_project_branch); then
+                printf '%s' ":$(repo_current_project_branch_status)${current_branch}"
+            else
+            __echo_colored "green" ":$(__print_abbreviated_path "${current_project}" "${CWD_REPO_ROOT}")"
+            fi
         fi
-    fi
     _dotTrace_exit 0
 }
 
@@ -318,7 +318,7 @@ function __auto_activate_venv() {
 
 function __is_style_name() {
     local style="$1"
-    [[ "$style" == "bold" || "$style" == "bright" ]]
+    [[ "$style" == "bold" || "$style" == "bright" || "$style" == "normal" ]]
 }
 
 if __is_shell_zsh; then
@@ -602,27 +602,66 @@ else
     }
 fi
 
+# Helper: compute minimal unique prefix of name among sibling directories under parent.
+# Prints the chosen prefix (at least 1 char). Assumes parent exists.
+function __get_unique_prefix_length() {
+    local parent="$1"
+    local name="$2"
+
+    local -i len=1
+    if command -v eza >/dev/null 2>&1; then
+        while :; do
+            local -i count
+            count=$(eza -a1D --icons=never --color=never "${parent}" | grep -c "^${name:0:$len}")
+            if (( count <= 1 )); then
+                break
+            fi
+            ((len++))
+        done
+    fi
+
+    return $len
+
+}
 
 function __print_abbreviated_path() {
     _dotTrace_enter "$@"
     local input_string="$1"
-    local -i expand_prefix=${2:-1}
+    local root_base="$2"
     local result=""
     local part
     local lookup
+
+    local is_ctx_valid=1
     while [[ "$input_string" == *"/"* ]]; do
+        if (( is_ctx_valid )) && [[ ! -d "$root_base" ]]; then
+            is_ctx_valid=0
+        fi
         part="${input_string%%/*}"
+        _dotTrace "Calculating abbreviation for part: $part"
         lookup="$(__cute_pwd_lookup "$part")"
         if [[ -n "$lookup" ]]; then
             result+="$lookup/"
-        elif [[ $expand_prefix -eq 0 || ${#part} -le 3 ]]; then
-            result+="$part/"
         else
-            result+="${part:0:1}/"
+            local -i prefix_len=1
+            if (( ${#part} <= 3 )); then
+                _dotTrace "Not abbreviating $part because it's short"
+                prefix_len=${#part}
+            elif (( is_ctx_valid )); then
+                __get_unique_prefix_length "$root_base" "$part"
+                prefix_len=$?
+                _dotTrace "Unique prefix length for $part is $prefix_len"
+            fi
+            result+="${part:0:$prefix_len}/"
         fi
-        expand_prefix=1
+
+        if (( is_ctx_valid )); then
+            root_base="$root_base/$part"
+        fi
+
         input_string="${input_string#*/}"
     done
+    _dotTrace "Calculating abbreviation for final part: $input_string"
     lookup="$(__cute_pwd_lookup "$input_string")"
     if [[ -n "$lookup" ]]; then
         result+="$lookup"

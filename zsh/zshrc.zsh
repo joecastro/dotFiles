@@ -348,11 +348,14 @@ case "$(__effective_distribution)" in
 "MACOS")
     # echo "MacOS zshrc load complete"
     if __has_homebrew; then
-        gnubin_path="$(brew --prefix coreutils &> /dev/null)/libexec/gnubin"
-        if [ -d "${gnubin_path}" ]; then
-            path=("${gnubin_path}" "${path[@]}")
+        if [ -d "$(brew --prefix coreutils)/libexec/gnubin" ]; then
+            path=("$(brew --prefix coreutils)/libexec/gnubin" "${path[@]}")
+            _dotTrace "Added gnu coreutils to path: ${gnubin_path}"
+            # __cute_shell_header_add_info "$EMOJI_ICON_MAP[BEER]$EMOJI_ICON_MAP[GNU]"
+        else
+            _dotTrace "No gnu coreutils found at: ${gnubin_path}"
+            __cute_shell_header_add_info "$EMOJI_ICON_MAP[X]${EMOJI_ICON_MAP[GNU]}"
         fi
-        unset gnubin_path
     fi
 
     # RPROMPT='$(battery_charge)'

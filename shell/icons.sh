@@ -31,7 +31,8 @@ declare -A EMOJI_ICON_MAP=(
     [COD_FILE_SUBMODULE]=📂
     [TMUX]=🤵
     [COD_HOME]=🏠
-    [COD_PINNED]=📌
+    [PINNED]=📌
+    [PINNED_OUTLINE]=📌
     [COD_TOOLS]=🛠️
     [COD_TAG]=🏷️
     [COD_PACKAGE]=📦
@@ -45,7 +46,7 @@ declare -A EMOJI_ICON_MAP=(
     [OCT_FILE_SUBMODULE]=🗄️
     [COD_TERMINAL_BASH]="{bash}"
     [FA_DOLLAR]=$
-    [FA_BEER]=🍺
+    [BEER]=🍺
     [CIDER]=🍺
     [YAWN]=🥱
     [ACCOUNT]=🙋
@@ -86,6 +87,7 @@ declare -A EMOJI_ICON_MAP=(
     [APPS]=🗂️
     [WEB]=🌐
     [IOS]=📱
+    [GNU]=🦬
     )
 
 declare -A NF_ICON_MAP=(
@@ -104,7 +106,8 @@ declare -A NF_ICON_MAP=(
     [COD_FILE_SUBMODULE]=
     [TMUX]=
     [COD_HOME]=
-    [COD_PINNED]=
+    [PINNED]=󰐃
+    [PINNED_OUTLINE]=
     [COD_TOOLS]=
     [COD_TAG]=
     [COD_PACKAGE]=
@@ -118,7 +121,7 @@ declare -A NF_ICON_MAP=(
     [OCT_FILE_SUBMODULE]=
     [COD_TERMINAL_BASH]=
     [FA_DOLLAR]=
-    [FA_BEER]=
+    [BEER]=
     [CIDER]=
     [YAWN]=
     [ACCOUNT]=
@@ -159,6 +162,7 @@ declare -A NF_ICON_MAP=(
     [APPS]=󰀻
     [WEB]=󰖟
     [IOS]= #󰀷
+    [GNU]=
     )
 
 if __is_shell_zsh; then
