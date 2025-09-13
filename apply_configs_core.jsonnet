@@ -227,9 +227,6 @@ local Host(hostname, home, icon, color, primary_wallpaper, android_wallpaper) = 
     is_linux:: $.is_localhost && ext_vars.is_linux,
 
     config_dir: config_dir,
-    // Generated output directory names (consumed by apply.py)
-    jsonnet_output_dir:: 'gen',
-    curl_output_dir:: 'curl',
     curl_maps: curl_maps,
     jsonnet_maps: jsonnet_maps +
         if $.is_macos then jsonnet_localhost_mac_maps else
@@ -259,10 +256,6 @@ local Host(hostname, home, icon, color, primary_wallpaper, android_wallpaper) = 
     cwd: ext_vars.cwd,
 
     config_dir: config_dir,
-    // Directories under the staging root that receive generated artifacts
-    // Promote these to config so apply.py doesn't hardcode names
-    jsonnet_output_dir: 'gen',
-    curl_output_dir: 'curl',
 
     vim_pack_plugin_start_repos: vim_pack_plugin_start_repos,
     vim_pack_plugin_opt_repos: vim_pack_plugin_opt_repos,

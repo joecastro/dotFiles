@@ -81,8 +81,6 @@ class Host:
     home: str
     branch: str | None = None
     kernel: str = 'linux'
-    jsonnet_output_dir: str = 'gen'
-    curl_output_dir: str = 'curl'
     file_maps: list[tuple[str, str]] | dict[str, str] = field(default_factory=list)
     directory_maps: list[tuple[str, str]] | dict[str, str] = field(default_factory=list)
     jsonnet_maps: list[tuple[str, str, str]] | dict[str, str] = field(default_factory=list)
@@ -95,8 +93,16 @@ class Host:
     prestaged_directories: set[str] = field(default_factory=set)
 
     is_localhost: bool = field(init=False, default=False)
-    local_staging_dir: Path = field(init=False, default=Path())
+    # Host out layout
+    local_out_dir: Path = field(init=False, default=Path())
+    local_staging_dir: Path = field(init=False, default=Path())  # final staged files
+    local_jsonnet_dir: Path = field(init=False, default=Path())  # cache for jsonnet outputs
+    local_curl_dir: Path = field(init=False, default=Path())     # cache for curl downloads
+    cache_json_path: Path = field(init=False, default=Path())
     remote_staging_dir: str = field(init=False, default='')
+    # Cache validity flags computed on init
+    jsonnet_cache_valid: bool = field(init=False, default=False)
+    curl_cache_valid: bool = field(init=False, default=False)
 
     def __post_init__(self):
 
@@ -106,41 +112,53 @@ class Host:
         if self.hostname == LOCALHOST_NAME:
             self.kernel = LOCALHOST_KERNEL
         self.file_maps = dict(self.file_maps)
-        # Promote jsonnet maps: prefix staging dests with jsonnet_output_dir
-        prefixed_jsonnet_entries = []
+        # Promote jsonnet maps into file/directory maps without exposing cache dirs
+        # Final staged paths are 'dest' directly; generation happens into cache dirs.
+        promoted_jsonnet_entries = []
         for (src, dest, target) in self.jsonnet_maps:
-            staged = f"{self.jsonnet_output_dir}/{dest}"
-            self.file_maps[staged] = target
-            self.prestaged_files.add(staged)
-            prefixed_jsonnet_entries.append((src, staged, target))
-        self.jsonnet_maps = {src: staged for (src, staged, _) in prefixed_jsonnet_entries}
+            self.file_maps[dest] = target
+            self.prestaged_files.add(dest)
+            promoted_jsonnet_entries.append((src, dest, target))
+        self.jsonnet_maps = {src: dest for (src, dest, _) in promoted_jsonnet_entries}
 
         # Promote jsonnet multicast directories similarly
         self.directory_maps = dict(self.directory_maps)
-        prefixed_multi_entries = []
+        promoted_multi_entries = []
         for (src, dest_dir, target_dir) in self.jsonnet_multi_maps:
-            staged_dir = f"{self.jsonnet_output_dir}/{dest_dir}"
-            self.directory_maps[staged_dir] = target_dir
-            self.prestaged_directories.add(staged_dir)
-            prefixed_multi_entries.append((src, staged_dir, target_dir))
-        self.jsonnet_multi_maps = {src: staged_dir for (src, staged_dir, _) in prefixed_multi_entries}
+            self.directory_maps[dest_dir] = target_dir
+            self.prestaged_directories.add(dest_dir)
+            promoted_multi_entries.append((src, dest_dir, target_dir))
+        self.jsonnet_multi_maps = {src: dest_dir for (src, dest_dir, _) in promoted_multi_entries}
 
-        # Promote curl maps: prefix staging dests with curl_output_dir
-        prefixed_curl_entries = []
+        # Promote curl maps without exposing cache dirs
+        promoted_curl_entries = []
         for (src, dest, target) in self.curl_maps:
-            staged = f"{self.curl_output_dir}/{dest}"
-            self.file_maps[staged] = target
-            self.prestaged_files.add(staged)
-            prefixed_curl_entries.append((src, staged, target))
-        self.curl_maps = {src: staged for (src, staged, _) in prefixed_curl_entries}
+            self.file_maps[dest] = target
+            self.prestaged_files.add(dest)
+            promoted_curl_entries.append((src, dest, target))
+        self.curl_maps = {src: dest for (src, dest, _) in promoted_curl_entries}
 
         values_to_coerce = [k for k, v in self.file_maps.items() if v.endswith('/')]
         for key in values_to_coerce:
             self.file_maps[key] = f'{self.file_maps[key]}{os.path.basename(key)}'
 
         self.is_localhost = self.hostname == LOCALHOST_NAME
-        self.local_staging_dir = OUT_DIR_ROOT / f'{self.hostname}-dot'
+        # Define host out layout
+        self.local_out_dir = OUT_DIR_ROOT / f'{self.hostname}-dot'
+        self.local_staging_dir = self.local_out_dir / 'staged'
+        self.local_jsonnet_dir = self.local_out_dir / 'gen'
+        self.local_curl_dir = self.local_out_dir / 'curl'
+        self.cache_json_path = self.local_out_dir / 'cache.json'
         self.remote_staging_dir = f'{self.home}/{self.config_dir}-staging'
+
+        # Establish cache validity on creation
+        previous_hashes = self.read_cache_hashes()
+        prev_jsonnet = previous_hashes.get('jsonnet_inputs_hash', '')
+        prev_curl = previous_hashes.get('curl_inputs_hash', '')
+        curr_jsonnet = self.compute_jsonnet_inputs_hash()
+        curr_curl = self.compute_curl_inputs_hash()
+        self.jsonnet_cache_valid = (curr_jsonnet == prev_jsonnet) and self.local_jsonnet_dir.is_dir()
+        self.curl_cache_valid = (curr_curl == prev_curl) and self.local_curl_dir.is_dir()
 
 
     def __repr__(self) -> str:
@@ -176,21 +194,37 @@ class Host:
 
         return hasher.hexdigest()
 
-    def jsonnet_cache_hash_path(self) -> Path:
-        return OUT_DIR_ROOT / f".jsonnet_inputs_hash_{self.hostname}.txt"
-
-    def query_jsonnet_cache_hash(self) -> str:
+    def read_cache_hashes(self) -> dict:
         try:
-            with open(self.jsonnet_cache_hash_path(), 'r', encoding='utf-8') as f:
-                return f.read().strip()
+            with open(self.cache_json_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
         except FileNotFoundError:
-            return ''
+            return {}
+        except json.JSONDecodeError:
+            return {}
 
-    def write_jsonnet_cache_hash(self, value: str) -> None:
-        cache_path = self.jsonnet_cache_hash_path()
-        cache_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(cache_path, 'w', encoding='utf-8') as f:
-            f.write(value)
+    def compute_curl_inputs_hash(self) -> str:
+        """Compute a hash over curl-related inputs for this host.
+
+        Since remote content is unknown here, this captures the mapping of
+        source URLs to staged destination paths. Changing either triggers a refresh.
+        """
+        hasher = hashlib.sha256()
+        # Normalize ordering for stability
+        items = sorted(self.curl_maps.items(), key=lambda kv: kv[0])
+        for src, staged in items:
+            hasher.update(src.encode('utf-8'))
+            hasher.update(staged.encode('utf-8'))
+        return hasher.hexdigest()
+
+    def update_cache_hashes(self) -> None:
+        current = {
+            'jsonnet_inputs_hash': self.compute_jsonnet_inputs_hash(),
+            'curl_inputs_hash': self.compute_curl_inputs_hash(),
+        }
+        self.cache_json_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(self.cache_json_path, 'w', encoding='utf-8') as f:
+            json.dump(current, f, indent=4, sort_keys=True)
 
 
     def get_inflated_macro(self, key: str, file_path: Path, pragma_arg: str | None = None) -> list[str]:
@@ -226,8 +260,6 @@ class Config:
     vim_pack_plugin_start_repos: list[str]
     vim_pack_plugin_opt_repos: list[str]
     zsh_plugin_repos: list[str]
-    jsonnet_output_dir: str
-    curl_output_dir: str
 
     def __post_init__(self):
         self.hosts = [Host(**host) for host in self.hosts]
@@ -365,7 +397,11 @@ def make_install_plugins_bash_commands(plugin_type: str, repo_list: list[str], i
         bash_commands = [
             f'if [ -d "{target_path}" ]; then',
             f'    cd "{target_path}"',
-            '    git pull',
+            '    if [ -f .git/FETCH_HEAD ] && find .git/FETCH_HEAD -mtime -1 >/dev/null 2>&1; then',
+            f'        echo "Skipping recent fetch: {target_path}"',
+            '    else',
+            '        git pull',
+            '    fi',
             '    cd - > /dev/null',
             'else',
             f'    mkdir -p "{os.path.dirname(target_path)}"',
@@ -460,7 +496,7 @@ def preprocess_curl_files(host: Host, verbose: bool = False) -> list[RunOp]:
     if not host.curl_maps:
         return ['No curl maps found']
 
-    full_paths = {src: (host.local_staging_dir / dest) for src, dest in host.curl_maps.items()}
+    full_paths = {src: (host.local_curl_dir / dest) for src, dest in host.curl_maps.items()}
     ops = ensure_directories_exist_ops({p.parent for p in full_paths.values()})
 
     # Build robust curl commands that fail on HTTP errors and verify file exists
@@ -615,30 +651,22 @@ def process_macros_for_staged_file(host: Host, file: Path) -> None:
             f.writelines(line + '\n' for line in modified_content)
 
 
-def stage_local(host: Host, verbose: bool = False, use_cache_for_curl: bool = False) -> list[RunOp]:
+def stage_local(host: Host, verbose: bool = False, skip_cache: bool = False) -> list[RunOp]:
     ops = [f'Staging dotFiles for {host.hostname} in {host.local_staging_dir.as_posix()}']
 
-    staging_jsonnet_dir = host.local_staging_dir / config.jsonnet_output_dir
-    staging_curl_dir = host.local_staging_dir / config.curl_output_dir
+    # Dedicated cache dirs (not in staged output)
+    staging_jsonnet_dir = host.local_jsonnet_dir
+    staging_curl_dir = host.local_curl_dir
 
-    # Decide if jsonnet pipeline is necessary
-    current_inputs_hash = host.compute_jsonnet_inputs_hash()
-    previous_inputs_hash = host.query_jsonnet_cache_hash()
-    needs_jsonnet_preprocess = (current_inputs_hash != previous_inputs_hash) or (not staging_jsonnet_dir.is_dir())
+    # Decide if preprocessing is necessary based on host cache validity
+    if skip_cache:
+        needs_jsonnet_preprocess = True
+        needs_curl_preprocess = True
+    else:
+        needs_jsonnet_preprocess = not host.jsonnet_cache_valid
+        needs_curl_preprocess = not host.curl_cache_valid
 
-    needs_curl_preprocess = (not use_cache_for_curl) or (not staging_curl_dir.is_dir())
-
-    preserve_dirs = set()
-    if not needs_jsonnet_preprocess:
-        preserve_dirs.add(config.jsonnet_output_dir)
-    if not needs_curl_preprocess:
-        preserve_dirs.add(config.curl_output_dir)
-
-    temp_root = OUT_DIR_ROOT / f'.tmp_preserve_{host.hostname}'
-    if preserve_dirs:
-        ops.extend(ensure_directories_exist_ops({temp_root}, already_exists_ok=False))
-        preserved_list = sorted(preserve_dirs)
-        ops.extend(copy_directories_local(host.local_staging_dir, preserved_list, temp_root, preserved_list))
+    # No need to preserve cache subdirs; they live outside staged output now.
 
     files_to_stage = [file for file in host.file_maps.keys() if file not in host.prestaged_files]
     directories_to_stage = [dir for dir in host.directory_maps.keys() if dir not in host.prestaged_directories]
@@ -651,17 +679,32 @@ def stage_local(host: Host, verbose: bool = False, use_cache_for_curl: bool = Fa
 
     if needs_jsonnet_preprocess:
         ops.append('>> Preprocessing jsonnet files')
-        ops.extend(preprocess_jsonnet_files(host, CWD, host.local_staging_dir, verbose=verbose))
-        ops.extend(preprocess_jsonnet_directories(host, CWD, host.local_staging_dir, verbose=verbose))
-        # Persist the new inputs hash
-        ops.append(partial(host.write_jsonnet_cache_hash, current_inputs_hash))
+        ops.extend(preprocess_jsonnet_files(host, CWD, host.local_jsonnet_dir, verbose=verbose))
+        ops.extend(preprocess_jsonnet_directories(host, CWD, host.local_jsonnet_dir, verbose=verbose))
     else:
         ops.append('>> Skipping jsonnet preprocessing (no source changes)')
 
-    if preserve_dirs:
-        preserved_list = sorted(preserve_dirs)
-        ops.extend(copy_directories_local(temp_root, preserved_list, host.local_staging_dir, preserved_list))
-        ops.append(['rm', '-rf', temp_root.as_posix()])
+    # Persist updated cache hashes (after any preprocessing decisions)
+    ops.append(host.update_cache_hashes)
+
+    # Stage prestaged outputs from caches into staging dir
+    # - Copy jsonnet directories
+    if host.jsonnet_multi_maps:
+        ops.extend(copy_directories_local(host.local_jsonnet_dir, list(host.jsonnet_multi_maps.values()), host.local_staging_dir, list(host.jsonnet_multi_maps.values())))
+    # - Copy jsonnet single-file outputs
+    if host.jsonnet_maps:
+        src_files = [(host.local_jsonnet_dir / d).as_posix() for d in host.jsonnet_maps.values()]
+        dst_paths = [(host.local_staging_dir / d) for d in host.jsonnet_maps.values()]
+        dst_files = [p.as_posix() for p in dst_paths]
+        ops.extend(ensure_directories_exist_ops({p.parent for p in dst_paths}))
+        ops.extend([['cp', s, d] for s, d in zip(src_files, dst_files)])
+    # - Copy curl downloads
+    if host.curl_maps:
+        curl_src_files = [(host.local_curl_dir / d).as_posix() for d in host.curl_maps.values()]
+        curl_dst_paths = [(host.local_staging_dir / d) for d in host.curl_maps.values()]
+        curl_dst_files = [p.as_posix() for p in curl_dst_paths]
+        ops.extend(ensure_directories_exist_ops({p.parent for p in curl_dst_paths}))
+        ops.extend([['cp', s, d] for s, d in zip(curl_src_files, curl_dst_files)])
 
     ops.append('>> Staging directories and files')
     if verbose:
@@ -888,7 +931,7 @@ def main(args: list[str]) -> int:
     host_group.add_argument('--all', action='store_true', help='Apply to all hosts')
     host_group.add_argument('--local', action='store_true', help='Apply to the local host')
     parser.add_argument('--dry-run', action='store_true', help='Print operations without executing them')
-    parser.add_argument('--use-cache', action='store_true', help='Prefer existing curl downloads in staging when available')
+    parser.add_argument('--skip-cache', action='store_true', help='Skip caches and rebuild curl/jsonnet artifacts')
     parser.add_argument('--working-dir', help='Set the working directory')
     parser.add_argument('--verbose', '-v', action='store_true', help='Enable verbose output')
     parser.add_argument('--quiet', '-q', action='store_true', help='Suppress output')
@@ -927,7 +970,7 @@ def main(args: list[str]) -> int:
 
     ops = []
 
-    use_cache_for_curl = bool(getattr(parsed_args, 'use_cache', False))
+    skip_cache = bool(getattr(parsed_args, 'skip_cache', False))
     verbose_flag = bool(getattr(parsed_args, 'verbose', False))
 
     # Set global flags that affect Jsonnet ext vars
@@ -953,7 +996,7 @@ def main(args: list[str]) -> int:
                 raise ValueError('Cannot pull from multiple hosts')
             ops.extend(pull_remote(hosts[0]))
         case 'push':
-            ops.extend(chain.from_iterable(stage_local(host, verbose=verbose_flag, use_cache_for_curl=use_cache_for_curl) for host in hosts))
+            ops.extend(chain.from_iterable(stage_local(host, verbose=verbose_flag, skip_cache=skip_cache) for host in hosts))
             ops.extend(chain.from_iterable(push_remote_staging(host) for host in hosts))
             if any(host.is_localhost and host.kernel == 'darwin' for host in hosts):
                 ops.append(push_iterm2_prefs)
@@ -966,7 +1009,7 @@ def main(args: list[str]) -> int:
         case 'snapshot-iterm2-prefs':
             ops.append(snapshot_iterm2_prefs_json)
         case 'stage':
-            ops.extend(chain.from_iterable(stage_local(host, verbose=verbose_flag, use_cache_for_curl=use_cache_for_curl) for host in hosts))
+            ops.extend(chain.from_iterable(stage_local(host, verbose=verbose_flag, skip_cache=skip_cache) for host in hosts))
         case 'update-workspace-extensions':
             ops.append(update_workspace_extensions)
         case _:
