@@ -32,12 +32,15 @@ function bootstrap_env() {
     ln -s "${WORK_DIR}"/vscode/dotFiles_launch.json "${WORK_DIR}"/.vscode/launch.json
     ln -s "${WORK_DIR}"/vscode/dotFiles_settings.json "${WORK_DIR}"/.vscode/settings.json
     ln -s "${WORK_DIR}"/vscode/dotFiles_extensions.json "${WORK_DIR}"/.vscode/extensions.json
+    ln -s "${WORK_DIR}"/vscode/dotFiles_tasks.json "${WORK_DIR}"/.vscode/tasks.json
 
     python3 -m venv "$WORK_DIR"/.venv
     # shellcheck source=/dev/null
     source "$WORK_DIR"/.venv/bin/activate
 
     pip3 install -q --upgrade pip
+    pip3 install -q pip-tools
+    pip-compile -q "$WORK_DIR/requirements.in" -o "$WORK_DIR/requirements.txt" --strip-extras
     pip3 install -q -r "$WORK_DIR"/requirements.txt
 
     deactivate

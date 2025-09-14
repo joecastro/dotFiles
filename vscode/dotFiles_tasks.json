@@ -1,0 +1,61 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Compile requirements.txt",
+      "type": "shell",
+      "command": "pip-compile requirements.in -o requirements.txt --strip-extras",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Compile requirements.txt (upgrade)",
+      "type": "shell",
+      "command": "pip-compile --upgrade requirements.in -o requirements.txt --strip-extras",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Type check (mypy)",
+      "type": "shell",
+      "command": "mypy aws",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "AWS Nuke (dry-run)",
+      "type": "shell",
+      "command": "${config:python.defaultInterpreterPath}",
+      "args": [
+        "-m", "aws.aws_nuke",
+        "--region", "${input:awsRegion}",
+        "--profile", "${input:awsProfile}",
+        "--dry-run"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    }
+  ],
+  "inputs": [
+    {
+      "id": "awsRegion",
+      "type": "promptString",
+      "description": "AWS region",
+      "default": "us-west-2"
+    },
+    {
+      "id": "awsProfile",
+      "type": "promptString",
+      "description": "AWS profile",
+      "default": "default"
+    }
+  ]
+}

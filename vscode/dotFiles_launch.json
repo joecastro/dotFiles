@@ -33,28 +33,6 @@
             ]
         },
         {
-            "name": "Push to remote host (joec1)",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/apply.py",
-            "console": "integratedTerminal",
-            "args": [
-                "push",
-                "joec1.c.googlers.com"
-            ]
-        },
-        {
-            "name": "Pull from remote host (joec1)",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/apply.py",
-            "console": "integratedTerminal",
-            "args": [
-                "pull",
-                "joec1.c.googlers.com"
-            ]
-        },
-        {
             "name": "Update Workspace recommended extensions",
             "type": "debugpy",
             "request": "launch",
@@ -119,6 +97,45 @@
             "program": "${workspaceFolder}/verify_fonts.py",
             "console": "integratedTerminal",
             "args": []
+        },
+        {
+            "name": "AWS Nuke (dry-run)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "aws.aws_nuke",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "args": [
+                "--region", "${input:awsRegion}",
+                "--profile", "${input:awsProfile}",
+                "--dry-run"
+            ]
+        },
+        {
+            "name": "AWS Nuke (prompt, no S3)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "aws.aws_nuke",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "args": [
+                "--region", "${input:awsRegion}",
+                "--profile", "${input:awsProfile}"
+            ]
+        }
+    ],
+    "inputs": [
+        {
+            "id": "awsRegion",
+            "type": "promptString",
+            "description": "AWS region",
+            "default": "us-west-2"
+        },
+        {
+            "id": "awsProfile",
+            "type": "promptString",
+            "description": "AWS profile",
+            "default": "default"
         }
     ]
 }
