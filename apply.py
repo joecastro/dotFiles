@@ -18,6 +18,7 @@ from functools import partial
 from itertools import chain
 from pathlib import Path
 from typing import Any, Callable, TypeAlias
+from textwrap import dedent
 
 def mingify_path(path: str) -> str:
     path = re.sub(r'\\', '/', path)
@@ -39,6 +40,10 @@ def path_is_within(child: Path, parent: Path) -> bool:
 CWD: Path = Path.cwd()
 OS_CWD = mingify_path(os.getcwd())
 OUT_DIR_ROOT: Path = CWD / 'out'
+HOME_VAR_PATH = Path('"${HOME}"')
+
+DECLARE_SCRIPT_DIR_LINE = 'SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"'
+SCRIPTDIR_VAR_PATH = Path('"${SCRIPT_DIR}"')
 
 LOCALHOST_NAME = platform.uname().node
 # Fixup mDNS hostname mangling on macOS
@@ -53,8 +58,8 @@ TRACE_STARTUP_FLAG = False
 
 
 def make_shell_command(run_args: list[str]) -> str:
-    return ' '.join([arg if ' ' not in arg else f'"{arg}"' for arg in run_args])
-
+    sanitize_arg = lambda a: f'"{a.replace('"', '')}"' if ' ' in a or '$' in a else a
+    return ' '.join([sanitize_arg(arg) for arg in run_args])
 
 def json_ready(obj: Any) -> Any:
     if is_dataclass(obj):
@@ -81,6 +86,7 @@ class Host:
     home: str
     branch: str | None = None
     kernel: str = 'linux'
+    stage_only: bool = False
     file_maps: list[tuple[str, str]] | dict[str, str] = field(default_factory=list)
     directory_maps: list[tuple[str, str]] | dict[str, str] = field(default_factory=list)
     jsonnet_maps: list[tuple[str, str, str]] | dict[str, str] = field(default_factory=list)
@@ -355,17 +361,17 @@ def generate_hosts_config() -> None:
     print(json.dumps(json_ready(config), indent=4, sort_keys=True))
 
 
-def get_plugin_relative_target_path(repo: str) -> str:
+def get_plugin_relative_target_path(repo: str) -> Path:
     match = re.search(r"([^/]+)\.git$", repo)
     if not match:
         raise ValueError(f'Invalid repository URL: {repo}')
-    target_suffix = match.group(1)
+    target_suffix = Path(match.group(1))
 
     # To prevent these from being deleted on push, keep them out of the dotShell config directory.
     directory_prefixes = {
-        'vim_start': '.vim/pack/plugins/start',
-        'vim_opt': '.vim/pack/plugins/opt',
-        'zsh_ext': '.config/zshext',
+        'vim_start': Path('.vim/pack/plugins/start'),
+        'vim_opt': Path('.vim/pack/plugins/opt'),
+        'zsh_ext': Path('.config/zshext'),
     }
 
     if repo in config.vim_pack_plugin_start_repos:
@@ -377,7 +383,7 @@ def get_plugin_relative_target_path(repo: str) -> str:
     else:
         raise ValueError(f'Unknown plugin repository: {repo}')
 
-    return f"{target_prefix}/{target_suffix}"
+    return target_prefix / target_suffix
 
 
 def make_post_install_commands(host: Host) -> list[RunOp]:
@@ -390,25 +396,30 @@ def make_post_install_commands(host: Host) -> list[RunOp]:
     return ops
 
 
-def make_install_plugins_bash_commands(plugin_type: str, repo_list: list[str], install_root: str) -> list[RunOp]:
+def make_install_plugins_bash_commands(plugin_type: str, repo_list: list[str], install_root: Path) -> list[RunOp]:
     ops = [f'>> Updating {len(repo_list)} {plugin_type}']
-    for repo in repo_list:
-        target_path = f"{install_root}/{get_plugin_relative_target_path(repo)}"
-        bash_commands = [
-            f'if [ -d "{target_path}" ]; then',
-            f'    cd "{target_path}"',
-            '    if [ -f .git/FETCH_HEAD ] && find .git/FETCH_HEAD -mtime -1 >/dev/null 2>&1; then',
-            f'        echo "Skipping recent fetch: {target_path}"',
-            '    else',
-            '        git pull',
-            '    fi',
-            '    cd - > /dev/null',
-            'else',
-            f'    mkdir -p "{os.path.dirname(target_path)}"',
-            f'    git clone "{repo}" "{target_path}"',
-            'fi'
-        ]
-        ops.extend([BASH_COMMAND_PREFIX + line for line in bash_commands])
+
+    # Remove any surrounding quotes because this is consistently wrapping the combined paths.
+    install_root = Path(install_root.name.replace('"', ''))
+
+    repo_targets = [(install_root / get_plugin_relative_target_path(repo), repo) for repo in repo_list]
+    directories_to_ensure = set(t.parent for t, _ in repo_targets)
+    ops.extend([BASH_COMMAND_PREFIX + make_shell_command(line) for line in ensure_directories_exist_ops(directories_to_ensure)])
+    for target_path, repo in repo_targets:
+        bash_command_block = dedent(f'''\
+            if [ -d "{target_path}" ]; then
+                cd "{target_path}"
+            if [ -f .git/FETCH_HEAD ] && find .git/FETCH_HEAD -mtime -1 >/dev/null 2>&1; then
+                echo "Skipping recent fetch: {target_path}"
+            else
+                git pull
+            fi
+            cd - > /dev/null
+            else
+            git clone "{repo}" "{target_path}"
+            fi
+            ''')
+        ops.extend([BASH_COMMAND_PREFIX + line for line in bash_command_block.splitlines()])
 
     return ops
 
@@ -560,7 +571,6 @@ def copy_files_local(source_root: Path, source_files: list[str], dest_root: Path
     full_path_sources = [(source_root / src) for src in source_files]
     full_path_dests = [(dest_root / dest) for dest in dest_files]
 
-
     ops = ensure_directories_exist_ops({dest.parent for dest in full_path_dests})
 
     copy_ops = [['cp', src.as_posix(), dest.as_posix()] for src, dest in zip(full_path_sources, full_path_dests)]
@@ -579,6 +589,7 @@ def make_finish_script(command_ops: list[RunOp], script_path: Path, verbose: boo
             f.write('set -e\n\n')
             if verbose:
                 f.write('set -x\n\n')
+            f.write(DECLARE_SCRIPT_DIR_LINE + '\n\n')
             for op in command_ops:
                 if isinstance(op, str):
                     op = op[len(BASH_COMMAND_PREFIX):] if op.startswith(BASH_COMMAND_PREFIX) else f'echo "{op}"'
@@ -597,8 +608,10 @@ def make_finish_script(command_ops: list[RunOp], script_path: Path, verbose: boo
 def clean_remote_dotfiles(host: Host, treat_as_localhost: bool=False) -> list[RunOp]:
     ops = [f'>> Cleaning existing configuration files for {host.hostname}']
 
-    dirs_to_remove = [f"{host.home}/{d}" for d in remove_children_from_set({host.config_dir}.union(host.directory_maps.values()))]
-    files_to_remove = {f"{host.home}/{f}" for f in host.file_maps.values()}
+    home = Path(host.home) if not treat_as_localhost else HOME_VAR_PATH
+
+    dirs_to_remove = [f"{home}/{d}" for d in remove_children_from_set({host.config_dir}.union(host.directory_maps.values()))]
+    files_to_remove = {f"{home}/{f}" for f in host.file_maps.values()}
     files_to_remove = [f for f in remove_children_from_set(files_to_remove.union(dirs_to_remove)) if not f in dirs_to_remove]
 
     ops.extend([['rm', '-rf', d] for d in dirs_to_remove])
@@ -733,12 +746,12 @@ def stage_local(host: Host, verbose: bool = False, skip_cache: bool = False) -> 
 
     finish_ops.extend(clean_remote_dotfiles(host, treat_as_localhost=True))
 
-    finish_ops.extend(copy_directories_local(Path(host.remote_staging_dir), host.directory_maps.keys(), Path(host.home), host.directory_maps.values()))
-    finish_ops.extend(copy_files_local(Path(host.remote_staging_dir), host.file_maps.keys(), Path(host.home), host.file_maps.values()))
+    finish_ops.extend(copy_directories_local(SCRIPTDIR_VAR_PATH, host.directory_maps.keys(), HOME_VAR_PATH, host.directory_maps.values()))
+    finish_ops.extend(copy_files_local(SCRIPTDIR_VAR_PATH, host.file_maps.keys(), HOME_VAR_PATH, host.file_maps.values()))
     finish_ops.append('>> Updating Vim and Zsh plugins')
-    finish_ops.extend(make_install_plugins_bash_commands('Vim startup plugin(s)', config.vim_pack_plugin_start_repos, host.home))
-    finish_ops.extend(make_install_plugins_bash_commands('Vim operational plugin(s)', config.vim_pack_plugin_opt_repos, host.home))
-    finish_ops.extend(make_install_plugins_bash_commands('Zsh plugin(s)', config.zsh_plugin_repos, host.home))
+    finish_ops.extend(make_install_plugins_bash_commands('Vim startup plugin(s)', config.vim_pack_plugin_start_repos, HOME_VAR_PATH))
+    finish_ops.extend(make_install_plugins_bash_commands('Vim operational plugin(s)', config.vim_pack_plugin_opt_repos, HOME_VAR_PATH))
+    finish_ops.extend(make_install_plugins_bash_commands('Zsh plugin(s)', config.zsh_plugin_repos, HOME_VAR_PATH))
     finish_ops.extend(make_post_install_commands(host))
 
     finish_script = host.local_staging_dir / 'finish.sh'
@@ -980,7 +993,7 @@ def main(args: list[str]) -> int:
         case 'bootstrap-windows':
             ops.extend(bootstrap_windows())
         case 'clean':
-            ops.extend(chain.from_iterable(clean_remote_dotfiles(host) for host in hosts))
+            ops.extend(chain.from_iterable(clean_remote_dotfiles(host) for host in hosts if not host.stage_only))
         case 'compare-iterm2-prefs':
             ops.append(compare_iterm2_prefs)
         case 'compare-user-settings':
@@ -997,7 +1010,7 @@ def main(args: list[str]) -> int:
             ops.extend(pull_remote(hosts[0]))
         case 'push':
             ops.extend(chain.from_iterable(stage_local(host, verbose=verbose_flag, skip_cache=skip_cache) for host in hosts))
-            ops.extend(chain.from_iterable(push_remote_staging(host) for host in hosts))
+            ops.extend(chain.from_iterable(push_remote_staging(host) for host in hosts if not host.stage_only))
             if any(host.is_localhost and host.kernel == 'darwin' for host in hosts):
                 ops.append(push_iterm2_prefs)
         case 'push-gnome-settings':
@@ -1005,7 +1018,7 @@ def main(args: list[str]) -> int:
         case 'push-iterm2-prefs':
             ops.append(push_iterm2_prefs)
         case 'push-only':
-            ops.extend(chain.from_iterable(push_remote_staging(host) for host in hosts))
+            ops.extend(chain.from_iterable(push_remote_staging(host) for host in hosts if not host.stage_only))
         case 'snapshot-iterm2-prefs':
             ops.append(snapshot_iterm2_prefs_json)
         case 'stage':

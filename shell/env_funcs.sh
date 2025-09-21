@@ -997,44 +997,6 @@ function __do_eza_aliases() {
     fi
 }
 
-function __do_iterm2_shell_integration() {
-    _dotTrace_enter "$@"
-    # If using iTerm2, try for shell integration.
-    # iTerm profile switching requires shell_integration to be installed anyways.
-    if ! __is_iterm2_terminal; then
-        _dotTrace_exit 0
-        return
-    fi
-
-    if __is_shell_zsh; then
-        # shellcheck source=/dev/null
-        [[ -f "${DOTFILES_CONFIG_ROOT}/iterm2_shell_integration.zsh" ]] && source "${DOTFILES_CONFIG_ROOT}/iterm2_shell_integration.zsh"
-    elif __is_shell_bash; then
-        # Disable extdebug because it causes issues with iTerm shell integration
-        shopt -u extdebug
-
-        # shellcheck source=/dev/null
-        [[ -f "${DOTFILES_CONFIG_ROOT}/iterm2_shell_integration.bash" ]] && source "${DOTFILES_CONFIG_ROOT}/iterm2_shell_integration.bash"
-    else
-        echo "Unknown shell for iTerm2 integration"
-        _dotTrace_exit 1
-        return
-    fi
-
-    if __is_shell_bash; then
-        if declare -p precmd_functions &>/dev/null; then
-            precmd_functions+=("__iterm_badge_nodeenv")
-        else
-            __cute_shell_header_add_warning "bash-preexec not loaded"
-        fi
-    fi
-    if __is_shell_zsh; then
-        precmd_functions+=(__iterm_badge_nodeenv)
-    fi
-
-    _dotTrace_exit 0
-}
-
 function __do_vscode_shell_integration() {
     _dotTrace_enter "$@"
 

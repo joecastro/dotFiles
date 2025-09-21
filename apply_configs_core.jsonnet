@@ -16,7 +16,7 @@ local jsonnet_maps = [
     ['shell/env_vars.jsonnet', 'env_vars.sh', '.env_vars.sh'],
     ['konsole/konsolerc.jsonnet', 'konsolerc.ini', '.config/konsolerc'],
     ['konsole/konsole_color_funcs.jsonnet', 'konsole_color_funcs.sh', config_dir + '/'],
-    ['shell/iterm2_color_funcs.jsonnet', 'iterm2_color_funcs.sh', config_dir + '/'],
+    ['iterm2/iterm2_color_funcs.jsonnet', 'iterm2_color_funcs.sh', config_dir + '/'],
 ];
 
 local jsonnet_localhost_mac_maps = [
@@ -49,6 +49,7 @@ local file_maps = [
     ['bash/colors.sh', config_dir + '/'],
     ['ghostty/ghostty_config.properties', '.config/ghostty/config'],
     ['ghostty/xterm-ghostty.terminfo', config_dir + '/'],
+    ['iterm2/iterm2_funcs.sh', config_dir + '/'],
     ['konsole/konsole_funcs.sh', config_dir + '/'],
     ['shell/env_funcs.sh', config_dir + '/'],
     ['shell/platform.sh', config_dir + '/'],
@@ -57,7 +58,6 @@ local file_maps = [
     ['shell/stack.sh', config_dir + '/'],
     ['shell/icons.sh', config_dir + '/'],
     ['shell/git_funcs.sh', config_dir + '/'],
-    ['shell/iterm2_funcs.sh', config_dir + '/'],
     ['shell/macos_funcs.sh', config_dir + '/'],
     ['shell/util_funcs.sh', config_dir + '/'],
     ['shell/android_funcs.sh', config_dir + '/'],
@@ -211,12 +211,13 @@ local localhost_env_vars = env_vars + {
 };
 
 local Host(hostname, home, icon, color, primary_wallpaper, android_wallpaper) = {
-    assert hostname != null || ext_vars.is_localhost,
-    assert home != null || ext_vars.is_localhost,
     hostname:
         if hostname != null then hostname
-        else ext_vars.hostname,
-    home: if home != null then home else ext_vars.home,
+        else if ext_vars.is_localhost then ext_vars.hostname
+        else 'localhost',
+    home: if home != null then home
+        else if ext_vars.is_localhost then ext_vars.home
+        else null,
     color:: color,
     primary_wallpaper:: primary_wallpaper,
     android_wallpaper:: android_wallpaper,
@@ -239,6 +240,7 @@ local Host(hostname, home, icon, color, primary_wallpaper, android_wallpaper) = 
 
     env_vars:: (if $.is_localhost then localhost_env_vars else env_vars) + {
         properties+: {
+            AWS_PROFILE: 'chassis-admin',
             HOST_COLOR: color.hexcolor,
             ANDROID_HOME: if ext_vars.is_macos
                 then '~/Library/Android/sdk'

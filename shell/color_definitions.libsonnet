@@ -79,6 +79,7 @@ local Palettes = {
         YellowSea: ColorFromHex('#ffaf00'),
         Yellow: ColorFromHex('#FFFF00'),
         White: ColorFromHex('#FFFFFF'),
+        CornflowerBlue: ColorFromHex('#6495ED'),
     },
     // https://catppuccin.com/palette
     CatppuccinFrappe: {

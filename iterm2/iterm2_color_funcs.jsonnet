@@ -1,4 +1,4 @@
-local color_defs = import './color_definitions.libsonnet';
+local color_defs = import '../shell/color_definitions.libsonnet';
 
 local iterm_color_keys = {
     "black": "black",
