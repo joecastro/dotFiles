@@ -12,7 +12,7 @@ import sys
 import time
 from dataclasses import dataclass, field
 from botocore.exceptions import NoCredentialsError
-from aws.aws_clients_ex import AwsEx, EC2ElasticIPEx, EC2InstanceEx, ECRRepoEx, EKSClusterEx, KMSKeyEx, S3BucketEx
+from aws.aws_clients_ex import AwsEx, EC2ElasticIPEx, EC2InstanceEx, ECRRepoEx, EKSClusterEx, KMSAliasEx, KMSKeyEx, S3BucketEx
 
 TIMEOUT_SECONDS = 300
 
@@ -69,6 +69,7 @@ class AwsSnapshot:
     iam_users: list[str] = field(default_factory=list)
     # KMS and S3
     kms_customer_keys: list[KMSKeyEx] = field(default_factory=list)
+    kms_aliases: list[KMSAliasEx] = field(default_factory=list)
     s3_buckets: list[S3BucketEx] = field(default_factory=list)
 
     def __post_init__(self) -> None:
@@ -86,6 +87,7 @@ class AwsSnapshot:
         self.iam_roles = []
         self.iam_users = []
         self.kms_customer_keys = []
+        self.kms_aliases = []
         self.s3_buckets = []
 
     # Split IAM roles
@@ -142,6 +144,7 @@ def discover(aws: AwsEx, nuke_s3: bool) -> AwsSnapshot | None:
     snapshot.iam_users = aws.iam.list_user_names()
     # KMS and S3
     snapshot.kms_customer_keys = aws.kms.list_customer_keys()
+    snapshot.kms_aliases = aws.kms.list_aliases(customer_only=True)
     snapshot.s3_buckets = aws.s3.list_buckets()
 
     delete_plan = [
@@ -154,6 +157,7 @@ def discover(aws: AwsEx, nuke_s3: bool) -> AwsSnapshot | None:
         ("iam_local_policy_arns", "IAM Policy (local)", " - No IAM local policies"),
         ("iam_non_slr", "IAM Role (non-SLR)", " - No IAM roles (non-SLR)"),
         ("kms_customer_keys", "KMS Key (custom, schedule deletion)", " - No custom KMS keys"),
+        ("kms_aliases", "KMS Alias", " - No KMS aliases"),
         ("ec2_instances", "EC2 Instance", " - No EC2 instances"),
         ("nat_gateways", "NAT Gateway", " - No NAT gateways"),
         ("eip_allocs", "EIP", " - No EIP allocations"),
@@ -194,58 +198,45 @@ def discover(aws: AwsEx, nuke_s3: bool) -> AwsSnapshot | None:
 
     return snapshot
 
-def delete_all(aws: AwsEx, snapshot: AwsSnapshot) -> None:
-    print()
-    print(f"=== Deleting resources ===")
-
-    # 1) EKS clusters: nodegroups → fargate → addons → cluster
-    for cl in snapshot.eks_clusters:
+def delete_clusters(aws: AwsEx, clusters: list[EKSClusterEx]) -> None:
+    for cl in clusters:
         print(f" - EKS cluster {cl}")
         _teardown_cluster(aws, cl)
 
-    # 2) ELBv2 / Classic ELB
-    for arn in snapshot.elbv2_arns:
+def delete_elbs(aws: AwsEx, elbv2_arns: list[str], elb_names: list[str]) -> None:
+    for arn in elbv2_arns:
         print(f" - ELBv2 {arn}")
         tgs = aws.elbv2.list_target_group_arns(arn)
         aws.elbv2.delete_load_balancer(LoadBalancerArn=arn)
         for tg in tgs:
             aws.elbv2.delete_target_group(TargetGroupArn=tg)
-    for name in snapshot.elb_names:
+    for name in elb_names:
         print(f" - Classic ELB {name}")
         aws.elb.delete_load_balancer(LoadBalancerName=name)
 
-    # 3) ECR
-    for repo in snapshot.ecr_repos:
+def delete_ecr(aws: AwsEx, repos: list[ECRRepoEx]) -> None:
+    for repo in repos:
         print(f" - ECR repo {repo}")
+        images = aws.ecr.list_images(repo)
+        if images:
+            print(f" -   - found {len(images)} images")
+            for img in images:
+                print(f" -   - image {img} (delete)")
+            aws.ecr.batch_delete_images(repo, images)
+
+            def _images_gone() -> bool:
+                return not aws.ecr.list_images(repo)
+
+            _wait(_images_gone, f"waiting for images in {repo} to delete...")
         aws.ecr.delete_repository(repo)
 
-    # 4) CloudWatch logs
-    for lg in snapshot.log_groups:
+def delete_logs(aws: AwsEx, log_groups: list[str]) -> None:
+    for lg in log_groups:
         print(f" - Log group {lg}")
         aws.logs.delete_log_group(logGroupName=lg)
 
-    # 5) IAM OIDC (global)
-    for oidc in snapshot.iam_oidc_arns:
-        print(f" - IAM OIDC {oidc}")
-        aws.iam.delete_open_id_connect_provider(OpenIDConnectProviderArn=oidc)
-
-    # 6) IAM local policies
-    for pol in snapshot.iam_local_policy_arns:
-        print(f" - IAM local policy {pol} (detach + delete)")
-        ents = aws.iam.list_entities_for_policy(PolicyArn=pol)
-        for rn in [r["RoleName"] for r in ents.get("PolicyRoles", [])]:
-            aws.iam.detach_role_policy(RoleName=rn, PolicyArn=pol)
-        for un in [u["UserName"] for u in ents.get("PolicyUsers", [])]:
-            aws.iam.detach_user_policy(UserName=un, PolicyArn=pol)
-        for gn in [g["GroupName"] for g in ents.get("PolicyGroups", [])]:
-            aws.iam.detach_group_policy(GroupName=gn, PolicyArn=pol)
-        versions = [v["VersionId"] for v in aws.iam.list_policy_versions(PolicyArn=pol).get("Versions", []) if not v.get("IsDefaultVersion")]
-        for vid in versions:
-            aws.iam.delete_policy_version(PolicyArn=pol, VersionId=vid)
-        aws.iam.delete_policy(PolicyArn=pol)
-
-    # 7) IAM roles (non-SLR)
-    for rn in snapshot.iam_non_slr:
+def delete_iam_roles(aws: AwsEx, roles: list[str]) -> None:
+    for rn in roles:
         print(f" - IAM role {rn} (detach + delete)")
         atts = [a["PolicyArn"] for a in aws.iam.list_attached_role_policies(RoleName=rn).get("AttachedPolicies", [])]
         for a in atts:
@@ -259,17 +250,33 @@ def delete_all(aws: AwsEx, snapshot: AwsSnapshot) -> None:
             aws.iam.delete_instance_profile(InstanceProfileName=pr)
         aws.iam.delete_role(RoleName=rn)
 
-    # 8) KMS custom keys → schedule deletion
-    for key in snapshot.kms_customer_keys:
-        print(f" - KMS key schedule deletion {key.key_id}")
-        aws.kms.schedule_key_deletion(key, 7)
+def delete_iodc_providers(aws: AwsEx, oids: list[str]) -> None:
+    for oidc in oids:
+        print(f" - IAM OIDC {oidc}")
+        aws.iam.delete_open_id_connect_provider(OpenIDConnectProviderArn=oidc)
 
-    # 9) Instances → NAT → EIPs (release)
-    for inst in snapshot.ec2_instances:
+def delete_policies(aws: AwsEx, policies: list[str]) -> None:
+    for pol in policies:
+        print(f" - IAM local policy {pol} (detach + delete)")
+        ents = aws.iam.list_entities_for_policy(PolicyArn=pol)
+        for rn in [r["RoleName"] for r in ents.get("PolicyRoles", [])]:
+            aws.iam.detach_role_policy(RoleName=rn, PolicyArn=pol)
+        for un in [u["UserName"] for u in ents.get("PolicyUsers", [])]:
+            aws.iam.detach_user_policy(UserName=un, PolicyArn=pol)
+        for gn in [g["GroupName"] for g in ents.get("PolicyGroups", [])]:
+            aws.iam.detach_group_policy(GroupName=gn, PolicyArn=pol)
+        versions = [v["VersionId"] for v in aws.iam.list_policy_versions(PolicyArn=pol).get("Versions", []) if not v.get("IsDefaultVersion")]
+        for vid in versions:
+            aws.iam.delete_policy_version(PolicyArn=pol, VersionId=vid)
+        aws.iam.delete_policy(PolicyArn=pol)
+
+def delete_instances(aws: AwsEx, instances: list[EC2InstanceEx]) -> None:
+    for inst in instances:
         print(f" - EC2 terminate {inst}")
         aws.ec2.terminate_instance(inst)
 
-    for nat in snapshot.nat_gateways:
+def delete_nat_gateways(aws: AwsEx, nat_gws: list[str]) -> None:
+    for nat in nat_gws:
         print(f" - NAT GW {nat} (delete)")
         aws.ec2.delete_nat_gateway(nat)
 
@@ -279,15 +286,76 @@ def delete_all(aws: AwsEx, snapshot: AwsSnapshot) -> None:
 
         _wait(_nat_gw_deleted, f"waiting for NAT {nat} to delete...")
 
-    for alloc in snapshot.eip_allocs:
+def delete_eips(aws: AwsEx, eips: list[EC2ElasticIPEx]) -> None:
+    for alloc in eips:
         print(f" - EIP {alloc} (release)")
         aws.ec2.release_elastic_ip(alloc)
 
+def delete_vpcs(aws: AwsEx, vpc_ids: list[str]) -> None:
+    for vpc_id in vpc_ids:
+        print(f" - VPC {vpc_id} (delete)")
+        aws.ec2.delete_vpc(VpcId=vpc_id)
+
+def delete_iam_roles(aws: AwsEx, roles: list[str]) -> None:
+    for rn in roles:
+        print(f" - IAM role {rn} (detach + delete)")
+        atts = [a["PolicyArn"] for a in aws.iam.list_attached_role_policies(RoleName=rn).get("AttachedPolicies", [])]
+        for a in atts:
+            aws.iam.detach_role_policy(RoleName=rn, PolicyArn=a)
+        for pn in aws.iam.list_role_policies(RoleName=rn).get("PolicyNames", []):
+            aws.iam.delete_role_policy(RoleName=rn, PolicyName=pn)
+        profs = [p["InstanceProfileName"] for p in aws.iam.list_instance_profiles_for_role(RoleName=rn).get("InstanceProfiles", [])]
+        for pr in profs:
+            aws.iam.remove_role_from_instance_profile(InstanceProfileName=pr, RoleName=rn)
+        for pr in profs:
+            aws.iam.delete_instance_profile(InstanceProfileName=pr)
+        aws.iam.delete_role(RoleName=rn)
+
+def delete_kms_keys(aws: AwsEx, aliases: list[str], keys: list[KMSKeyEx]) -> None:
+    for alias in aliases:
+        print(f" - KMS alias {alias.alias_name} (delete)")
+        aws.kms.delete_alias(alias)
+    for key in keys:
+        print(f" - KMS key schedule deletion {key.key_id}")
+        aws.kms.schedule_key_deletion(key, 7)
+
+def delete_all(aws: AwsEx, snapshot: AwsSnapshot) -> None:
+    print()
+    print(f"=== Deleting resources ===")
+
+    # 1) EKS clusters: nodegroups → fargate → addons → cluster
+    delete_clusters(aws, snapshot.eks_clusters)
+
+    # 2) ELBv2 / Classic ELB
+    delete_elbs(aws, snapshot.elbv2_arns, snapshot.elb_names)
+
+    # 3) ECR
+    delete_ecr(aws, snapshot.ecr_repos)
+
+    # 4) CloudWatch logs
+    delete_logs(aws, snapshot.log_groups)
+
+    # 5) IAM OIDC (global)
+    delete_iodc_providers(aws, snapshot.iam_oidc_arns)
+
+    # 6) IAM local policies
+    delete_policies(aws, snapshot.iam_local_policy_arns)
+
+    # 7) IAM roles (non-SLR)
+    delete_iam_roles(aws, snapshot.iam_non_slr)
+
+    # 8) KMS custom keys → schedule deletion
+    delete_kms_keys(aws, snapshot.kms_aliases, snapshot.kms_customer_keys)
+
+    # 9) Instances → NAT → EIPs (release)
+    delete_instances(aws, snapshot.ec2_instances)
+
+    delete_nat_gateways(aws, snapshot.nat_gateways)
+
+    delete_eips(aws, snapshot.eip_allocs)
+
     # 10) Non-default VPCs (deep clean)
-    for vpc_id in snapshot.vpcs_non_default:
-        print()
-        print(f"=== Tearing down VPC {vpc_id} ===")
-        _teardown_vpc_resources(aws, vpc_id)
+    delete_vpcs(aws, snapshot.vpcs_non_default)
 
 
 def report_leftovers(aws: AwsEx, nuke_s3: bool) -> None:

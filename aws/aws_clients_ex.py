@@ -1,8 +1,24 @@
 from __future__ import annotations
 
-from typing import Any, TYPE_CHECKING
+import time
+from typing import Any, Callable, TYPE_CHECKING
 import boto3
 from botocore.exceptions import ClientError
+
+
+class AwsError(Exception):
+    """Friendly wrapper around botocore ClientError."""
+
+    def __init__(self, message: str, original: Exception | None = None) -> None:
+        super().__init__(message)
+        self.original = original
+
+class AwsError(Exception):
+    """Friendly wrapper around botocore ClientError."""
+
+    def __init__(self, message: str, original: Exception | None = None) -> None:
+        super().__init__(message)
+        self.original = original
 
 if TYPE_CHECKING:
     from mypy_boto3_ec2 import EC2Client
@@ -218,6 +234,244 @@ class EC2Ex:
     def __getattr__(self, name: str) -> Any:
         return getattr(self._client, name)
 
+    # ------------------------------------------------------------------
+    # Convenience helpers
+    # ------------------------------------------------------------------
+
+    def find_latest_image(self, owners: list[str], name_pattern: str) -> str:
+        try:
+            response = self._client.describe_images(
+                Owners=owners,
+                Filters=[{"Name": "name", "Values": [name_pattern]}],
+            )
+        except ClientError as exc:
+            raise AwsError("Failed to describe images", exc)
+        images = response.get("Images", [])
+        if not images:
+            raise AwsError(f"No images found for pattern {name_pattern}")
+        latest = max(images, key=lambda img: img["CreationDate"])
+        return latest["ImageId"]
+
+    def terminate_instance(self, instance_id: str, wait: bool = True) -> None:
+        try:
+            self._client.terminate_instances(InstanceIds=[instance_id])
+            if wait:
+                self._client.get_waiter("instance_terminated").wait(InstanceIds=[instance_id])
+        except ClientError as exc:
+            raise AwsError(f"Failed to terminate instance {instance_id}", exc)
+
+    def delete_volume(self, volume_id: str) -> None:
+        try:
+            self._client.delete_volume(VolumeId=volume_id)
+        except ClientError as exc:
+            raise AwsError(f"Failed to delete volume {volume_id}", exc)
+
+    def release_elastic_ip(self, allocation_id: str) -> None:
+        try:
+            self._client.release_address(AllocationId=allocation_id)
+        except ClientError as exc:
+            raise AwsError(f"Failed to release Elastic IP {allocation_id}", exc)
+
+    def get_instance_state(self, instance_id: str) -> str | None:
+        try:
+            response = self._client.describe_instances(InstanceIds=[instance_id])
+        except ClientError as exc:
+            raise AwsError(f"Failed to describe instance {instance_id}", exc)
+        reservations = response.get("Reservations", [])
+        if not reservations:
+            return None
+        return reservations[0]["Instances"][0]["State"]["Name"]
+
+    def current_public_ip(self, instance_id: str) -> str:
+        try:
+            response = self._client.describe_instances(InstanceIds=[instance_id])
+        except ClientError as exc:
+            raise AwsError(f"Failed to describe instance {instance_id}", exc)
+        reservations = response.get("Reservations", [])
+        if not reservations:
+            return ""
+        return reservations[0]["Instances"][0].get("PublicIpAddress", "")
+
+    def launch_instance(self, **kwargs) -> dict:
+        try:
+            response = self._client.run_instances(**kwargs)
+        except ClientError as exc:
+            raise AwsError("Failed to launch instance", exc)
+        return response["Instances"][0]
+
+    def ensure_key_pair_exists(self, key_name: str) -> None:
+        try:
+            self._client.describe_key_pairs(KeyNames=[key_name])
+        except ClientError as exc:
+            error_code = exc.response.get("Error", {}).get("Code", "")
+            if error_code == "InvalidKeyPair.NotFound":
+                raise AwsError(f"Key pair '{key_name}' not found in region {self._client.meta.region_name}", exc)
+            raise AwsError(f"Failed to describe key pair {key_name}", exc)
+
+    def import_key_pair(self, key_name: str, public_key_material: str) -> None:
+        try:
+            self._client.import_key_pair(KeyName=key_name, PublicKeyMaterial=public_key_material)
+        except ClientError as exc:
+            raise AwsError(f"Failed to import key pair {key_name}", exc)
+
+    def start_instance(self, instance_id: str, wait: bool = True) -> None:
+        try:
+            self._client.start_instances(InstanceIds=[instance_id])
+            if wait:
+                self._client.get_waiter("instance_running").wait(InstanceIds=[instance_id])
+        except ClientError as exc:
+            raise AwsError(f"Failed to start instance {instance_id}", exc)
+
+    def wait_for_instance_status_ok(
+        self,
+        instance_id: str,
+        *,
+        timeout: int = 600,
+        poll_interval: int = 10,
+        on_update: Callable[[dict], None] | None = None,
+    ) -> dict:
+        deadline = time.monotonic() + timeout if timeout else None
+        last_reported: tuple[str, str] | None = None
+
+        while True:
+            summary = self.instance_status_summary(instance_id)
+            state = (
+                summary.get("instance_status", "unknown"),
+                summary.get("system_status", "unknown"),
+            )
+
+            if on_update and state != last_reported:
+                on_update(summary)
+                last_reported = state
+
+            if state == ("ok", "ok"):
+                return summary
+
+            if deadline and time.monotonic() >= deadline:
+                raise AwsError(
+                    f"Instance {instance_id} status checks did not pass within {timeout}s (instance={state[0]}, system={state[1]})"
+                )
+
+            time.sleep(poll_interval)
+
+    def instance_status_summary(self, instance_id: str) -> dict:
+        try:
+            response = self._client.describe_instance_status(
+                InstanceIds=[instance_id], IncludeAllInstances=True
+            )
+        except ClientError as exc:
+            raise AwsError(f"Failed to describe instance status for {instance_id}", exc)
+
+        statuses = response.get("InstanceStatuses", [])
+        if not statuses:
+            return {
+                "instance_status": "unknown",
+                "system_status": "unknown",
+            }
+
+        entry = statuses[0]
+        instance_status = entry.get("InstanceStatus", {}).get("Status", "unknown")
+        system_status = entry.get("SystemStatus", {}).get("Status", "unknown")
+        return {
+            "instance_status": instance_status,
+            "system_status": system_status,
+        }
+
+    def ensure_security_group_ingress(
+        self,
+        *,
+        group_id: str,
+        cidr: str,
+        ip_protocol: str,
+        from_port: int,
+        to_port: int,
+    ) -> bool:
+        try:
+            self._client.authorize_security_group_ingress(
+                GroupId=group_id,
+                IpPermissions=[
+                    {
+                        "IpProtocol": ip_protocol,
+                        "FromPort": from_port,
+                        "ToPort": to_port,
+                        "IpRanges": [{"CidrIp": cidr}],
+                    }
+                ],
+            )
+            return True
+        except ClientError as exc:
+            code = exc.response.get("Error", {}).get("Code", "")
+            if code in {"InvalidPermission.Duplicate", "InvalidPermission.UserIdGroupPair"}:
+                return False
+            raise AwsError(
+                f"Failed to authorize ingress on security group {group_id} ({cidr} {ip_protocol} {from_port}-{to_port})",
+                exc,
+            )
+
+    def stop_instance(self, instance_id: str, wait: bool = True) -> None:
+        try:
+            self._client.stop_instances(InstanceIds=[instance_id])
+            if wait:
+                self._client.get_waiter("instance_stopped").wait(InstanceIds=[instance_id])
+        except ClientError as exc:
+            raise AwsError(f"Failed to stop instance {instance_id}", exc)
+
+    def allocate_address(self) -> dict:
+        try:
+            return self._client.allocate_address(Domain="vpc")
+        except ClientError as exc:
+            raise AwsError("Failed to allocate Elastic IP", exc)
+
+    def associate_address(self, instance_id: str, allocation_id: str, allow_reassociation: bool = True) -> None:
+        try:
+            self._client.associate_address(
+                InstanceId=instance_id,
+                AllocationId=allocation_id,
+                AllowReassociation=allow_reassociation,
+            )
+        except ClientError as exc:
+            raise AwsError(f"Failed to associate Elastic IP {allocation_id}", exc)
+
+    def describe_addresses(self, allocation_ids: list[str]) -> dict:
+        try:
+            return self._client.describe_addresses(AllocationIds=allocation_ids)
+        except ClientError as exc:
+            raise AwsError("Failed to describe Elastic IP addresses", exc)
+
+    def describe_instance(self, instance_id: str) -> dict:
+        try:
+            response = self._client.describe_instances(InstanceIds=[instance_id])
+        except ClientError as exc:
+            raise AwsError(f"Failed to describe instance {instance_id}", exc)
+        reservations = response.get("Reservations", [])
+        if not reservations:
+            raise AwsError(f"Instance {instance_id} not found")
+        return reservations[0]["Instances"][0]
+
+    def create_volume(self, **kwargs) -> dict:
+        try:
+            return self._client.create_volume(**kwargs)
+        except ClientError as exc:
+            raise AwsError("Failed to create volume", exc)
+
+    def attach_volume(self, **kwargs) -> None:
+        try:
+            self._client.attach_volume(**kwargs)
+        except ClientError as exc:
+            raise AwsError("Failed to attach volume", exc)
+
+    def describe_volumes(self, **kwargs) -> dict:
+        try:
+            return self._client.describe_volumes(**kwargs)
+        except ClientError as exc:
+            raise AwsError("Failed to describe volumes", exc)
+
+    def detach_volume(self, **kwargs) -> None:
+        try:
+            self._client.detach_volume(**kwargs)
+        except ClientError as exc:
+            raise AwsError("Failed to detach volume", exc)
+
     def list_instances(self) -> list[EC2InstanceEx]:
         instances: list[EC2InstanceEx] = []
         next_token: str | None = None
@@ -342,8 +596,11 @@ class EC2Ex:
         for perm in sg.get("IpPermissions", []) or []:
             self._client.revoke_security_group_ingress(GroupId=sg_id, IpPermissions=[perm])
 
-    def terminate_instance(self, instance: EC2InstanceEx) -> None:
-        self._client.terminate_instances(InstanceIds=[instance.instance_id])
+    def terminate_instance(self, instance: EC2InstanceEx | str, wait: bool = False) -> None:
+        instance_id = instance.instance_id if isinstance(instance, EC2InstanceEx) else instance
+        self._client.terminate_instances(InstanceIds=[instance_id])
+        if wait:
+            self._client.get_waiter("instance_terminated").wait(InstanceIds=[instance_id])
 
     def delete_nat_gateway(self, nat_id: str) -> None:
         self._client.delete_nat_gateway(NatGatewayId=nat_id)
@@ -521,6 +778,22 @@ class ECRRepoEx:
         return self._repository_name
 
 
+class ECRImageEx:
+    def __init__(self, image_id: dict) -> None:
+        self._image_id = image_id
+
+    def __getattr__(self, name: str) -> Any:
+        return self._image_id.get(name)
+
+    @property
+    def image_digest(self) -> str | None:
+        return self._image_id.get("imageDigest")
+
+    @property
+    def image_tag(self) -> str | None:
+        return self._image_id.get("imageTag")
+
+
 class ECREx:
     def __init__(self, client: ECRClient) -> None:
         self._client: ECRClient = client
@@ -534,6 +807,27 @@ class ECREx:
             return [ECRRepoEx(r["repositoryName"]) for page in pages for r in page.get("repositories", [])]
         except ClientError:
             return []
+
+    def list_images(self, repository: ECRRepoEx) -> list[ECRImageEx]:
+        try:
+            pages = self._client.get_paginator("list_images").paginate(repositoryName=repository.repository_name)
+            return [ECRImageEx(i) for page in pages for i in page.get("imageIds", [])]
+        except ClientError:
+            return []
+
+    def delete_images(self, repository: ECRRepoEx, images: ECRImageEx | list[ECRImageEx]) -> None:
+        if not images:
+            return
+        if not isinstance(images, list):
+            images = [images]
+
+        try:
+            self._client.batch_delete_image(
+                repositoryName=repository.repository_name,
+                imageIds=[{"imageDigest": i.image_digest} if i.image_digest else {"imageTag": i.image_tag} for i in images]
+            )
+        except ClientError:
+            pass
 
     def delete_repository(self, repository: ECRRepoEx, force: bool = True) -> None:
         try:
@@ -695,6 +989,33 @@ class KMSKeyEx:
     def __str__(self) -> str:
         return self._key_id
 
+
+class KMSAliasEx:
+    def __init__(self, alias_name: str, arn: str, target_key: KMSKeyEx | None) -> None:
+        self._alias_name = alias_name
+        self._arn = arn
+        self._target_key = target_key
+
+    @property
+    def alias_name(self) -> str:
+        return self._alias_name
+
+    def __str__(self) -> str:
+        return self._alias_name
+
+    @property
+    def is_customer(self) -> bool:
+        return self._alias_name.startswith("alias/") and not self._alias_name.startswith("alias/aws/")
+
+    @property
+    def arn(self) -> str:
+        return self._arn
+
+    @property
+    def target(self) -> KMSKeyEx | None:
+        return KMSKeyEx(self._target_key) if self._target_key else None
+
+
 class KMSEx:
     def __init__(self, client: KMSClient) -> None:
         self._client: KMSClient = client
@@ -729,6 +1050,22 @@ class KMSEx:
     def schedule_key_deletion(self, key: KMSKeyEx, pending_window_days: int = 7) -> None:
         try:
             self._client.schedule_key_deletion(KeyId=key.key_id, PendingWindowInDays=pending_window_days)
+        except ClientError:
+            pass
+
+    def list_aliases(self, customer_only: bool) -> list[KMSAliasEx]:
+        try:
+            pages = self._client.get_paginator("list_aliases").paginate()
+            aliases = [KMSAliasEx(a["AliasName"], a["AliasArn"], a.get("TargetKeyId")) for page in pages for a in page.get("Aliases", [])]
+            if customer_only:
+                aliases = [a for a in aliases if a.is_customer]
+            return aliases
+        except ClientError:
+            return []
+
+    def delete_alias(self, alias: KMSAliasEx) -> None:
+        try:
+            self._client.delete_alias(AliasName=alias.alias_name)
         except ClientError:
             pass
 
