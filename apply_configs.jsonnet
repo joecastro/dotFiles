@@ -35,9 +35,21 @@ local docker_host = apply_configs_core.Host(
     stage_only: true,
 };
 
+local ec2_workstation_host = apply_configs_core.Host(
+    'Boxer',
+    '/home/ubuntu',
+    wallpapers.icons.tux,
+    color_defs.Colors.Orange,
+    wallpapers.backgrounds.abstract_purple_blue,
+    wallpapers.android_backgrounds.backpack
+) + {
+    aliases: ['ec2-workstation'],
+};
+
 local hosts = [
     localhost,
     docker_host,
+    ec2_workstation_host,
 ];
 
 local active_host = if ext_vars.is_localhost then localhost

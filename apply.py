@@ -4,6 +4,7 @@
 
 import argparse
 import hashlib
+import time
 import json
 import os
 import platform
@@ -58,7 +59,11 @@ TRACE_STARTUP_FLAG = False
 
 
 def make_shell_command(run_args: list[str]) -> str:
-    sanitize_arg = lambda a: f'"{a.replace('"', '')}"' if ' ' in a or '$' in a else a
+    def sanitize_arg(arg: str) -> str:
+        if ' ' in arg or '$' in arg:
+            return '"' + arg.replace('"', '') + '"'
+        return arg
+
     return ' '.join([sanitize_arg(arg) for arg in run_args])
 
 def json_ready(obj: Any) -> Any:
@@ -99,6 +104,8 @@ class Host:
     prestaged_directories: set[str] = field(default_factory=set)
 
     is_localhost: bool = field(init=False, default=False)
+    connection_host: str | None = None
+    aliases: list[str] = field(default_factory=list)
     # Host out layout
     local_out_dir: Path = field(init=False, default=Path())
     local_staging_dir: Path = field(init=False, default=Path())  # final staged files
@@ -149,6 +156,20 @@ class Host:
             self.file_maps[key] = f'{self.file_maps[key]}{os.path.basename(key)}'
 
         self.is_localhost = self.hostname == LOCALHOST_NAME
+        if not isinstance(self.aliases, list):
+            self.aliases = list(self.aliases)
+        seen_aliases: set[str] = set()
+        normalized_aliases: list[str] = []
+        for candidate in [self.hostname, *self.aliases]:
+            if not candidate:
+                continue
+            key = candidate.lower()
+            if key in seen_aliases:
+                continue
+            seen_aliases.add(key)
+            normalized_aliases.append(candidate)
+        self.aliases = normalized_aliases
+        self.connection_host = self.connection_host or self.hostname
         # Define host out layout
         self.local_out_dir = OUT_DIR_ROOT / f'{self.hostname}-dot'
         self.local_staging_dir = self.local_out_dir / 'staged'
@@ -255,9 +276,30 @@ class Host:
         if self.is_localhost:
             return ops
         return [
-            ['ssh', self.hostname, ' '.join(op)] if isinstance(op, list) else op
+            ['ssh', self.connection_host, ' '.join(op)] if isinstance(op, list) else op
             for op in ops
         ]
+
+    def add_alias(self, alias: str | None) -> None:
+        if not alias:
+            return
+        alias_key = alias.lower()
+        if alias_key not in {a.lower() for a in self.aliases}:
+            self.aliases.append(alias)
+
+    def matches_token(self, token: str) -> bool:
+        token_lower = token.lower()
+        return token_lower in self._identifier_tokens()
+
+    def _identifier_tokens(self) -> set[str]:
+        tokens = {self.hostname.lower()}
+        for alias in self.aliases:
+            tokens.add(alias.lower())
+        if self.connection_host:
+            tokens.add(self.connection_host.lower())
+            if '@' in self.connection_host:
+                tokens.add(self.connection_host.split('@', 1)[-1].lower())
+        return tokens
 
 @dataclass
 class Config:
@@ -272,6 +314,13 @@ class Config:
 
     def get_localhost(self) -> Host | None:
         return next((h for h in self.hosts if h.is_localhost), None)
+
+    def find_host(self, token: str) -> Host | None:
+        token_lower = token.lower()
+        for host in self.hosts:
+            if host.matches_token(token_lower):
+                return host
+        return None
 
 
 config: Config = None
@@ -493,6 +542,7 @@ def get_ext_vars(host: Host | None = None) -> dict:
         'cwd': OS_CWD,
         'home': str(Path.home()),
         'trace_startup': str(TRACE_STARTUP_FLAG).lower(),
+        'ec2_workstation_metadata': '',
     }
     if host:
         standard_ext_vars.update({
@@ -636,7 +686,7 @@ def push_remote_staging(host: Host) -> list[RunOp]:
             ['cp', '-r', f"{(host.local_staging_dir).as_posix()}/.", host.remote_staging_dir]
         ])
     else:
-        ops.append(['rsync', '-axv', '--numeric-ids', '--delete', '--progress', f"{(host.local_staging_dir).as_posix()}/", f'{host.hostname}:{host.remote_staging_dir}'])
+        ops.append(['rsync', '-axv', '--numeric-ids', '--delete', '--progress', f"{(host.local_staging_dir).as_posix()}/", f'{host.connection_host}:{host.remote_staging_dir}'])
 
     remote_finish_path = f'{host.remote_staging_dir}/finish.sh'
     ops.append(f'>> Running finish script on {host.hostname}: /bin/bash {remote_finish_path}')
@@ -778,14 +828,14 @@ def pull_remote(host: Host) -> list[RunOp]:
     if host.is_localhost:
         ops.append(['cp', unfinish_script, host.remote_staging_dir])
     else:
-        ops.append(['scp', unfinish_script, f'{host.hostname}:{host.remote_staging_dir}'])
+        ops.append(['scp', unfinish_script, f'{host.connection_host}:{host.remote_staging_dir}'])
 
     ops.extend(host.make_ops([['/bin/bash', f'{host.remote_staging_dir}/unfinish.sh']]))
 
     if host.is_localhost:
         ops.append(['cp', '-r', f'{host.remote_staging_dir}/.', snapshot_dir])
     else:
-        ops.append(['rsync', '-axv', '--numeric-ids', '--delete', '--progress', f'{host.hostname}:{host.remote_staging_dir}/', snapshot_dir])
+        ops.append(['rsync', '-axv', '--numeric-ids', '--delete', '--progress', f'{host.connection_host}:{host.remote_staging_dir}/', snapshot_dir])
 
     return ops
 
@@ -897,15 +947,21 @@ def push_gnome_settings() -> list[RunOp]:
 def parse_hosts_from_args(host_args: list[str]) -> list[Host]:
     if not host_args:
         return []
-    if len(host_args) == 1:
-        match host_args[0]:
-            case '--all':
-                return config.hosts
-            case '--local':
-                return [config.get_localhost()]
-            case _:
-                return [next(h for h in config.hosts if h.hostname == host_args[0])]
-    return [h for h in config.hosts if h.hostname in host_args]
+    normalized = [arg for arg in host_args if arg not in {'--all', '--local'}]
+    if len(host_args) == 1 and host_args[0] == '--all':
+        return config.hosts
+    if len(host_args) == 1 and host_args[0] == '--local':
+        return [config.get_localhost()]
+
+    hosts: list[Host] = []
+    for token in normalized:
+        host = config.find_host(token)
+        if host is None:
+            raise ValueError(f'Unknown host: {token}')
+        if host not in hosts:
+            hosts.append(host)
+    return hosts
+
 
 
 def main(args: list[str]) -> int:
@@ -929,16 +985,21 @@ def main(args: list[str]) -> int:
         'snapshot-iterm2-prefs',
         'update-workspace-extensions'
     ]
+    ec2_workstation_operations = {
+        'push-ec2-workstation': 'push',
+        'stage-ec2-workstation': 'stage',
+    }
+
+    operation_choices = sorted(
+        host_operations
+        + workspace_operations
+        + list(ec2_workstation_operations)
+        + [f'{op}-local' for op in host_operations]
+        + [f'{op}-all' for op in host_operations]
+    )
 
     parser = argparse.ArgumentParser(description='Apply dotFiles operations')
-    parser.add_argument(
-        'operation',
-        help='Operation to perform',
-        choices=sorted(host_operations
-            + workspace_operations
-            + [f'{op}-local' for op in host_operations]
-            + [f'{op}-all' for op in host_operations])
-    )
+    parser.add_argument('operation', help='Operation to perform', choices=operation_choices)
     parser.add_argument('--hosts', nargs='+', help='Hosts to apply the operation to')
     host_group = parser.add_mutually_exclusive_group()
     host_group.add_argument('--all', action='store_true', help='Apply to all hosts')
@@ -955,6 +1016,9 @@ def main(args: list[str]) -> int:
     if parsed_args.working_dir:
         os.chdir(parsed_args.working_dir)
 
+    global TRACE_STARTUP_FLAG
+    TRACE_STARTUP_FLAG = bool(getattr(parsed_args, 'trace_startup', False))
+
     operation_arg = parsed_args.operation
     if operation_arg.endswith('-local'):
         operation_arg = operation_arg.removesuffix('-local')
@@ -966,8 +1030,37 @@ def main(args: list[str]) -> int:
     if parsed_args.local and parsed_args.all:
         raise ValueError('Cannot specify both --local and --all')
 
-    hosts = []
-    if parsed_args.local:
+    use_ec2_shorthand = operation_arg in ec2_workstation_operations
+    metadata_required = use_ec2_shorthand
+
+    extra_ext_vars: dict[str, str] | None = None
+    try:
+        metadata_payload = load_ec2_workstation_metadata_ext_var(required=metadata_required)
+    except ValueError as exc:
+        print(exc, file=sys.stderr)
+        return 1
+    if metadata_payload:
+        extra_ext_vars = {'ec2_workstation_metadata': metadata_payload}
+
+    global config
+    config = process_apply_configs(extra_ext_vars)
+    try:
+        augment_config_with_workstation(config, require_metadata=metadata_required)
+    except ValueError as exc:
+        print(exc, file=sys.stderr)
+        return 1
+
+    hosts: list[Host] = []
+    if use_ec2_shorthand:
+        if parsed_args.hosts:
+            raise ValueError('Cannot specify --hosts with EC2 workstation shortcuts')
+        if parsed_args.local or parsed_args.all:
+            raise ValueError('Cannot combine --local/--all with EC2 workstation shortcuts')
+        host = config.find_host('ec2-workstation')
+        if host is None:
+            raise ValueError('EC2 workstation host not defined; ensure apply_configs.jsonnet includes the alias')
+        hosts = [host]
+    elif parsed_args.local:
         if parsed_args.hosts:
             raise ValueError('Cannot specify --local and hosts')
         hosts = [config.get_localhost()]
@@ -978,18 +1071,17 @@ def main(args: list[str]) -> int:
     elif parsed_args.hosts:
         hosts = parse_hosts_from_args(parsed_args.hosts)
 
-    if operation_arg in host_operations and not hosts:
+    effective_operation = ec2_workstation_operations.get(operation_arg, operation_arg)
+
+    if effective_operation in host_operations and not hosts:
         raise ValueError('No hosts specified')
 
-    ops = []
+    ops: list[RunOp] = []
 
     skip_cache = bool(getattr(parsed_args, 'skip_cache', False))
     verbose_flag = bool(getattr(parsed_args, 'verbose', False))
 
-    # Set global flags that affect Jsonnet ext vars
-    global TRACE_STARTUP_FLAG
-    TRACE_STARTUP_FLAG = getattr(parsed_args, 'trace_startup', False)
-    match operation_arg:
+    match effective_operation:
         case 'bootstrap-windows':
             ops.extend(bootstrap_windows())
         case 'clean':
@@ -1036,20 +1128,99 @@ def main(args: list[str]) -> int:
     return 0
 
 
-def process_apply_configs() -> Config:
-    """Process any config files that need to be initialized."""
-    config_file = Path.cwd() / 'apply_configs.jsonnet'
-    if not config_file.is_file():
-        raise ValueError('Missing config file')
+def process_apply_configs(extra_ext_vars: dict[str, str] | None = None) -> Config:
+    """Parse and instantiate the apply configuration from Jsonnet."""
+    config_path = Path.cwd() / 'apply_configs.jsonnet'
+    if not config_path.is_file():
+        raise ValueError(f'Missing config file: {config_path}')
 
-    config_dict = parse_jsonnet_now(config_file, get_ext_vars())
+    ext_vars = get_ext_vars()
+    if extra_ext_vars:
+        ext_vars.update(extra_ext_vars)
+
+    config_dict = parse_jsonnet_now(config_path, ext_vars)
     return Config(**config_dict)
+
+
+def read_ec2_workstation_metadata(required: bool = False) -> dict | None:
+    """Return the workstation metadata contents or None if absent."""
+    metadata_path = Path.cwd() / '.ec2-devbox-meta.json'
+    if not metadata_path.is_file():
+        if required:
+            raise ValueError(f'EC2 workstation metadata not found at {metadata_path}')
+        return None
+
+    try:
+        raw_metadata = metadata_path.read_text()
+    except OSError as exc:
+        raise ValueError(f'Unable to read workstation metadata {metadata_path}: {exc}') from exc
+
+    try:
+        return json.loads(raw_metadata)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f'Unable to parse workstation metadata {metadata_path}: {exc}') from exc
+
+
+def load_ec2_workstation_metadata_ext_var(*, required: bool = False) -> str:
+    """Return a minified JSON string suitable for Jsonnet ext vars."""
+    data = read_ec2_workstation_metadata(required=required)
+    if not data:
+        return ''
+    return json.dumps(data, separators=(',', ':'))
+
+
+def augment_config_with_workstation(config: Config, require_metadata: bool = False) -> None:
+    try:
+        data = read_ec2_workstation_metadata(required=require_metadata)
+    except ValueError as exc:
+        if require_metadata:
+            raise
+        print(f'Warning: {exc}', file=sys.stderr)
+        return
+
+    if not data:
+        if require_metadata:
+            raise ValueError('EC2 workstation metadata not found')
+        return
+
+    config_data = data.get('config') or {}
+    instance_name = config_data.get('instance_name') or data.get('instance_id')
+    instance_id = data.get('instance_id')
+    public_ip = data.get('public_ip')
+
+    host = None
+    for token in (instance_name, instance_id, 'ec2-workstation'):
+        if not token:
+            continue
+        host = config.find_host(token)
+        if host:
+            break
+
+    if host is None:
+        message = 'EC2 workstation host is missing from apply_configs.jsonnet'
+        if require_metadata:
+            raise ValueError(message)
+        print(f'Warning: {message}', file=sys.stderr)
+        return
+
+    host.add_alias('ec2-workstation')
+
+    if instance_name:
+        host.add_alias(instance_name)
+    if instance_id:
+        host.add_alias(instance_id)
+
+    if public_ip:
+        host.connection_host = f'ubuntu@{public_ip}'
+        host.add_alias(public_ip)
+    elif require_metadata:
+        raise ValueError('Workstation metadata missing public_ip; cannot establish SSH connection')
+    else:
+        print('Warning: workstation metadata missing public_ip; using existing connection host.', file=sys.stderr)
 
 
 if __name__ == "__main__":
     os.makedirs('out', exist_ok=True)
-    config = process_apply_configs()
-
     if len(sys.argv) < 2:
         print('<missing args>')
         sys.exit(1)

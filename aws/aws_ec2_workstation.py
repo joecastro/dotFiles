@@ -19,7 +19,7 @@ DEFAULT_KEY_NAME = "ec2-workstation-key"
 DEFAULT_TAG_KEY = "Purpose"
 DEFAULT_TAG_VALUE = "DevWorkstation"
 DEFAULT_ROOT_VOLUME_SIZE = 30
-DEFAULT_DATA_VOLUME_SIZE = 50
+DEFAULT_DATA_VOLUME_SIZE = 0
 DEFAULT_SSH_CIDR = "0.0.0.0/0"
 STATUS_DEFAULT_TIMEOUT = 900
 STATUS_DEFAULT_POLL_INTERVAL = 10
@@ -42,10 +42,10 @@ class WorkstationConfig:
 
 @dataclass
 class WorkstationMetadata:
-    META_FILE = Path.cwd().parent / ".ec2-devbox-meta.json"
+    META_FILE = Path.cwd() / ".ec2-devbox-meta.json"
 
     instance_id: str
-    volume_id: str
+    volume_id: str | None
     config: WorkstationConfig
     public_ip: str | None = None
 
@@ -68,18 +68,18 @@ class WorkstationMetadata:
 
         config = WorkstationConfig(**config_data)
 
-        try:
-            return cls(
-                instance_id=data["instance_id"],
-                volume_id=data["volume_id"],
-                config=config,
-                public_ip=data.get("public_ip"),
-            )
-        except KeyError as exc:  # pragma: no cover - defensive
-            missing_key = exc.args[0]
+        instance_id = data.get("instance_id")
+        if not instance_id:
             raise ValueError(
-                f"Metadata file {cls.META_FILE} is missing the '{missing_key}' field; delete it and re-run create."
-            ) from exc
+                f"Metadata file {cls.META_FILE} is missing the 'instance_id' field; delete it and re-run create."
+            )
+
+        return cls(
+            instance_id=instance_id,
+            volume_id=data.get("volume_id"),
+            config=config,
+            public_ip=data.get("public_ip"),
+        )
 
     def save(self) -> None:
         self.META_FILE.write_text(json.dumps(asdict(self), indent=2))
@@ -200,7 +200,11 @@ class WorkstationManager:
         if not public_ip:
             print("Warning: instance does not yet have a public IP", file=sys.stderr)
 
-        volume_id = self._create_and_attach_volume(instance_id)
+        volume_id: str | None = None
+        if config.data_volume_size > 0:
+            volume_id = self._create_and_attach_volume(instance_id)
+        else:
+            print("Skipping data volume creation (data_volume_size set to 0 GiB)")
 
         metadata = WorkstationMetadata(
             instance_id=instance_id,
@@ -220,14 +224,16 @@ class WorkstationManager:
         except AwsError:
             pass
 
-        for action, func in (
-            ("terminate instance", lambda: self.aws.ec2.terminate_instance(metadata.instance_id)),
-            ("delete volume", lambda: self.aws.ec2.delete_volume(metadata.volume_id)),
-        ):
+        try:
+            self.aws.ec2.terminate_instance(metadata.instance_id)
+        except AwsError as exc:
+            print(f"Warning: failed to terminate instance: {exc}", file=sys.stderr)
+
+        if metadata.volume_id:
             try:
-                func()
+                self.aws.ec2.delete_volume(metadata.volume_id)
             except AwsError as exc:
-                print(f"Warning: failed to {action}: {exc}", file=sys.stderr)
+                print(f"Warning: failed to delete volume: {exc}", file=sys.stderr)
 
         WorkstationMetadata.clear()
         print("✅ Cleanup complete.")
@@ -524,7 +530,12 @@ class WorkstationManager:
         print(f"Volume {volume_id} detached")
 
     def destroy_volume(self, volume_id: str, *, force_detach: bool) -> None:
-        metadata = self._load_metadata_or_exit("No metadata found. Run create first.")
+        metadata: WorkstationMetadata | None = None
+        try:
+            metadata = WorkstationMetadata.load()
+        except ValueError as exc:
+            print(f"Warning: {exc}", file=sys.stderr)
+
         volume = self._ensure_managed_volume(volume_id)
 
         attachments = volume.get("Attachments", []) or []
@@ -536,7 +547,7 @@ class WorkstationManager:
             other_instances = {
                 att.get("InstanceId")
                 for att in attachments
-                if att.get("InstanceId") not in {metadata.instance_id}
+                if not metadata or att.get("InstanceId") not in {metadata.instance_id}
             }
             if other_instances:
                 print(
@@ -580,8 +591,8 @@ class WorkstationManager:
 
         print(f"Volume {volume_id} deleted")
 
-        if metadata.volume_id == volume_id:
-            metadata.volume_id = ""
+        if metadata and metadata.volume_id == volume_id:
+            metadata.volume_id = None
             metadata.save()
 
     @staticmethod
@@ -716,6 +727,26 @@ class WorkstationManager:
         return derived
 
     def _build_user_data(self, public_key: str) -> str:
+        instance_name = self.config.instance_name.strip()
+        hostname_block = ""
+        if instance_name:
+            hostname_block = dedent(
+                f"""
+                HOSTNAME="{instance_name}"
+                hostnamectl set-hostname "$HOSTNAME"
+                if grep -q '^127\\.0\\.1\\.1' /etc/hosts; then
+                  sed -i "s/^127\\.0\\.1\\.1.*/127.0.1.1 $HOSTNAME/" /etc/hosts
+                else
+                  echo "127.0.1.1 $HOSTNAME" >> /etc/hosts
+                fi
+                echo "$HOSTNAME" > /etc/hostname
+                mkdir -p /etc/cloud/cloud.cfg.d
+                cat <<'EOF' >/etc/cloud/cloud.cfg.d/99-preserve-hostname.cfg
+preserve_hostname: true
+EOF
+                """
+            ).strip()
+
         script = dedent(
             f"""
             #!/bin/bash
@@ -723,6 +754,8 @@ class WorkstationManager:
 
             DEVICE="/dev/xvdf"
             MOUNT_POINT="/mnt/work"
+
+            {hostname_block}
 
             mkdir -p /home/ubuntu/.ssh
             cat <<'PUBKEY' >> /home/ubuntu/.ssh/authorized_keys
@@ -732,18 +765,32 @@ PUBKEY
             chmod 700 /home/ubuntu/.ssh
             chmod 600 /home/ubuntu/.ssh/authorized_keys
 
-            apt update && apt install -y e2fsprogs
+            apt update
+            apt install -y e2fsprogs curl gnupg
 
-            if ! blkid $DEVICE; then
-              mkfs.ext4 -L workdrive $DEVICE
+            if ! command -v eza >/dev/null 2>&1; then
+              mkdir -p /etc/apt/keyrings
+              wget -qO- https://raw.githubusercontent.com/eza-community/eza/main/deb.asc | gpg --dearmor -o /etc/apt/keyrings/gierens.gpg
+              echo "deb [signed-by=/etc/apt/keyrings/gierens.gpg] http://deb.gierens.de stable main" > /etc/apt/sources.list.d/gierens.list
+              chmod 644 /etc/apt/keyrings/gierens.gpg /etc/apt/sources.list.d/gierens.list
+              apt update
+              apt install -y eza
             fi
 
-            mkdir -p $MOUNT_POINT
-            mount $DEVICE $MOUNT_POINT
-            chown ubuntu:ubuntu $MOUNT_POINT
+            if [ -b "$DEVICE" ]; then
+              if ! blkid "$DEVICE"; then
+                mkfs.ext4 -L workdrive "$DEVICE"
+              fi
 
-            UUID=$(blkid -s UUID -o value $DEVICE)
-            echo "UUID=$UUID $MOUNT_POINT ext4 defaults,nofail 0 2" >> /etc/fstab
+              mkdir -p "$MOUNT_POINT"
+              mount "$DEVICE" "$MOUNT_POINT"
+              chown ubuntu:ubuntu "$MOUNT_POINT"
+
+              UUID=$(blkid -s UUID -o value "$DEVICE")
+              echo "UUID=$UUID $MOUNT_POINT ext4 defaults,nofail 0 2" >> /etc/fstab
+            else
+              echo "Device $DEVICE not present; skipping secondary volume setup" >&2
+            fi
             """
         ).strip()
         return base64.b64encode(script.encode()).decode()

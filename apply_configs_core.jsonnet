@@ -241,6 +241,7 @@ local Host(hostname, home, icon, color, primary_wallpaper, android_wallpaper) = 
     env_vars:: (if $.is_localhost then localhost_env_vars else env_vars) + {
         properties+: {
             AWS_PROFILE: 'chassis-admin',
+            [if hostname != null then 'LOCALHOST_PREFERRED_DISPLAY']: hostname,
             HOST_COLOR: color.hexcolor,
             ANDROID_HOME: if ext_vars.is_macos
                 then '~/Library/Android/sdk'
