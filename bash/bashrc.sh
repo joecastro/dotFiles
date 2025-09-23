@@ -65,11 +65,14 @@ function __print_git_worktree_prompt() {
 }
 
 function __generate_static_prompt_part() {
-    local host_color="${COLOR_ANSI_YELLOW}"
+    local host_color="yellow"
     local host_display="\h"
 
-    if is_valid_rgb "${HOST_COLOR:-}"; then
-        host_color="$(fg_rgb "${HOST_COLOR}")"
+    if [[ -n "${HOST_COLOR:-}" ]]; then
+        local normalized_host_color="${HOST_COLOR,,}"
+        if is_valid_rgb "${normalized_host_color}" || is_valid_ansicolor "${normalized_host_color}"; then
+            host_color="${normalized_host_color}"
+        fi
     fi
 
     if __is_in_tmux; then
@@ -78,16 +81,18 @@ function __generate_static_prompt_part() {
         host_display="${LOCALHOST_PREFERRED_DISPLAY}"
     fi
 
-    printf '%s' "${COLOR_ANSI_GREEN}\u${COLOR_ANSI_YELLOW}@${host_color}${host_display}${RESET} "
-}
+    local user_segment
+    user_segment="$(colorize '\u' green)"
 
-function __generate_preamble_color() {
-    case "$1" in
-        Git)   printf '%s' "${COLOR_ANSI_GREEN}" ;;
-        Repo)  printf '%s' "${COLOR_ANSI_YELLOW}" ;;
-        Piper) printf '%s' "${COLOR_ANSI_BLUE}" ;;
-        *)     printf '%s' "${RESET}" ;;
-    esac
+    local at_segment
+    at_segment="$(colorize '@' yellow)"
+
+    local host_segment=""
+    if [[ -n "${host_display}" ]]; then
+        host_segment="$(colorize "${host_display}" "${host_color}")"
+    fi
+
+    printf '%s' "${user_segment}${at_segment}${host_segment} "
 }
 
 function __generate_dynamic_prompt_part() {
@@ -125,8 +130,10 @@ function __generate_prompt() {
     local ELEVATED_END_OF_PROMPT_ICON="#"
 
     local preamble=""
-    preamble+="${COLOR_ANSI_RED}${PS1_PREAMBLE_PREFIX}"
-    preamble+="$(__generate_preamble_color "$1")"
+    if [[ -n "${PS1_PREAMBLE_PREFIX}" ]]; then
+        preamble+="$(colorize "${PS1_PREAMBLE_PREFIX}" red)"
+    fi
+
     # shellcheck disable=SC2016
     preamble+='$(__cute_time_prompt) $(__virtualenv_info " ")'
 
@@ -187,7 +194,10 @@ function __cute_prompt_command() {
     fi
 
     _dotTrace "updating prompt to ${new_style}"
-    PS1="$(__generate_prompt "$new_style")"
+    local generated_ps1
+    generated_ps1="$(__generate_prompt "$new_style")"
+
+    PS1="${generated_ps1}"
     export PS1
     _dotTrace "Updated PS1: \"${PS1}\""
     __cache_put ACTIVE_DYNAMIC_PROMPT_STYLE "$new_style"

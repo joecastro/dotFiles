@@ -3,6 +3,7 @@
 #pragma once
 
 #pragma requires debug.sh
+#pragma requires colors.sh
 
 function repo_find() {
     _dotTrace_enter "$@"
@@ -97,10 +98,10 @@ function repo_current_project_branch_status() {
         return
     fi
     if [[ "${current_project}" == \*p* ]]; then
-        __echo_colored "yellow" "${ICON_MAP[ARROW_UP_THICK]}"
+        colorize "${ICON_MAP[ARROW_UP_THICK]}" yellow
     fi
     if [[ "${current_project}" == \*P* ]]; then
-        __echo_colored "green" "${ICON_MAP[ARROW_UP_THICK]}"
+        colorize "${ICON_MAP[ARROW_UP_THICK]}" green
     fi
     _dotTrace_exit 0
 }

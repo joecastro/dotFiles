@@ -13,6 +13,11 @@ function __is_in_tmux() {
     [ -n "${TMUX}" ]
 }
 
+function __is_ec2_instance() {
+    # EC2 exposes a link-local metadata endpoint at http://169.254.169.254
+    curl -s --connect-timeout 1 http://169.254.169.254/latest/meta-data/ > /dev/null
+}
+
 function __is_in_vimruntime() { [ -n "${VIMRUNTIME}" ]; }
 function __is_in_python_venv() { [ -n "${VIRTUAL_ENV}" ]; }
 

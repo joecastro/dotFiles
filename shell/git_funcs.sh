@@ -195,9 +195,9 @@ function __git_print_branch_name() {
 }
 
 function __print_git_branch() {
-    local -i colorize=0
+    local -i skip_color=0
     if [[ "$1" == "--no-color" ]]; then
-        colorize=1
+        skip_color=1
     fi
 
     if ! __git_is_in_repo; then
@@ -222,10 +222,10 @@ function __print_git_branch() {
         branch_display+="*"
     fi
 
-    if (( colorize == 0 )); then
+    if (( skip_color == 0 )); then
         local color_hint
         color_hint=$(__git_branch_color_hint)
-        branch_display=$(__echo_colored "${color_hint}" "${branch_display}")
+        branch_display=$(colorize "${branch_display}" "${color_hint}")
     fi
 
     printf '%s' "${branch_display}"
@@ -357,9 +357,9 @@ function __print_git_pwd() {
         fi
     fi
 
-    working_pwd=$(__echo_colored "${style_hint}" "${color_hint}" "${working_pwd} ")
+    working_pwd=$(colorize "${working_pwd} " "${color_hint}" "${style_hint}")
     working_pwd+="${ICON_MAP[PINNED_OUTLINE]}"
-    #working_pwd+=$(__echo_colored "normal" "red" "${ICON_MAP[PINNED]}")
+    #working_pwd+=$(colorize "${ICON_MAP[PINNED]}" red normal)
 
     _dotTrace "branch prefix before anchored path: ${working_pwd}"
     local repo_path

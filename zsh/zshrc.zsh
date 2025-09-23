@@ -368,12 +368,9 @@ case "$(__effective_distribution)" in
     export WIN_USERNAME=$(powershell.exe '$env:UserName')
     export WIN_USERPROFILE=$(echo $(wslpath $(powershell.exe '$env:UserProfile')) | sed $'s/\r//')
 
-    typeset -a WSL_WINDOWS_VIRTUALENV_ID=("__is_in_wsl_windows_drive" "WINDOWS" "blue")
-    typeset -a WSL_LINUX_VIRTUALENV_ID=("__is_in_wsl_linux_drive" "LINUX_PENGUIN" "blue")
-
-    VIRTUALENV_ID_FUNCS+=( \
-        WSL_WINDOWS_VIRTUALENV_ID \
-        WSL_LINUX_VIRTUALENV_ID )
+    VIRTUALENV_ID_ENTRIES+=( \
+        "__is_in_wsl_windows_drive|WINDOWS|blue" \
+        "__is_in_wsl_linux_drive|LINUX_PENGUIN|blue" )
 
     # export WIN_USERPROFILE=$(wslpath $(powershell.exe '$env:UserProfile'))
 

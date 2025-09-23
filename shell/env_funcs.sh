@@ -10,6 +10,7 @@ _dotTrace "Loading env_funcs.sh"
 #pragma requires cache.sh
 #pragma requires icons.sh
 #pragma requires git_funcs.sh
+#pragma requires colors.sh
 #pragma wants completion/git-prompt.sh
 #pragma wants konsole_funcs.sh
 #pragma wants iterm2_funcs.sh
@@ -110,7 +111,7 @@ function __print_repo_worktree() {
     fi
     line+="${CWD_REPO_MANIFEST_BRANCH}"
 
-    __echo_colored "green" "${line}"
+    colorize "${line}" green
 
     local current_project
         if current_project=$(repo_current_project); then
@@ -118,7 +119,7 @@ function __print_repo_worktree() {
             if current_branch=$(repo_current_project_branch); then
                 printf '%s' ":$(repo_current_project_branch_status)${current_branch}"
             else
-            __echo_colored "green" ":$(__print_abbreviated_path "${current_project}" "${CWD_REPO_ROOT}")"
+            colorize ":$(__print_abbreviated_path "${current_project}" "${CWD_REPO_ROOT}")" green
             fi
         fi
     _dotTrace_exit 0
@@ -321,155 +322,7 @@ function __is_style_name() {
     [[ "$style" == "bold" || "$style" == "bright" || "$style" == "normal" ]]
 }
 
-if __is_shell_zsh; then
-
-    function __is_text_colored() {
-        local text="$1"
-        [[ "$text" == *"%{"* && "$text" == *"%}"* ]]
-    }
-
-    function __echo_colored() {
-        local color_name="$1"
-        shift
-        local style=""
-
-        # Check for optional style parameters
-        if __is_style_name "$color_name"; then
-            style="$color_name"
-            color_name="$1"
-            shift
-        fi
-
-        local text="$*"
-
-        local color_code
-        # Apply style if specified
-        if [[ "$style" == "bold" ]]; then
-            # shellcheck disable=SC2154
-            color_code="${fg_bold[${color_name}]}"
-        elif [[ "$style" == "bright" ]]; then
-            # shellcheck disable=SC2154
-            color_code="${fg_bright[${color_name}]}"
-        else
-            # shellcheck disable=SC2154
-            color_code="${fg[${color_name}]}"
-        fi
-
-        if __is_text_colored "$text"; then
-            printf '%s' "${text}"
-            printf 'E: Trying to colorize colored text: %s\n' "${text}" >&2
-            return 0
-        fi
-
-        # shellcheck disable=SC2154
-        printf '%s' "%{${color_code}%}${text}%{${reset_color}%}"
-    }
-
-else
-
-    function __is_text_colored() {
-        local text="$1"
-
-        [[ "$text" == *"\e["* && "$text" == *"m"* ]]
-    }
-
-    function __echo_colored() {
-        local color_name="$1"
-        shift
-        local style=""
-
-        # Check for optional style parameters
-        if __is_style_name "$color_name"; then
-            style="$color_name"
-            color_name="$1"
-            shift
-        fi
-
-        local text="$*"
-
-        # Map color name to base code (avoid associative arrays for bash 3.x compatibility)
-        local base="37" # default white
-        case "$color_name" in
-            black)   base="30" ;;
-            red)     base="31" ;;
-            green)   base="32" ;;
-            yellow)  base="33" ;;
-            blue)    base="34" ;;
-            magenta) base="35" ;;
-            cyan)    base="36" ;;
-            white)   base="37" ;;
-        esac
-
-        local color_code="$base"
-        # Apply style if specified
-        if [[ "$style" == "bold" ]]; then
-            color_code="1;${base}"
-        elif [[ "$style" == "bright" ]]; then
-            # Bright variant of the base color
-            case "$base" in
-                30) color_code=90 ;;
-                31) color_code=91 ;;
-                32) color_code=92 ;;
-                33) color_code=93 ;;
-                34) color_code=94 ;;
-                35) color_code=95 ;;
-                36) color_code=96 ;;
-                37) color_code=97 ;;
-            esac
-        fi
-
-        if __is_text_colored "$text"; then
-            printf '%s' "${text}"
-            printf 'E: Trying to colorize colored text: %s\n' "${text}" >&2
-            return 0
-        fi
-
-        printf '\e[%sm%s\e[0m' "$color_code" "$text"
-    }
-
-fi
-
 # Shared cuteness
-
-# Always-ANSI color helper for non-prompt output (works in bash and zsh)
-function __echo_colored_stdout() {
-    local color_name="$1"
-    shift
-    local style=""
-    if __is_style_name "$color_name"; then
-        style="$color_name"
-        color_name="$1"
-        shift
-    fi
-    local text="$*"
-    local base="37"  # default white
-    case "$color_name" in
-        black) base="30" ;;
-        red) base="31" ;;
-        green) base="32" ;;
-        yellow) base="33" ;;
-        blue) base="34" ;;
-        magenta) base="35" ;;
-        cyan) base="36" ;;
-        white) base="37" ;;
-    esac
-    local code="$base"
-    if [[ "$style" == "bold" ]]; then
-        code="1;${base}"
-    elif [[ "$style" == "bright" ]]; then
-        case "$base" in
-            30) code=90 ;;
-            31) code=91 ;;
-            32) code=92 ;;
-            33) code=93 ;;
-            34) code=94 ;;
-            35) code=95 ;;
-            36) code=96 ;;
-            37) code=97 ;;
-        esac
-    fi
-    printf '\e[%sm%s\e[0m' "$code" "$text"
-}
 
 if ! __is_shell_old_bash; then
 
@@ -780,37 +633,28 @@ function __effective_distribution() {
     return 1
 }
 
-# "key" -> (test_function ICON ICON_COLOR)
-# typeset -a GIT_VIRTUALENV_ID=("__git_is_in_repo" "ICON_MAP[GIT]" "yellow")
-typeset -a TMUX_VIRTUALENV_ID=("__is_in_tmux" "TMUX" "white")
-typeset -a VIM_VIRTUALENV_ID=("__is_in_vimruntime" "VIM" "green")
-typeset -a PYTHON_VIRTUALENV_ID=("__is_in_python_venv" "PYTHON" "blue")
-
-typeset -a VIRTUALENV_ID_FUNCS=( \
-    TMUX_VIRTUALENV_ID \
-    VIM_VIRTUALENV_ID \
-    PYTHON_VIRTUALENV_ID )
+# Format: test_function|ICON_KEY|ICON_COLOR
+typeset -a VIRTUALENV_ID_ENTRIES=(
+    "__is_in_tmux|TMUX|white"
+    "__is_in_vimruntime|VIM|green"
+    "__is_in_python_venv|PYTHON|blue"
+    "__is_ec2_instance|EC2|${ORANGE}"
+)
 
 function __virtualenv_info() {
     _dotTrace_enter "$@"
     local suffix="${1:-}"
     local -i has_virtualenv=1
-    for value in "${VIRTUALENV_ID_FUNCS[@]}"; do
-        _dotTrace "Checking virtualenv: $value"
-        if [[ -n ${ZSH_VERSION:-} ]]; then
-            eval "arr=(\"\${${value}[@]}\")"
-        else
-            # shellcheck disable=SC1087
-            eval "arr=(\"\${$value[@]}\")"
-        fi
-        # shellcheck disable=SC2124
-        ID_FUNC="${arr[@]:0:1}"
-        ICON="${ICON_MAP[${arr[@]:1:1}]}"
-        # shellcheck disable=SC2124
-        ICON_COLOR="${arr[@]:2:1}"
+    local entry
+    local ID_FUNC ICON_KEY ICON_COLOR ICON
+    for entry in "${VIRTUALENV_ID_ENTRIES[@]}"; do
+        local IFS='|'
+        read -r ID_FUNC ICON_KEY ICON_COLOR <<< "$entry"
+        ICON="${ICON_MAP[${ICON_KEY}]}"
+        _dotTrace "Checking virtualenv: $entry"
         if eval "${ID_FUNC}"; then
             _dotTrace "Found virtualenv with $ID_FUNC"
-            __echo_colored "${ICON_COLOR}" "${ICON}"
+            colorize "${ICON}" "${ICON_COLOR}"
             has_virtualenv=0
         fi
     done
@@ -870,7 +714,7 @@ function __cute_startup_time() {
     is_slow="$(awk -v d="$secs" 'BEGIN { if (d > 3.0) print 1; else print 0 }')"
 
     if (( is_slow == 1 )); then
-        __echo_colored_stdout red "${display_str}"
+        colorize --plain "${display_str}" red
     else
         printf '%s' "${display_str}"
     fi
@@ -885,7 +729,7 @@ function __cute_shell_header() {
         force=1
     fi
 
-    if (( "$force" != 1 )); then
+    if (( force != 1 )); then
         if ! __is_shell_interactive; then
             _dotTrace "Skipping cute header in non-interactive shell"
             _dotTrace_exit 0

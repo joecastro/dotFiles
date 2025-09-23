@@ -88,6 +88,9 @@ declare -A EMOJI_ICON_MAP=(
     [WEB]=🌐
     [IOS]=📱
     [GNU]=🦬
+    [EC2]=☁️
+    [AWS]=☁️
+    [AMAZON]=🛒
     )
 
 declare -A NF_ICON_MAP=(
@@ -163,6 +166,9 @@ declare -A NF_ICON_MAP=(
     [WEB]=󰖟
     [IOS]= #󰀷
     [GNU]=
+    [EC2]=󰒋
+    [AWS]=󰸏
+    [AMAZON]=
     )
 
 if __is_shell_zsh; then
