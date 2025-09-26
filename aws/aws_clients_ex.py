@@ -5,14 +5,6 @@ from typing import Any, Callable, TYPE_CHECKING
 import boto3
 from botocore.exceptions import ClientError
 
-
-class AwsError(Exception):
-    """Friendly wrapper around botocore ClientError."""
-
-    def __init__(self, message: str, original: Exception | None = None) -> None:
-        super().__init__(message)
-        self.original = original
-
 class AwsError(Exception):
     """Friendly wrapper around botocore ClientError."""
 
@@ -193,6 +185,22 @@ class EC2RouteTableEx:
         return [EC2RouteTableAssociationEx(a) for a in self._props.get("Associations", []) or []]
 
 
+class EC2SecurityGroupEx:
+    def __init__(self, group_id: str, props: dict | None) -> None:
+        self._group_id = group_id
+        self._props = props
+
+    def __str__(self) -> str:
+        return self._group_id
+
+    @property
+    def id(self) -> str:
+        return self._group_id
+
+    @property
+    def props(self) -> dict | None:
+        return self._props
+
 class EC2InstanceEx:
     def __init__(self, instance_id: str, props: dict | None) -> None:
         self._instance_id = instance_id
@@ -206,8 +214,59 @@ class EC2InstanceEx:
         return self._instance_id
 
     @property
+    def availability_zone(self) -> str | None:
+        if self._props and "Placement" in self._props:
+            return self._props["Placement"].get("AvailabilityZone")
+        return None
+
+    @property
+    def security_groups(self) -> list[EC2SecurityGroupEx]:
+        if self._props:
+            return [EC2SecurityGroupEx(g["GroupId"], g)
+                    for g in (self._props.get("SecurityGroups", []) or [])
+                    if g.get("GroupId")]
+        return []
+
+    @property
+    def public_dns_name(self) -> str | None:
+        if self._props:
+            return self._props.get("PublicDnsName")
+        return None
+
+    @property
+    def public_ip(self) -> str | None:
+        if self._props and "PublicIpAddress" in self._props:
+            return self._props.get("PublicIpAddress", "")
+        return None
+
+    @property
     def props(self) -> dict | None:
         return self._props
+
+    @property
+    def state(self) -> str | None:
+        if self._props and "State" in self._props:
+            state = self._props.get("State") or {}
+            return state.get("Name")
+        return None
+
+class EC2InstanceStatusEx:
+    def __init__(self, instance_id: str, instance_status: str, system_status: str) -> None:
+        self._instance_id = instance_id
+        self._instance_status = instance_status
+        self._system_status = system_status
+
+    @property
+    def instance_id(self) -> str:
+        return self._instance_id
+
+    @property
+    def instance_status(self) -> str:
+        return self._instance_status
+
+    @property
+    def system_status(self) -> str:
+        return self._system_status
 
 
 class EC2ElasticIPEx:
@@ -227,16 +286,41 @@ class EC2ElasticIPEx:
         return self._props
 
 
+class EC2VolumeEx:
+    def __init__(self, volume_id: str, props: dict | None) -> None:
+        self._volume_id = volume_id
+        self._props = props
+        self._tags = {tag["Key"]: tag["Value"] for tag in props.get("Tags", [])}
+
+    def __str__(self) -> str:
+        return self._volume_id
+
+    @property
+    def volume_id(self) -> str:
+        return self._volume_id
+
+    @property
+    def tags(self) -> dict[str, str]:
+        return self._tags
+
+    @property
+    def volume_type(self) -> str | None:
+        return self._props.get("VolumeType")
+
+    @property
+    def props(self) -> dict | None:
+        return self._props
+
+
 class EC2Ex:
     def __init__(self, client: EC2Client) -> None:
         self._client: EC2Client = client
 
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._client, name)
+    # def __getattr__(self, name: str) -> Any:
+    #     return getattr(self._client, name)
 
-    # ------------------------------------------------------------------
-    # Convenience helpers
-    # ------------------------------------------------------------------
+    def get_waiter(self, name: str):
+        return self._client.get_waiter(name)
 
     def find_latest_image(self, owners: list[str], name_pattern: str) -> str:
         try:
@@ -272,32 +356,13 @@ class EC2Ex:
         except ClientError as exc:
             raise AwsError(f"Failed to release Elastic IP {allocation_id}", exc)
 
-    def get_instance_state(self, instance_id: str) -> str | None:
-        try:
-            response = self._client.describe_instances(InstanceIds=[instance_id])
-        except ClientError as exc:
-            raise AwsError(f"Failed to describe instance {instance_id}", exc)
-        reservations = response.get("Reservations", [])
-        if not reservations:
-            return None
-        return reservations[0]["Instances"][0]["State"]["Name"]
-
-    def current_public_ip(self, instance_id: str) -> str:
-        try:
-            response = self._client.describe_instances(InstanceIds=[instance_id])
-        except ClientError as exc:
-            raise AwsError(f"Failed to describe instance {instance_id}", exc)
-        reservations = response.get("Reservations", [])
-        if not reservations:
-            return ""
-        return reservations[0]["Instances"][0].get("PublicIpAddress", "")
-
-    def launch_instance(self, **kwargs) -> dict:
+    def launch_instance(self, **kwargs) -> EC2InstanceEx:
         try:
             response = self._client.run_instances(**kwargs)
         except ClientError as exc:
             raise AwsError("Failed to launch instance", exc)
-        return response["Instances"][0]
+        instance_props = response.get("Instances", [])[0]
+        return EC2InstanceEx(instance_props["InstanceId"], instance_props)
 
     def ensure_key_pair_exists(self, key_name: str) -> None:
         try:
@@ -322,39 +387,7 @@ class EC2Ex:
         except ClientError as exc:
             raise AwsError(f"Failed to start instance {instance_id}", exc)
 
-    def wait_for_instance_status_ok(
-        self,
-        instance_id: str,
-        *,
-        timeout: int = 600,
-        poll_interval: int = 10,
-        on_update: Callable[[dict], None] | None = None,
-    ) -> dict:
-        deadline = time.monotonic() + timeout if timeout else None
-        last_reported: tuple[str, str] | None = None
-
-        while True:
-            summary = self.instance_status_summary(instance_id)
-            state = (
-                summary.get("instance_status", "unknown"),
-                summary.get("system_status", "unknown"),
-            )
-
-            if on_update and state != last_reported:
-                on_update(summary)
-                last_reported = state
-
-            if state == ("ok", "ok"):
-                return summary
-
-            if deadline and time.monotonic() >= deadline:
-                raise AwsError(
-                    f"Instance {instance_id} status checks did not pass within {timeout}s (instance={state[0]}, system={state[1]})"
-                )
-
-            time.sleep(poll_interval)
-
-    def instance_status_summary(self, instance_id: str) -> dict:
+    def instance_status_summary(self, instance_id: str) -> EC2InstanceStatusEx:
         try:
             response = self._client.describe_instance_status(
                 InstanceIds=[instance_id], IncludeAllInstances=True
@@ -364,18 +397,20 @@ class EC2Ex:
 
         statuses = response.get("InstanceStatuses", [])
         if not statuses:
-            return {
-                "instance_status": "unknown",
-                "system_status": "unknown",
-            }
+            return EC2InstanceStatusEx(
+                instance_id=instance_id,
+                instance_status="unknown",
+                system_status="unknown",
+            )
 
         entry = statuses[0]
         instance_status = entry.get("InstanceStatus", {}).get("Status", "unknown")
         system_status = entry.get("SystemStatus", {}).get("Status", "unknown")
-        return {
-            "instance_status": instance_status,
-            "system_status": system_status,
-        }
+        return EC2InstanceStatusEx(
+            instance_id=instance_id,
+            instance_status=instance_status,
+            system_status=system_status,
+        )
 
     def ensure_security_group_ingress(
         self,
@@ -438,7 +473,7 @@ class EC2Ex:
         except ClientError as exc:
             raise AwsError("Failed to describe Elastic IP addresses", exc)
 
-    def describe_instance(self, instance_id: str) -> dict:
+    def describe_instance(self, instance_id: str) -> EC2InstanceEx:
         try:
             response = self._client.describe_instances(InstanceIds=[instance_id])
         except ClientError as exc:
@@ -446,7 +481,7 @@ class EC2Ex:
         reservations = response.get("Reservations", [])
         if not reservations:
             raise AwsError(f"Instance {instance_id} not found")
-        return reservations[0]["Instances"][0]
+        return EC2InstanceEx(instance_id, reservations[0]["Instances"][0])
 
     def create_volume(self, **kwargs) -> dict:
         try:
@@ -460,11 +495,15 @@ class EC2Ex:
         except ClientError as exc:
             raise AwsError("Failed to attach volume", exc)
 
-    def describe_volumes(self, **kwargs) -> dict:
-        try:
-            return self._client.describe_volumes(**kwargs)
-        except ClientError as exc:
-            raise AwsError("Failed to describe volumes", exc)
+    def describe_volumes(self, volume_ids: list[str] | None) -> list[EC2VolumeEx]:
+        if volume_ids is None:
+            response = self._client.describe_volumes()
+        else:
+            response = self._client.describe_volumes(VolumeIds=volume_ids)
+        volumes = response.get("Volumes", [])
+        if not volumes:
+            return []
+        return [EC2VolumeEx(v["VolumeId"], v) for v in volumes]
 
     def detach_volume(self, **kwargs) -> None:
         try:
@@ -520,12 +559,36 @@ class EC2Ex:
         except ClientError:
             return []
 
+    def delete_vpc_endpoints(self, *, VpcEndpointIds: list[str]) -> None:
+        try:
+            self._client.delete_vpc_endpoints(VpcEndpointIds=VpcEndpointIds)
+        except ClientError as exc:
+            raise AwsError(
+                f"Failed to delete VPC endpoints: {', '.join(VpcEndpointIds)}",
+                exc,
+            )
+
     def list_internet_gateway_ids_for_vpc(self, vpc_id: str) -> list[str]:
         try:
             resp = self._client.describe_internet_gateways(Filters=[{"Name": "attachment.vpc-id", "Values": [vpc_id]}])
             return [g.get("InternetGatewayId") for g in resp.get("InternetGateways", []) if g.get("InternetGatewayId")]
         except ClientError:
             return []
+
+    def detach_internet_gateway(self, *, InternetGatewayId: str, VpcId: str) -> None:
+        try:
+            self._client.detach_internet_gateway(InternetGatewayId=InternetGatewayId, VpcId=VpcId)
+        except ClientError as exc:
+            raise AwsError(
+                f"Failed to detach internet gateway {InternetGatewayId} from VPC {VpcId}",
+                exc,
+            )
+
+    def delete_internet_gateway(self, *, InternetGatewayId: str) -> None:
+        try:
+            self._client.delete_internet_gateway(InternetGatewayId=InternetGatewayId)
+        except ClientError as exc:
+            raise AwsError(f"Failed to delete internet gateway {InternetGatewayId}", exc)
 
     def list_route_tables_for_vpc(self, vpc_id: str) -> list[EC2RouteTableEx]:
         try:
@@ -569,6 +632,12 @@ class EC2Ex:
         except ClientError:
             return []
 
+    def delete_network_interface(self, *, NetworkInterfaceId: str) -> None:
+        try:
+            self._client.delete_network_interface(NetworkInterfaceId=NetworkInterfaceId)
+        except ClientError as exc:
+            raise AwsError(f"Failed to delete network interface {NetworkInterfaceId}", exc)
+
     def get_security_group(self, sg_id: str) -> dict:
         try:
             resp = self._client.describe_security_groups(GroupIds=[sg_id])
@@ -596,6 +665,12 @@ class EC2Ex:
         for perm in sg.get("IpPermissions", []) or []:
             self._client.revoke_security_group_ingress(GroupId=sg_id, IpPermissions=[perm])
 
+    def delete_security_group(self, *, GroupId: str) -> None:
+        try:
+            self._client.delete_security_group(GroupId=GroupId)
+        except ClientError as exc:
+            raise AwsError(f"Failed to delete security group {GroupId}", exc)
+
     def terminate_instance(self, instance: EC2InstanceEx | str, wait: bool = False) -> None:
         instance_id = instance.instance_id if isinstance(instance, EC2InstanceEx) else instance
         self._client.terminate_instances(InstanceIds=[instance_id])
@@ -619,9 +694,23 @@ class EC2Ex:
     def disassociate_route_table(self, association: EC2RouteTableAssociationEx) -> None:
         self._client.disassociate_route_table(AssociationId=association.route_table_association_id)
 
-    def release_elastic_ip(self, eip: EC2ElasticIPEx) -> None:
-        self._client.release_address(AllocationId=eip.allocation_id)
+    def delete_vpc(self, *, VpcId: str) -> None:
+        try:
+            self._client.delete_vpc(VpcId=VpcId)
+        except ClientError as exc:
+            raise AwsError(f"Failed to delete VPC {VpcId}", exc)
 
+    def delete_subnet(self, *, SubnetId: str) -> None:
+        try:
+            self._client.delete_subnet(SubnetId=SubnetId)
+        except ClientError as exc:
+            raise AwsError(f"Failed to delete subnet {SubnetId}", exc)
+
+    def delete_network_acl(self, *, NetworkAclId: str) -> None:
+        try:
+            self._client.delete_network_acl(NetworkAclId=NetworkAclId)
+        except ClientError as exc:
+            raise AwsError(f"Failed to delete network ACL {NetworkAclId}", exc)
 
 
 class EKSNodegroupEx:
