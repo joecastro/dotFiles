@@ -37,9 +37,10 @@ local curl_maps = [
     ['https://raw.githubusercontent.com/git/git/master/contrib/completion/git-completion.zsh', 'git-completion.zsh', config_dir + '/zfuncs/_git'],
     ['https://iterm2.com/shell_integration/zsh', 'iterm2_shell_integration.zsh', config_dir + '/'],
     ['https://iterm2.com/shell_integration/bash', 'iterm2_shell_integration.bash', config_dir + '/'],
-    ['https://raw.githubusercontent.com/eza-community/eza/main/completions/zsh/_eza', '_eza', config_dir + '/zfuncs/'],
+    ['https://raw.githubusercontent.com/eza-community/eza/main/completions/bash/eza', 'eza.bash', config_dir + '/completion/'],
+    ['https://raw.githubusercontent.com/eza-community/eza/main/completions/zsh/_eza', '_eza.zsh', config_dir + '/zfuncs/_eza'],
     ['https://raw.githubusercontent.com/mafredri/zsh-async/v1.8.6/async.zsh', 'async.zsh', config_dir + '/zfuncs/async'],
-    ['https://raw.githubusercontent.com/rcaloras/bash-preexec/0.6.0/bash-preexec.sh', 'bash-preexec.sh', config_dir + '/bash/bash-preexec.sh'],
+    ['https://raw.githubusercontent.com/rcaloras/bash-preexec/0.6.0/bash-preexec.sh', 'bash-preexec.sh', config_dir + '/bash/'],
 ];
 
 local file_maps = [
@@ -48,8 +49,6 @@ local file_maps = [
     ['bash/inputrc.sh', '.inputrc'],
     ['ghostty/ghostty_config.properties', '.config/ghostty/config'],
     ['ghostty/xterm-ghostty.terminfo', config_dir + '/'],
-    ['iterm2/iterm2_funcs.sh', config_dir + '/'],
-    ['konsole/konsole_funcs.sh', config_dir + '/'],
     ['shell/env_funcs.sh', config_dir + '/'],
     ['shell/platform.sh', config_dir + '/'],
     ['shell/colors.sh', config_dir + '/'],
@@ -73,6 +72,7 @@ local file_maps = [
 local directory_maps = [
     ['vim/colors', '.vim/colors'],
     ['svg', config_dir + '/svg'],
+    ['shell/completion', config_dir + '/completion'],
     // Only copy wallpaper images; Jsonnet stays in repo.
     ['images', config_dir + '/wallpaper'],
 ];

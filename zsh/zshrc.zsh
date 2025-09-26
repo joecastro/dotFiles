@@ -8,6 +8,10 @@ _dotTrace "Init loading .zshrc"
 
 #pragma requires colors.sh
 
+# Force homebrew before other completions.
+# Often it's going to be the way other tools are installed.
+#pragma wants completion/homebrew.sh
+
 # In some contexts .zprofile isn't sourced (e.g. when started inside the Python debug console.)
 # shellcheck source=SCRIPTDIR/zsh/zprofile.zsh
 source ${ZDOTDIR:-$HOME}/.zprofile
@@ -307,41 +311,22 @@ RPROMPT="YYY"
 __update_prompt
 # RPOMPT+='%* '
 
-_dotTrace "Sourcing rbenv"
-[ -d "$HOME/.rbenv/bin" ] && export PATH="$HOME/.rbenv/bin:$PATH"
-[ -x "$(command -v rbenv)" ] && eval "$(rbenv init -)"
+_dotTrace "Loading shell completion scripts"
 
-_dotTrace "Sourcing Homebrew"
-# Set PATH, MANPATH, etc., for Homebrew.
-[ -d "/opt/homebrew/bin" ] && eval "$(/opt/homebrew/bin/brew shellenv)"
-
-_dotTrace "Sourcing Rust"
-# shellcheck disable=SC1090
-[ -s ~/.cargo/env ] && source ~/.cargo/env
-
-_dotTrace "Sourcing nvm"
-if __has_homebrew && [[ -d "$(brew --prefix nvm)" ]]; then
-    _dotTrace "Using Homebrew nvm"
-    [ -s "$(brew --prefix nvm)/nvm.sh" ] && \. "$(brew --prefix nvm)/nvm.sh"
-    if __is_shell_bash; then
-        # shellcheck disable=SC1091
-        [ -s "$(brew --prefix nvm)/etc/bash_completion.d/nvm" ] && \. "$(brew --prefix nvm)/etc/bash_completion.d/nvm"
-    fi
+completion_dir="${DOTFILES_CONFIG_ROOT}/completion"
+if [[ -d "${completion_dir}" ]]; then
+    while IFS= read -r completion_script; do
+        [[ -r "${completion_script}" ]] || continue
+        [[ "${completion_script}" == *.bash ]] && continue
+        # shellcheck disable=SC1090
+        source "${completion_script}"
+    done < <(find "${completion_dir}" -maxdepth 1 -type f -name '*.sh' -print | sort)
 else
-    # shellcheck disable=SC1091
-    [ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh"
-
-    if __is_shell_bash; then
-        # shellcheck disable=SC1091
-        [ -s "$NVM_DIR/bash_completion" ] && source "$NVM_DIR/bash_completion"
-    fi
+    _dotTrace "Completion directory ${completion_dir} does not exist"
 fi
-_dotTrace "Finished loading nvm - This takes a stupidly long time on Linux... especially zsh."
 
-__do_iterm2_shell_integration
-__do_vscode_shell_integration
-__do_konsole_shell_integration
-__do_eza_aliases
+unset completion_dir
+unset completion_script
 
 # echo "Welcome to $(__effective_distribution)!"
 case "$(__effective_distribution)" in

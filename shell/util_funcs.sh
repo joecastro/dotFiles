@@ -385,3 +385,54 @@ function bootstrap_kde_plasma() {
     sudo apt update
     sudo apt install plasma-desktop -y
 }
+
+function bootstrap_aws_cli() {
+    if __has_homebrew; then
+        echo "Installing AWS CLI v2 via Homebrew"
+        brew install awscli
+        return
+    fi
+
+    if command -v aws &> /dev/null; then
+        echo "AWS CLI is already installed"
+        return
+    fi
+
+    echo "Installing AWS CLI v2"
+    local tmp_dir
+    tmp_dir=$(mktemp -d)
+    pushd "$tmp_dir" || return 1
+    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+    unzip awscliv2.zip
+    sudo ./aws/install
+    popd || return 1
+    rm -rf "$tmp_dir"
+}
+
+function bootstrap_k8s() {
+    if __has_homebrew; then
+        echo "Installing kubectl via Homebrew"
+        brew install kubectl
+        return
+    fi
+
+    if command -v kubectl &> /dev/null; then
+        echo "kubectl is already installed"
+        return
+    fi
+
+    # Install kubectl (latest stable)
+    # 1. Get latest version (follow redirects)
+    LATEST_KUBECTL=$(curl -sL https://dl.k8s.io/release/stable.txt)
+    echo "Latest kubectl: $LATEST_KUBECTL"
+
+    # 2. Download the binary
+    curl -L -o kubectl "https://dl.k8s.io/release/${LATEST_KUBECTL}/bin/linux/amd64/kubectl"
+
+    # 3. Install
+    sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+    rm kubectl
+
+    # 4. Verify
+    kubectl version --client
+}

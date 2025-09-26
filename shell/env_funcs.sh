@@ -11,9 +11,6 @@ _dotTrace "Loading env_funcs.sh"
 #pragma requires icons.sh
 #pragma requires git_funcs.sh
 #pragma requires colors.sh
-#pragma wants completion/git-prompt.sh
-#pragma wants konsole_funcs.sh
-#pragma wants iterm2_funcs.sh
 
 if [[ ":$PATH:" != *":${DOTFILES_CONFIG_ROOT}/bin:"* ]]; then
     PATH="${DOTFILES_CONFIG_ROOT}/bin:${PATH}"
@@ -802,75 +799,6 @@ function ssh() {
 function screen() {
     echo "Don't use screen"
     return 1
-}
-
-function __do_eza_aliases() {
-    # if eza is installed prefer that to ls
-    # options aren't the same, but I also need it less often...
-    if ! command -v eza &> /dev/null; then
-        __cute_shell_header_add_warning "eza not found"
-        # echo "## Using native ls because missing eza"
-        # by default, show slashes, follow symbolic links, colorize
-        alias ls='ls -FHG'
-    else
-        export EZA_STRICT=0
-        export EZA_ICONS_AUTO=0
-        alias ls='eza -l --group-directories-first'
-        # https://github.com/orgs/eza-community/discussions/239#discussioncomment-9834010
-        alias kd='eza --group-directories-first'
-        # Use a POSIX-valid function name; alias hyphenated names to it
-        # shellcheck disable=SC2329
-        function kd_tree() {
-            local arg="${1:-}"
-            local -i level=3
-
-            if [[ -n "$arg" && "$arg" =~ ^[0-9]+$ ]]; then
-                # If the token is both a number and an existing directory, prefer level (warn user).
-                if [[ -d "$arg" ]]; then
-                    echo "Warning: ambiguous argument '$arg' (both number and directory); using as level." >&2
-                fi
-                level="$arg"
-                shift
-            fi
-
-            # Pass remaining args (which may include a directory or flags) to eza
-            eza --tree --level="$level" --group-directories-first "$@"
-        }
-        alias kt='kd_tree'
-        alias realls='\ls -FHG'
-    fi
-}
-
-function __do_vscode_shell_integration() {
-    _dotTrace_enter "$@"
-
-    local -i has_code_cmd=0
-    if command -v code &> /dev/null; then
-        has_code_cmd=1
-    fi
-
-    if (( has_code_cmd == 0 )); then
-        if __is_on_macos && ! __is_ssh_session; then
-            __cute_shell_header_add_warning "VSCode CLI 'code' unavailable.  Check https://code.visualstudio.com/docs/setup/mac"
-        fi
-        _dotTrace_exit 0
-        return
-    fi
-
-    if __is_vscode_terminal; then
-        if (( has_code_cmd == 0 )); then
-            echo "VSCode terminal detected but 'code' CLI unavailable"
-        fi
-        if __is_shell_bash; then
-            # shellcheck disable=SC1090
-            source "$(code --locate-shell-integration-path bash)"
-        elif __is_shell_zsh; then
-            # shellcheck disable=SC1090
-            source "$(code --locate-shell-integration-path zsh)"
-        fi
-    fi
-
-    _dotTrace_exit 0
 }
 
 _dotTrace "Finished loading env_funcs.sh"

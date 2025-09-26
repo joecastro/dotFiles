@@ -1,10 +1,17 @@
-#! /bin/bash
+#! /usr/bin/env bash
 
 #pragma once
 
 #pragma requires platform.sh
 #pragma requires cache.sh
 #pragma requires icons.sh
+
+_dotTrace "Configuring Konsole shell integration"
+
+if ! __is_konsole_terminal; then
+    _dotTrace "Skipping Konsole integration: not inside Konsole"
+    return 0
+fi
 
 _prompt_executing=""
 function __konsole_integration_precmd() {
@@ -104,15 +111,15 @@ function __update_konsole_profile() {
     _dotTrace_exit
 }
 
-function __do_konsole_shell_integration() {
-    _dotTrace_enter "$@"
-    #shellcheck disable=SC1091
+# shellcheck disable=SC1091
+if [[ -f "${DOTFILES_CONFIG_ROOT}/konsole_color_funcs.sh" ]]; then
     source "${DOTFILES_CONFIG_ROOT}/konsole_color_funcs.sh"
+fi
 
-    if __is_shell_zsh; then
+if __is_shell_zsh; then
+    if command -v toggle_konsole_semantic_integration >/dev/null 2>&1; then
         toggle_konsole_semantic_integration 1
-
-        # precmd_functions+=(__update_konsole_profile)
+    else
+        _dotTrace "Konsole semantic integration helper not available"
     fi
-    _dotTrace_exit
-}
+fi

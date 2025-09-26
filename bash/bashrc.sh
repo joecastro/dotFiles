@@ -15,6 +15,10 @@ __is_shell_interactive || return
 #pragma requires git_funcs.sh
 #pragma requires completion/git-completion.bash
 
+# Force homebrew before other completions.
+# Often it's going to be the way other tools are installed.
+#pragma wants completion/homebrew.sh
+
 # PS1 components
 Time12h="\T"
 Time12a="\@"
@@ -334,6 +338,7 @@ function __ghostty_preexec2() {
 function __array_index_of() {
     local array_name="$1"
     local item="$2"
+    # shellcheck disable=SC2178
     local -n arr="$array_name"
     for i in "${!arr[@]}"; do
         if [[ "${arr[$i]}" == "$item" ]]; then
@@ -350,9 +355,11 @@ function __patch_array() {
     local array_name="$1"
     local old_item="$2"
     local new_item="$3"
+    # shellcheck disable=SC2178
     local -n arr="$array_name"
     local idx
     if idx=$(__array_index_of "$array_name" "$old_item"); then
+        # shellcheck disable=SC2004
         arr[$idx]="$new_item"
         _dotTrace_exit 0
         return
@@ -375,41 +382,22 @@ _dotTrace "Ghostty shell integration updated"
 
 fi
 
-_dotTrace "Sourcing rbenv"
-[ -d "$HOME/.rbenv/bin" ] && export PATH="$HOME/.rbenv/bin:$PATH"
-[ -x "$(command -v rbenv)" ] && eval "$(rbenv init -)"
+_dotTrace "Loading shell completion scripts"
 
-_dotTrace "Sourcing Homebrew"
-# Set PATH, MANPATH, etc., for Homebrew.
-[ -d "/opt/homebrew/bin" ] && eval "$(/opt/homebrew/bin/brew shellenv)"
-
-_dotTrace "Sourcing Rust"
-# shellcheck disable=SC1090
-[ -s ~/.cargo/env ] && source ~/.cargo/env
-
-_dotTrace "Sourcing nvm"
-if __has_homebrew && [[ -d "$(brew --prefix nvm)" ]]; then
-    _dotTrace "Using Homebrew nvm"
-    [ -s "$(brew --prefix nvm)/nvm.sh" ] && \. "$(brew --prefix nvm)/nvm.sh"
-    if __is_shell_bash; then
-        # shellcheck disable=SC1091
-        [ -s "$(brew --prefix nvm)/etc/bash_completion.d/nvm" ] && \. "$(brew --prefix nvm)/etc/bash_completion.d/nvm"
-    fi
+completion_dir="${DOTFILES_CONFIG_ROOT}/completion"
+if [[ -d "${completion_dir}" ]]; then
+    while IFS= read -r completion_script; do
+        [[ -r "${completion_script}" ]] || continue
+        [[ "${completion_script}" == *.zsh ]] && continue
+        # shellcheck disable=SC1090
+        source "${completion_script}"
+    done < <(find "${completion_dir}" -maxdepth 1 -type f -name '*.sh' -print | sort)
 else
-    # shellcheck disable=SC1091
-    [ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh"
-
-    if __is_shell_bash; then
-        # shellcheck disable=SC1091
-        [ -s "$NVM_DIR/bash_completion" ] && source "$NVM_DIR/bash_completion"
-    fi
+    _dotTrace "Completion directory ${completion_dir} does not exist"
 fi
-_dotTrace "Finished loading nvm - This takes a stupidly long time on Linux... especially zsh."
 
-__do_iterm2_shell_integration
-__do_vscode_shell_integration
-__do_konsole_shell_integration
-__do_eza_aliases
+unset completion_dir
+unset completion_script
 
 if declare -f chjava &>/dev/null; then
     chjava 22
