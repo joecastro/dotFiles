@@ -144,10 +144,6 @@ local macros = {
     ],
 };
 
-local remote_post_install_commands = [
-    'tic -x $DOTFILES_CONFIG_ROOT/xterm-ghostty.terminfo',
-];
-
 // Colors for less binary
 // Source: https://github.com/Valloric/dotfiles/blob/master/less/LESS_TERMCAP
 // Source: http://unix.stackexchange.com/a/147
@@ -235,7 +231,6 @@ local Host(hostname, home, icon, color, primary_wallpaper, android_wallpaper) = 
     jsonnet_multi_maps: jsonnet_multi_maps,
     directory_maps: directory_maps,
     macros: macros,
-    post_install_commands: if $.is_localhost then [] else remote_post_install_commands,
     file_maps: file_maps,
 
     env_vars:: (if $.is_localhost then localhost_env_vars else env_vars) + {

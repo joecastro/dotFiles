@@ -783,9 +783,27 @@ if __is_shell_interactive; then
         __cute_shell_header_add_info "${ICON_MAP[TOOLS]}"
     fi
 
-    __cute_shell_header_add_info "distro:$(__effective_distribution)"
+    case "$(__effective_distribution)" in
+    "Ubuntu")
+        __cute_shell_header_add_info "${ICON_MAP[UBUNTU]} "
+        ;;
+    "Debian")
+        __cute_shell_header_add_info "${ICON_MAP[DEBIAN]} "
+        ;;
+    "MACOS")
+        __cute_shell_header_add_info "${ICON_MAP[APPLE]}"
+        ;;
+    "*")
+        __cute_shell_header_add_info "distro:$(__effective_distribution)"
+        ;;
+    esac
+
     if __is_embedded_terminal; then
         __cute_shell_header_add_info "embedded:$(__embedded_terminal_info)"
+    fi
+
+    if __is_ec2_instance; then
+        __cute_shell_header_add_info "$(colorize "${ICON_MAP[EC2]}" "$ORANGE") $(__ec2_instance_id)"
     fi
 fi
 

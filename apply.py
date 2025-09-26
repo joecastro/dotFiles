@@ -66,6 +66,30 @@ def make_shell_command(run_args: list[str]) -> str:
 
     return ' '.join([sanitize_arg(arg) for arg in run_args])
 
+
+def capture_infocmp_definition(term: str) -> tuple[str | None, str | None]:
+    """Return the output of ``infocmp -x <term>`` or a warning string."""
+
+    try:
+        result = subprocess.run(
+            ['infocmp', '-x', term],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError:
+        return None, 'WARN: infocmp not found; skipping Ghostty terminfo embedding.'
+    except subprocess.CalledProcessError as exc:
+        stderr = (exc.stderr or exc.stdout or str(exc)).strip()
+        details = f' ({stderr})' if stderr else ''
+        return None, f'WARN: infocmp failed for {term}{details}; skipping Ghostty terminfo embedding.'
+
+    output = result.stdout.rstrip('\n')
+    if not output:
+        return None, f'WARN: infocmp returned no data for {term}; skipping Ghostty terminfo embedding.'
+
+    return output, None
+
 def json_ready(obj: Any) -> Any:
     if is_dataclass(obj):
         return {f.name: json_ready(getattr(obj, f.name)) for f in fields(obj)}
@@ -98,7 +122,6 @@ class Host:
     jsonnet_multi_maps: list[tuple[str, str, str]] | dict[str, str] = field(default_factory=list)
     curl_maps: list[tuple[str, str, str]] | dict[str, str] = field(default_factory=list)
     macros: dict[str, list[str]] = field(default_factory=dict)
-    post_install_commands: list[str] = field(default_factory=list)
 
     prestaged_files: set[str] = field(default_factory=set)
     prestaged_directories: set[str] = field(default_factory=set)
@@ -435,16 +458,6 @@ def get_plugin_relative_target_path(repo: str) -> Path:
     return target_prefix / target_suffix
 
 
-def make_post_install_commands(host: Host) -> list[RunOp]:
-    if not host.post_install_commands:
-        return []
-
-    ops = ['>> Running post-install commands']
-    ops.extend([BASH_COMMAND_PREFIX + cmd for cmd in host.post_install_commands])
-
-    return ops
-
-
 def make_install_plugins_bash_commands(plugin_type: str, repo_list: list[str], install_root: Path) -> list[RunOp]:
     ops = [f'>> Updating {len(repo_list)} {plugin_type}']
 
@@ -734,6 +747,16 @@ def stage_local(host: Host, verbose: bool = False, skip_cache: bool = False) -> 
     files_to_stage = [file for file in host.file_maps.keys() if file not in host.prestaged_files]
     directories_to_stage = [dir for dir in host.directory_maps.keys() if dir not in host.prestaged_directories]
 
+    ghostty_terminfo_definition, ghostty_terminfo_warning = capture_infocmp_definition('xterm-ghostty')
+    if ghostty_terminfo_warning:
+        ops.append(ghostty_terminfo_warning)
+    if ghostty_terminfo_definition:
+        ops.append('>> Captured Ghostty terminfo definition from local machine')
+    else:
+        fallback_path = CWD / 'ghostty' / 'xterm-ghostty.terminfo'
+        ghostty_terminfo_definition = fallback_path.read_text(encoding='utf-8').rstrip('\n')
+        ops.append('>> Using repository Ghostty terminfo fallback for embedding')
+
     if needs_curl_preprocess:
         ops.append('>> Preprocessing curl files')
         ops.extend(preprocess_curl_files(host, verbose=verbose))
@@ -815,11 +838,14 @@ def stage_local(host: Host, verbose: bool = False, skip_cache: bool = False) -> 
 
     finish_ops.extend(copy_directories_local(SCRIPTDIR_VAR_PATH, host.directory_maps.keys(), HOME_VAR_PATH, host.directory_maps.values()))
     finish_ops.extend(copy_files_local(SCRIPTDIR_VAR_PATH, host.file_maps.keys(), HOME_VAR_PATH, host.file_maps.values()))
+
+    finish_ops.append('>> Installing Ghostty terminfo entry')
+    finish_ops.append(BASH_COMMAND_PREFIX + "cat <<'EOF' | tic -x -\n" + ghostty_terminfo_definition + "\nEOF")
+
     finish_ops.append('>> Updating Vim and Zsh plugins')
     finish_ops.extend(make_install_plugins_bash_commands('Vim startup plugin(s)', config.vim_pack_plugin_start_repos, HOME_VAR_PATH))
     finish_ops.extend(make_install_plugins_bash_commands('Vim operational plugin(s)', config.vim_pack_plugin_opt_repos, HOME_VAR_PATH))
     finish_ops.extend(make_install_plugins_bash_commands('Zsh plugin(s)', config.zsh_plugin_repos, HOME_VAR_PATH))
-    finish_ops.extend(make_post_install_commands(host))
 
     finish_script = host.local_staging_dir / 'finish.sh'
     ops.extend(make_finish_script(finish_ops, finish_script, verbose=verbose))

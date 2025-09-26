@@ -18,6 +18,13 @@ function __is_ec2_instance() {
     curl -s --connect-timeout 1 http://169.254.169.254/latest/meta-data/ > /dev/null
 }
 
+function __ec2_instance_id() {
+    if ! __is_ec2_instance; then
+        return 1
+    fi
+    curl -s http://169.254.169.254/latest/meta-data/instance-id
+}
+
 function __is_in_vimruntime() { [ -n "${VIMRUNTIME}" ]; }
 function __is_in_python_venv() { [ -n "${VIRTUAL_ENV}" ]; }
 
