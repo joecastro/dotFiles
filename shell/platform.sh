@@ -5,6 +5,8 @@
 #pragma requires debug.sh
 _dotTrace "Loading platform.sh"
 
+function __need() { command -v "$1" >/dev/null 2>&1; }
+
 function __is_shell_interactive() { [[ $- == *i* ]]; }
 function __is_in_screen() { [ "${TERM}" = "screen" ]; }
 
@@ -68,16 +70,16 @@ function __is_shell_bash() { [[ -n "${BASH_VERSION}" ]]; }
 function __is_shell_old_bash() { __is_shell_bash && (( BASH_VERSINFO[0] < 4 )); }
 function __is_shell_zsh() { [[ -n "${ZSH_VERSION}" ]]; }
 
-function __has_homebrew() { command -v brew > /dev/null; }
+function __has_homebrew() { __need brew; }
 
 function __is_homebrew_bin() {
     local bin_path="$1"
     [[ $bin_path == ${HOMEBREW_PREFIX:-/opt/homebrew}/bin/* ]]
 }
 
-function __has_rbenv() { command -v rbenv > /dev/null; }
+function __has_rbenv() { __need rbenv; }
 
-function __has_rust() { command -v cargo > /dev/null; }
+function __has_rust() { __need cargo; }
 
 function __has_nvm() { [[ -s "$NVM_DIR/nvm.sh" ]]; }
 

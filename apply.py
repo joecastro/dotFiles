@@ -324,6 +324,59 @@ class Host:
                 tokens.add(self.connection_host.split('@', 1)[-1].lower())
         return tokens
 
+
+@dataclass
+class Ec2WorkstationMetadata:
+    instance_id: str | None = None
+    volume_id: str | None = None
+    instance_name: str | None = None
+    instance_type: str | None = None
+    region: str | None = None
+    security_group: str | None = None
+    key_name: str | None = None
+    tag_key: str | None = None
+    tag_value: str | None = None
+    root_volume_size: int | None = None
+    data_volume_size: int | None = None
+    ssh_public_key: str | None = None
+    ssh_cidr: str | None = None
+    public_ip: str | None = None
+    public_dns: str | None = None
+
+    METADATA_PATH = CWD / '.ec2-devbox-meta.json'
+
+    def __post_init__(self):
+        if not self.public_ip:
+            raise ValueError('Workstation metadata missing public_ip; cannot establish SSH connection')
+
+    @staticmethod
+    def load() -> 'Ec2WorkstationMetadata | None':
+        if not Ec2WorkstationMetadata.METADATA_PATH.is_file():
+            return None
+
+        with open(Ec2WorkstationMetadata.METADATA_PATH, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+
+        if not isinstance(data, dict):
+            raise ValueError('EC2 workstation metadata must be a JSON object')
+        values: dict[str, Any] = {}
+        valid_keys = {f.name for f in fields(Ec2WorkstationMetadata)}
+
+        def merge_payload(payload: dict) -> None:
+            for key, value in payload.items():
+                if key in valid_keys:
+                    values[key] = value
+
+        merge_payload(data)
+
+        config_payload = data.get('config')
+        if isinstance(config_payload, dict):
+            merge_payload(config_payload)
+        elif config_payload is not None:
+            raise ValueError('EC2 workstation config must be a JSON object')
+
+        return Ec2WorkstationMetadata(**values)
+
 @dataclass
 class Config:
     hosts: list[Host]
@@ -332,21 +385,46 @@ class Config:
     vim_pack_plugin_opt_repos: list[str]
     zsh_plugin_repos: list[str]
 
+    @staticmethod
+    def load() -> 'Config':
+        """Parse and instantiate the apply configuration from Jsonnet."""
+        config_path = Path.cwd() / 'apply_configs.jsonnet'
+        if not config_path.is_file():
+            raise ValueError(f'Missing config file: {config_path}')
+
+        ext_vars = get_ext_vars()
+
+        config_dict = parse_jsonnet_now(config_path, ext_vars)
+        return Config(**config_dict)
+
+
     def __post_init__(self):
         self.hosts = [Host(**host) for host in self.hosts]
 
     def get_localhost(self) -> Host | None:
         return next((h for h in self.hosts if h.is_localhost), None)
 
-    def find_host(self, token: str) -> Host | None:
+    def find_host(self, token: str | None) -> Host | None:
+        if token is None:
+            return None
         token_lower = token.lower()
         for host in self.hosts:
             if host.matches_token(token_lower):
                 return host
         return None
 
+    def update(self, metadata: Ec2WorkstationMetadata) -> None:
+        host = next(h for t in (metadata.instance_name, metadata.instance_id, 'ec2-workstation')
+                    if (h := self.find_host(t)))
 
-config: Config = None
+        host.add_alias('ec2-workstation')
+        host.add_alias(metadata.public_ip)
+        host.connection_host = f'ubuntu@{metadata.public_ip}'
+
+        if metadata.instance_name:
+            host.add_alias(metadata.instance_name)
+        if metadata.instance_id:
+            host.add_alias(metadata.instance_id)
 
 
 def print_ops(ops: list[RunOp], quiet: bool = False) -> None:
@@ -547,7 +625,7 @@ def parse_jsonnet(jsonnet_file: Path, ext_vars: dict, output_path: Path | None =
     return proc_args
 
 
-def get_ext_vars(host: Host | None = None) -> dict:
+def get_ext_vars(host: Host | None = None) -> dict[str, str]:
     standard_ext_vars = {
         'is_localhost': 'true',
         'hostname': LOCALHOST_NAME,
@@ -555,7 +633,7 @@ def get_ext_vars(host: Host | None = None) -> dict:
         'cwd': OS_CWD,
         'home': str(Path.home()),
         'trace_startup': str(TRACE_STARTUP_FLAG).lower(),
-        'ec2_workstation_metadata': '',
+        'ec2_workstation_hostname': '',
     }
     if host:
         standard_ext_vars.update({
@@ -900,10 +978,11 @@ def iterm2_prefs_plist_location() -> str:
 
 def build_iterm2_prefs_json() -> dict:
     """Build the iTerm2 preferences from the repo's JSONNet file."""
-    return parse_jsonnet_now(
-        CWD / 'iterm2/com.googlecode.iterm2.plist.jsonnet',
-        get_ext_vars(config.get_localhost())
-    )
+    ext_vars = get_ext_vars(config.get_localhost())
+    metadata = Ec2WorkstationMetadata.load()
+    if metadata is not None:
+        ext_vars['ec2_workstation_hostname'] = metadata.instance_name
+    return parse_jsonnet_now(CWD / 'iterm2/com.googlecode.iterm2.plist.jsonnet', ext_vars)
 
 
 def snapshot_iterm2_prefs_json(out_path: str = 'out/com.googlecode.iterm2.active.json') -> None:
@@ -1006,6 +1085,7 @@ def parse_hosts_from_args(host_args: list[str]) -> list[Host]:
     return hosts
 
 
+config: Config = Config.load()
 
 def main(args: list[str]) -> int:
     """Apply dotFiles operations."""
@@ -1076,24 +1156,13 @@ def main(args: list[str]) -> int:
     use_ec2_shorthand = operation_arg in ec2_workstation_operations
     metadata_required = use_ec2_shorthand
 
-    extra_ext_vars: dict[str, str] | None = None
-    try:
-        metadata_payload = load_ec2_workstation_metadata_ext_var(required=metadata_required)
-    except ValueError as exc:
-        print(exc, file=sys.stderr)
-        return 1
-    if metadata_payload:
-        extra_ext_vars = {'ec2_workstation_metadata': metadata_payload}
+    if metadata_required:
+        metadata = Ec2WorkstationMetadata.load()
+        if metadata is None:
+            raise ValueError('EC2 workstation metadata required but not found; are you running on the EC2 workstation?')
+        config.update(metadata)
 
-    global config
-    config = process_apply_configs(extra_ext_vars)
-    try:
-        augment_config_with_workstation(config, require_metadata=metadata_required)
-    except ValueError as exc:
-        print(exc, file=sys.stderr)
-        return 1
-
-    hosts: list[Host] = []
+    host: list[Host] = []
     if use_ec2_shorthand:
         if parsed_args.hosts:
             raise ValueError('Cannot specify --hosts with EC2 workstation shortcuts')
@@ -1169,97 +1238,6 @@ def main(args: list[str]) -> int:
     else:
         run_ops(ops, quiet=parsed_args.quiet)
     return 0
-
-
-def process_apply_configs(extra_ext_vars: dict[str, str] | None = None) -> Config:
-    """Parse and instantiate the apply configuration from Jsonnet."""
-    config_path = Path.cwd() / 'apply_configs.jsonnet'
-    if not config_path.is_file():
-        raise ValueError(f'Missing config file: {config_path}')
-
-    ext_vars = get_ext_vars()
-    if extra_ext_vars:
-        ext_vars.update(extra_ext_vars)
-
-    config_dict = parse_jsonnet_now(config_path, ext_vars)
-    return Config(**config_dict)
-
-
-def read_ec2_workstation_metadata(required: bool = False) -> dict | None:
-    """Return the workstation metadata contents or None if absent."""
-    metadata_path = Path.cwd() / '.ec2-devbox-meta.json'
-    if not metadata_path.is_file():
-        if required:
-            raise ValueError(f'EC2 workstation metadata not found at {metadata_path}')
-        return None
-
-    try:
-        raw_metadata = metadata_path.read_text()
-    except OSError as exc:
-        raise ValueError(f'Unable to read workstation metadata {metadata_path}: {exc}') from exc
-
-    try:
-        return json.loads(raw_metadata)
-    except json.JSONDecodeError as exc:
-        raise ValueError(f'Unable to parse workstation metadata {metadata_path}: {exc}') from exc
-
-
-def load_ec2_workstation_metadata_ext_var(*, required: bool = False) -> str:
-    """Return a minified JSON string suitable for Jsonnet ext vars."""
-    data = read_ec2_workstation_metadata(required=required)
-    if not data:
-        return ''
-    return json.dumps(data, separators=(',', ':'))
-
-
-def augment_config_with_workstation(config: Config, require_metadata: bool = False) -> None:
-    try:
-        data = read_ec2_workstation_metadata(required=require_metadata)
-    except ValueError as exc:
-        if require_metadata:
-            raise
-        print(f'Warning: {exc}', file=sys.stderr)
-        return
-
-    if not data:
-        if require_metadata:
-            raise ValueError('EC2 workstation metadata not found')
-        return
-
-    config_data = data.get('config') or {}
-    instance_name = config_data.get('instance_name') or data.get('instance_id')
-    instance_id = data.get('instance_id')
-    public_ip = data.get('public_ip')
-
-    host = None
-    for token in (instance_name, instance_id, 'ec2-workstation'):
-        if not token:
-            continue
-        host = config.find_host(token)
-        if host:
-            break
-
-    if host is None:
-        message = 'EC2 workstation host is missing from apply_configs.jsonnet'
-        if require_metadata:
-            raise ValueError(message)
-        print(f'Warning: {message}', file=sys.stderr)
-        return
-
-    host.add_alias('ec2-workstation')
-
-    if instance_name:
-        host.add_alias(instance_name)
-    if instance_id:
-        host.add_alias(instance_id)
-
-    if public_ip:
-        host.connection_host = f'ubuntu@{public_ip}'
-        host.add_alias(public_ip)
-    elif require_metadata:
-        raise ValueError('Workstation metadata missing public_ip; cannot establish SSH connection')
-    else:
-        print('Warning: workstation metadata missing public_ip; using existing connection host.', file=sys.stderr)
 
 
 if __name__ == "__main__":

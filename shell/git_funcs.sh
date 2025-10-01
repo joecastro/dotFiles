@@ -396,3 +396,42 @@ function __git_branch_color_hint() {
     fi
     _dotTrace_exit 0
 }
+
+# TODO: Evolve these into git subcommands
+# e.g. git stash apply-theirs
+# e.g. git checkout-theirs <branch>
+# https://git-scm.com/book/en/v2/Git-Basics-Git-Aliases
+
+function git-stash-apply-theirs() {
+    git stash apply "$@"
+
+    # If conflicts occur, accept the stashed ("theirs") version everywhere
+    if [ $? -ne 0 ]; then
+        git checkout --theirs -- .
+        git add .
+        echo "Conflicts resolved in favor of stashed changes."
+    fi
+}
+
+function git-stage-branch() {
+    if [ -z "$1" ]; then
+        echo "Usage: git stage-branch <other-branch>"
+        return 1
+    fi
+
+    local other_branch=$1
+
+    # Make sure the branch exists
+    if ! git rev-parse --verify "$other_branch" >/dev/null 2>&1; then
+        echo "Branch '$other_branch' not found."
+        return 1
+    fi
+
+    # Check out all files from that branch into the index + working tree
+    git checkout "$other_branch" -- .
+
+    # Stage them
+    git add -A
+
+    echo "Staged all changes from branch '$other_branch' onto current branch."
+}

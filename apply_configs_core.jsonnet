@@ -6,6 +6,7 @@ local ext_vars = {
     is_localhost: std.extVar('is_localhost') == 'true',
     hostname: std.extVar('hostname'),
     trace_startup: std.extVar('trace_startup') == 'true',
+    ec2_workstation_hostname: std.extVar('ec2_workstation_hostname'),
 };
 
 local config_dir = '.config/dotShell';

@@ -459,7 +459,7 @@ function __get_unique_prefix_length() {
     local name="$2"
 
     local -i len=1
-    if command -v eza >/dev/null 2>&1; then
+    if __need eza; then
         while :; do
             local -i count
             count=$(eza -a1D --icons=never --color=never "${parent}" | grep -c "^${name:0:$len}")
@@ -539,7 +539,12 @@ function __cute_time_prompt() {
 }
 
 function __cute_host() {
-    uname -n
+    local host
+    host="$(uname -n)"
+    # Remove trailing .local if present.
+    # MacOs mDNS hostname mangling.
+    host="${host%.local}"
+    printf '%s' "$host"
 }
 
 function __cute_kernel() {
