@@ -292,6 +292,8 @@ function __print_node_modules_status() {
     fi
 }
 
+function __is_in_python_venv() { [ -n "${VIRTUAL_ENV}" ]; }
+
 function __auto_activate_venv() {
     # If I am no longer in the same directory hierarchy as the venv that was last activated, deactivate.
     if __is_in_python_venv; then
@@ -415,17 +417,10 @@ if ! __is_shell_old_bash; then
 
     function __cute_pwd() {
         _dotTrace_enter "$@"
-        # rely on _dotTrace_enter to report args if forwarded
-        local is_short=1
-        if [[ "$1" == "--short" ]]; then
-            is_short=0
-        fi
 
-        if [[ $is_short != 0 ]]; then
-            # Print the parent directory only if it has a special expansion.
-            if [[ "${PWD}" != "/" ]] && __cute_pwd_lookup "$(dirname "${PWD}")"; then
-                printf '/'
-            fi
+        # Print the parent directory only if it has a special expansion.
+        if [[ "${PWD}" != "/" ]] && __cute_pwd_lookup "$(dirname "${PWD}")"; then
+            printf '/'
         fi
 
         if ! __cute_pwd_lookup "${PWD}"; then
@@ -437,11 +432,6 @@ if ! __is_shell_old_bash; then
     }
 else
     function __cute_pwd() {
-        if [[ "$1" == "--short" ]]; then
-            printf '%s' "${PWD##*/}"
-            return 0
-        fi
-
         if [[ "${PWD}" == "/" ]]; then
             printf '%s' "${PWD}"
             return 0
@@ -521,10 +511,6 @@ function __print_abbreviated_path() {
 
     printf '%s' "${result}"
     _dotTrace_exit 0
-}
-
-function __cute_pwd_short() {
-    __cute_pwd --short
 }
 
 function __cute_time_prompt() {
@@ -682,8 +668,7 @@ function __cute_shell_header_add_info() {
     local msg="${1:-}"
     [[ -z "${msg}" ]] && return 0
     # De-duplicate to avoid repeated entries
-    # shellcheck disable=SC2076
-    if [[ ! " ${CUTE_HEADER_PARTS[*]} " =~ " ${msg} " ]]; then
+    if ! printf '%s\n' "${CUTE_HEADER_PARTS[@]}" | grep -Fxq -- "${msg}"; then
         CUTE_HEADER_PARTS+=("${msg}")
     fi
 }
@@ -693,8 +678,7 @@ function __cute_shell_header_add_warning() {
     [[ -z "${msg}" ]] && return 0
     msg="${ICON_MAP[WARNING]} ${msg}"
     # De-duplicate warnings
-    # shellcheck disable=SC2076
-    if [[ ! " ${CUTE_HEADER_WARNINGS[*]} " =~ " ${msg} " ]]; then
+    if ! printf '%s\n' "${CUTE_HEADER_WARNINGS[@]}" | grep -Fxq -- "${msg}"; then
         CUTE_HEADER_WARNINGS+=("${msg}")
     fi
 }

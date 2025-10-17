@@ -328,6 +328,8 @@ fi
 unset completion_dir
 unset completion_script
 
+[[ -e "${DOTFILES_CONFIG_ROOT}/local_secrets.sh" ]] && source "${DOTFILES_CONFIG_ROOT}/local_secrets.sh"
+
 # echo "Welcome to $(__effective_distribution)!"
 case "$(__effective_distribution)" in
 "MACOS")

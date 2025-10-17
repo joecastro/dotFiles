@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import base64
 import json
+import os
 import subprocess
 import sys
 import time
@@ -13,6 +14,7 @@ from textwrap import dedent
 from typing import Callable
 from aws.aws_clients_ex import AwsError, AwsEx, EC2InstanceStatusEx, EC2VolumeEx, EC2InstanceEx
 
+XDG_CONFIG_HOME = Path(os.environ.get('XDG_CONFIG_HOME', Path.home() / '.config'))
 DEFAULT_INSTANCE_NAME = "Boxer"
 DEFAULT_INSTANCE_TYPE = "t3.large"
 DEFAULT_REGION = "us-west-2"
@@ -44,7 +46,7 @@ class WorkstationConfig:
 
 @dataclass
 class WorkstationMetadata:
-    META_FILE = Path.cwd() / ".ec2-devbox-meta.json"
+    META_FILE = XDG_CONFIG_HOME / ".ec2-devbox-meta.json"
 
     instance_id: str
     volume_id: str | None

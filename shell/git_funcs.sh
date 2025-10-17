@@ -286,13 +286,15 @@ function __print_git_pwd() {
     local working_pwd=""
     local color_hint="green"
     local style_hint="normal"
+    local operation_state
     local -i is_on_default_branch \
              is_in_dotgit \
              is_head_on_branch \
              has_remote \
              has_unpushed \
              is_unchanged \
-             is_detached_head
+             is_detached_head \
+             is_in_operation
 
     __git_is_on_default_branch
     is_on_default_branch=$(( $? == 0 ))
@@ -302,6 +304,11 @@ function __print_git_pwd() {
     is_head_on_branch=$(( $? == 0 ))
     __git_is_detached_head
     is_detached_head=$(( $? == 0 ))
+
+    operation_state=$(__print_git_operation_state)
+    if [[ -n "${operation_state}" ]]; then
+        is_in_operation=1
+    fi
 
     if (( is_in_dotgit )); then
         has_remote=0
@@ -357,6 +364,10 @@ function __print_git_pwd() {
         fi
     fi
 
+    if (( is_in_operation )) then
+        working_pwd+=${operation_state}
+    fi
+
     working_pwd=$(colorize "${working_pwd} " "${color_hint}" "${style_hint}")
     working_pwd+="${ICON_MAP[PINNED_OUTLINE]}"
     #working_pwd+=$(colorize "${ICON_MAP[PINNED]}" red normal)
@@ -395,6 +406,22 @@ function __git_branch_color_hint() {
         printf 'yellow'
     fi
     _dotTrace_exit 0
+}
+
+function __print_git_operation_state() {
+  local git_dir
+  git_dir="$(git rev-parse --git-dir 2>/dev/null)" || return 1
+
+  # Operation states
+  [[ -d "$git_dir/rebase-merge" ]] && echo "|REBASE-m" && return
+  [[ -d "$git_dir/rebase-apply" ]] && {
+    [[ -f "$git_dir/rebase-apply/applying" ]] && echo "|AM" || echo "|REBASE"
+    return
+  }
+  [[ -f "$git_dir/MERGE_HEAD" ]] && echo "|MERGING" && return
+  [[ -f "$git_dir/CHERRY_PICK_HEAD" ]] && echo "|CHERRY-PICKING" && return
+  [[ -f "$git_dir/REVERT_HEAD" ]] && echo "|REVERTING" && return
+  [[ -f "$git_dir/BISECT_LOG" ]] && echo "|BISECTING" && return
 }
 
 # TODO: Evolve these into git subcommands

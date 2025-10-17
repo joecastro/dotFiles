@@ -10,12 +10,15 @@ local ext_vars = {
 };
 
 local config_dir = '.config/dotShell';
+local xdg_config_dir = '.config';
+local xdg_config_home_shell = '$HOME/' + xdg_config_dir;
 
 local jsonnet_maps = [
     ['git/gitconfig.jsonnet', 'gitconfig.ini', '.gitconfig'],
     # env_vars needs to be in the home directory for bootstrapping zsh
     ['shell/env_vars.jsonnet', 'env_vars.sh', '.env_vars.sh'],
-    ['konsole/konsolerc.jsonnet', 'konsolerc.ini', '.config/konsolerc'],
+    ['ghostty/ghostty_config.jsonnet', 'ghostty.ini', xdg_config_dir + '/ghostty/config'],
+    ['konsole/konsolerc.jsonnet', 'konsolerc.ini', xdg_config_dir + '/konsolerc'],
     ['konsole/konsole_color_funcs.jsonnet', 'konsole_color_funcs.sh', config_dir + '/'],
     ['iterm2/iterm2_color_funcs.jsonnet', 'iterm2_color_funcs.sh', config_dir + '/'],
 ];
@@ -25,7 +28,7 @@ local jsonnet_localhost_mac_maps = [
 ];
 
 local jsonnet_localhost_linux_maps = [
-    ['vscode/user_settings.jsonnet', 'vscode_user_settings.json', '.config/Code/User/settings.json']
+    ['vscode/user_settings.jsonnet', 'vscode_user_settings.json', xdg_config_dir + '/Code/User/settings.json']
 ];
 
 local jsonnet_multi_maps = [
@@ -48,7 +51,6 @@ local file_maps = [
     ['bash/profile.sh', '.profile'],
     ['bash/bashrc.sh', '.bashrc'],
     ['bash/inputrc.sh', '.inputrc'],
-    ['ghostty/ghostty_config.properties', '.config/ghostty/config'],
     ['ghostty/xterm-ghostty.terminfo', config_dir + '/'],
     ['shell/env_funcs.sh', config_dir + '/'],
     ['shell/platform.sh', config_dir + '/'],
@@ -181,7 +183,7 @@ local debug_properties = if ext_vars.trace_startup
 
 local env_vars = {
     properties: {
-        // XDG_CONFIG_HOME: '${XDG_CONFIG_HOME:-$HOME/.config}',
+        XDG_CONFIG_HOME: '${XDG_CONFIG_HOME:-' + xdg_config_home_shell + '}',
         DOTFILES_CONFIG_ROOT: '$HOME/' + config_dir,
         LSCOLORS: 'GxDxbxhbcxegedabagacad',
         LS_COLORS: 'di=1;36:ln=1;33:so=31:pi=37;41:ex=32:bd=34;46:cd=34;43:su=30;41:sg=30;46:tw=30;42:ow=30;43',

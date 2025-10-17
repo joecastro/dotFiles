@@ -212,6 +212,8 @@ function __cute_prompt_command() {
 PS1=""
 export PS1
 
+[[ -e "${DOTFILES_CONFIG_ROOT}/local_secrets.sh" ]] && source "${DOTFILES_CONFIG_ROOT}/local_secrets.sh"
+
 if __is_bash_preexec_loaded; then
     # PROMPT_COMMAND was already hooked. Don't override it.
     precmd_functions+=("__cute_prompt_command")
