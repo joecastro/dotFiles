@@ -331,8 +331,8 @@ unset completion_script
 [[ -e "${DOTFILES_CONFIG_ROOT}/local_secrets.sh" ]] && source "${DOTFILES_CONFIG_ROOT}/local_secrets.sh"
 
 if __has_nvm; then
-    nvm use 24
-    __cute_shell_header_add_info "nvm: $(nvm current)"
+    nvm use 24 > /dev/null 2>&1
+    __cute_shell_header_add_info "$ICON_MAP[NODEJS] $(nvm current)"
 fi
 
 # echo "Welcome to $(__effective_distribution)!"

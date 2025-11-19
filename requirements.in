@@ -1,3 +1,0 @@
-jsmin==3.0.1
-boto3>=1.28,<2
-boto3-stubs[ec2,eks,elbv2,elb,ecr,logs,iam,kms,sts,s3]>=1.28,<2

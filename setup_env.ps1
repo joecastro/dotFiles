@@ -22,6 +22,16 @@ function BootstrapEnv {
     New-Item -ItemType SymbolicLink -Path "$WorkDir\.vscode\settings.json" -Value "$WorkDir\vscode\dotFiles_settings.json" -Force | Out-Null
     New-Item -ItemType SymbolicLink -Path "$WorkDir\.vscode\extensions.json" -Value "$WorkDir\vscode\dotFiles_extensions.json" -Force | Out-Null
 
+    if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
+        Write-Host "uv is required but not installed. Please install it from https://docs.astral.sh/uv/getting-started/."
+        return 1
+    }
+
+    Write-Host ">> Initializing Python virtual environment with uv"
+    $venvPath = Join-Path $WorkDir ".venv"
+    uv venv $venvPath
+    uv sync --python "$venvPath\Scripts\python.exe" --group dev
+
     Write-Host ">> Launching workspace 'code $WorkDir'"
     code $WorkDir
 }

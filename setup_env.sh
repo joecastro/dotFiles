@@ -34,18 +34,18 @@ function bootstrap_env() {
     ln -s "${WORK_DIR}"/vscode/dotFiles_extensions.json "${WORK_DIR}"/.vscode/extensions.json
     ln -s "${WORK_DIR}"/vscode/dotFiles_tasks.json "${WORK_DIR}"/.vscode/tasks.json
 
-    python3 -m venv "$WORK_DIR"/.venv
-    # shellcheck source=/dev/null
-    source "$WORK_DIR"/.venv/bin/activate
+    if ! command -v uv &> /dev/null; then
+        printf '%s\n' "uv is required but not installed. Please install it from https://docs.astral.sh/uv/getting-started/."
+        popd || exit 1
+        return 1
+    fi
 
-    pip3 install -q --upgrade pip
-    pip3 install -q pip-tools
-    pip-compile -q "$WORK_DIR/requirements.in" -o "$WORK_DIR/requirements.txt" --strip-extras
-    pip3 install -q -r "$WORK_DIR"/requirements.txt
-
-    deactivate
+    uv venv "$WORK_DIR"/.venv
+    uv sync --python "$WORK_DIR"/.venv/bin/python
 
     popd || exit 1
+    # Coerce loading of python venv in current shell
+    cd .
 
     printf '>> Launching workspace\n'
     code "$WORK_DIR"

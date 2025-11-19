@@ -2,6 +2,8 @@
 
 # pylint: disable=too-many-arguments, missing-module-docstring, missing-function-docstring, missing-class-docstring, line-too-long
 
+from __future__ import annotations
+
 import argparse
 import hashlib
 import json
@@ -9,16 +11,18 @@ import os
 import platform
 import plistlib
 import re
-import subprocess
 import shlex
+import subprocess
 import sys
 from dataclasses import dataclass, field, fields, is_dataclass
 from datetime import datetime
 from functools import partial
 from itertools import chain
 from pathlib import Path
-from typing import Any, Callable, Iterable, Mapping, Sequence, TypeAlias, cast
 from textwrap import dedent
+from typing import (Any, Callable, Iterable, Optional, Sequence,
+                    TypeAlias, cast)
+
 
 def mingify_path(path: str) -> str:
     path = re.sub(r'\\', '/', path)
@@ -67,7 +71,7 @@ def make_shell_command(run_args: list[str]) -> str:
     return ' '.join([sanitize_arg(arg) for arg in run_args])
 
 
-def capture_infocmp_definition(term: str) -> tuple[str | None, str | None]:
+def capture_infocmp_definition(term: str) -> tuple[Optional[str], Optional[str]]:
     """Return the output of ``infocmp -x <term>`` or a warning string."""
 
     try:
@@ -97,10 +101,10 @@ def json_ready(obj: Any) -> Any:
         typed_obj = cast(dict[Any, Any], obj)
         return {json_ready(k): json_ready(v) for k, v in typed_obj.items()}
     elif isinstance(obj, (list, tuple)):
-        seq = cast(list[Any], list(obj))
+        seq = cast(list[Any], list(obj)) # type: ignore
         return [json_ready(item) for item in seq]
     elif isinstance(obj, set):
-        return sorted(list(obj))
+        return sorted(list(obj)) # type: ignore
     else:
         return obj
 
@@ -115,22 +119,22 @@ class Host:
     hostname: str
     config_dir: str
     home: str
-    branch: str | None = None
+    branch: Optional[str] = None
     kernel: str = 'linux'
     stage_only: bool = False
-    file_maps: dict[str, str] = field(default_factory=dict)
-    directory_maps: dict[str, str] = field(default_factory=dict)
-    jsonnet_maps: dict[str, str] = field(default_factory=dict)
-    jsonnet_multi_maps: dict[str, str] = field(default_factory=dict)
-    curl_maps: dict[str, str] = field(default_factory=dict)
-    macros: dict[str, list[str]] = field(default_factory=dict)
+    file_maps: dict[str, str] = field(default_factory=dict[str, str])
+    directory_maps: dict[str, str] = field(default_factory=dict[str, str])
+    jsonnet_maps: dict[str, str] = field(default_factory=dict[str, str])
+    jsonnet_multi_maps: dict[str, str] = field(default_factory=dict[str, str])
+    curl_maps: dict[str, str] = field(default_factory=dict[str, str])
+    macros: dict[str, list[str]] = field(default_factory=dict[str, list[str]])
 
-    prestaged_files: set[str] = field(default_factory=set)
-    prestaged_directories: set[str] = field(default_factory=set)
+    prestaged_files: set[str] = field(default_factory=set[str])
+    prestaged_directories: set[str] = field(default_factory=set[str])
 
     is_localhost: bool = field(init=False, default=False)
-    connection_host: str | None = None
-    aliases: list[str] = field(default_factory=list)
+    connection_host: Optional[str] = None
+    aliases: list[str] = field(default_factory=list[str])
     # Host out layout
     local_out_dir: Path = field(init=False, default=Path())
     local_staging_dir: Path = field(init=False, default=Path())  # final staged files
@@ -151,7 +155,6 @@ class Host:
             self.kernel = LOCALHOST_KERNEL
         raw_file_maps = self.file_maps
         self.file_maps = dict(raw_file_maps)
-        self.file_maps = cast(dict[str, str], self.file_maps)
         # Promote jsonnet maps into file/directory maps without exposing cache dirs
         # Final staged paths are 'dest' directly; generation happens into cache dirs.
         promoted_jsonnet_entries: list[tuple[str, str, str]] = []
@@ -163,11 +166,9 @@ class Host:
             self.jsonnet_maps = {src: dest for (src, dest, _) in promoted_jsonnet_entries}
         else:
             self.jsonnet_maps = dict(self.jsonnet_maps)
-        self.jsonnet_maps = cast(dict[str, str], self.jsonnet_maps)
 
         # Promote jsonnet multicast directories similarly
         self.directory_maps = dict(self.directory_maps)
-        self.directory_maps = cast(dict[str, str], self.directory_maps)
         promoted_multi_entries: list[tuple[str, str, str]] = []
         if isinstance(self.jsonnet_multi_maps, list):
             for (src, dest_dir, target_dir) in self.jsonnet_multi_maps:
@@ -177,7 +178,6 @@ class Host:
             self.jsonnet_multi_maps = {src: dest_dir for (src, dest_dir, _) in promoted_multi_entries}
         else:
             self.jsonnet_multi_maps = dict(self.jsonnet_multi_maps)
-        self.jsonnet_multi_maps = cast(dict[str, str], self.jsonnet_multi_maps)
 
         # Promote curl maps without exposing cache dirs
         promoted_curl_entries: list[tuple[str, str, str]] = []
@@ -189,15 +189,12 @@ class Host:
             self.curl_maps = {src: dest for (src, dest, _) in promoted_curl_entries}
         else:
             self.curl_maps = dict(self.curl_maps)
-        self.curl_maps = cast(dict[str, str], self.curl_maps)
 
         values_to_coerce = [k for k, v in self.file_maps.items() if v.endswith('/')]
         for key in values_to_coerce:
             self.file_maps[key] = f'{self.file_maps[key]}{os.path.basename(key)}'
 
         self.is_localhost = self.hostname == LOCALHOST_NAME
-        if not isinstance(self.aliases, list):
-            self.aliases = list(self.aliases)
         seen_aliases: set[str] = set()
         normalized_aliases: list[str] = []
         for candidate in [self.hostname, *self.aliases]:
@@ -224,8 +221,33 @@ class Host:
         prev_curl = previous_hashes.get('curl_inputs_hash', '')
         curr_jsonnet = self.compute_jsonnet_inputs_hash()
         curr_curl = self.compute_curl_inputs_hash()
-        self.jsonnet_cache_valid = (curr_jsonnet == prev_jsonnet) and self.local_jsonnet_dir.is_dir()
-        self.curl_cache_valid = (curr_curl == prev_curl) and self.local_curl_dir.is_dir()
+        self.jsonnet_cache_valid = (
+            curr_jsonnet == prev_jsonnet
+            and self.local_jsonnet_dir.is_dir()
+            and self._cached_jsonnet_outputs_exist()
+        )
+        self.curl_cache_valid = (
+            curr_curl == prev_curl
+            and self.local_curl_dir.is_dir()
+            and self._cached_curl_outputs_exist()
+        )
+
+    def _cached_jsonnet_outputs_exist(self) -> bool:
+        file_targets = [
+            self.local_jsonnet_dir / rel_path
+            for rel_path in self.jsonnet_maps.values()
+        ]
+        dir_targets = [
+            self.local_jsonnet_dir / rel_dir
+            for rel_dir in self.jsonnet_multi_maps.values()
+        ]
+        return all(path.is_file() for path in file_targets) and all(path.is_dir() for path in dir_targets)
+
+    def _cached_curl_outputs_exist(self) -> bool:
+        return all(
+            (self.local_curl_dir / rel_path).is_file()
+            for rel_path in self.curl_maps.values()
+        )
 
 
     def __repr__(self) -> str:
@@ -261,7 +283,7 @@ class Host:
 
         return hasher.hexdigest()
 
-    def read_cache_hashes(self) -> dict:
+    def read_cache_hashes(self) -> dict[str, str]:
         try:
             with open(self.cache_json_path, 'r', encoding='utf-8') as f:
                 return json.load(f)
@@ -294,7 +316,7 @@ class Host:
             json.dump(current, f, indent=4, sort_keys=True)
 
 
-    def get_inflated_macro(self, key: str, file_path: Path, pragma_arg: str | None = None) -> list[str]:
+    def get_inflated_macro(self, key: str, file_path: Path, pragma_arg: Optional[str] = None) -> list[str]:
         """Inflate a macro template defined in Jsonnet with built-in tokens.
 
         Supported tokens in templates:
@@ -319,6 +341,7 @@ class Host:
         converted: list[RunOp] = []
         for op in ops:
             if isinstance(op, list):
+                op = cast(list[str], op)
                 converted.append(['ssh', self.connection_host or self.hostname, make_shell_command(op)])
             elif isinstance(op, str):
                 converted.append(op)
@@ -326,7 +349,7 @@ class Host:
                 raise TypeError('Callable operations cannot be proxied through SSH')
         return converted
 
-    def add_alias(self, alias: str | None) -> None:
+    def add_alias(self, alias: Optional[str]) -> None:
         if not alias:
             return
         alias_key = alias.lower()
@@ -350,21 +373,21 @@ class Host:
 
 @dataclass
 class Ec2WorkstationMetadata:
-    instance_id: str | None = None
-    volume_id: str | None = None
-    instance_name: str | None = None
-    instance_type: str | None = None
-    region: str | None = None
-    security_group: str | None = None
-    key_name: str | None = None
-    tag_key: str | None = None
-    tag_value: str | None = None
-    root_volume_size: int | None = None
-    data_volume_size: int | None = None
-    ssh_public_key: str | None = None
-    ssh_cidr: str | None = None
-    public_ip: str | None = None
-    public_dns: str | None = None
+    instance_id: str
+    volume_id: str
+    instance_name: str
+    instance_type: str
+    region: str
+    security_group: str
+    key_name: str
+    tag_key: str
+    tag_value: str
+    root_volume_size: int
+    data_volume_size: int
+    ssh_public_key: str
+    ssh_cidr: str
+    public_ip: str
+    public_dns: str
 
     METADATA_PATH = XDG_CONFIG_HOME / '.ec2-devbox-meta.json'
 
@@ -373,19 +396,17 @@ class Ec2WorkstationMetadata:
             raise ValueError('Workstation metadata missing public_ip; cannot establish SSH connection')
 
     @staticmethod
-    def load() -> 'Ec2WorkstationMetadata | None':
+    def load() -> Optional[Ec2WorkstationMetadata]:
         if not Ec2WorkstationMetadata.METADATA_PATH.is_file():
             return None
 
         with open(Ec2WorkstationMetadata.METADATA_PATH, 'r', encoding='utf-8') as f:
-            data = json.load(f)
+            data: dict[str, Any] = json.load(f)
 
-        if not isinstance(data, dict):
-            raise ValueError('EC2 workstation metadata must be a JSON object')
         values: dict[str, Any] = {}
         valid_keys = {f.name for f in fields(Ec2WorkstationMetadata)}
 
-        def merge_payload(payload: dict) -> None:
+        def merge_payload(payload: dict[str, str]) -> None:
             for key, value in payload.items():
                 if key in valid_keys:
                     values[key] = value
@@ -394,6 +415,7 @@ class Ec2WorkstationMetadata:
 
         config_payload = data.get('config')
         if isinstance(config_payload, dict):
+            config_payload = cast(dict[str, str], config_payload)
             merge_payload(config_payload)
         elif config_payload is not None:
             raise ValueError('EC2 workstation config must be a JSON object')
@@ -403,7 +425,7 @@ class Ec2WorkstationMetadata:
 @dataclass
 class Config:
     hosts: list[Host]
-    workspace_overrides: dict
+    workspace_overrides: dict[str, Any]
     vim_pack_plugin_start_repos: list[str]
     vim_pack_plugin_opt_repos: list[str]
     zsh_plugin_repos: list[str]
@@ -417,22 +439,18 @@ class Config:
 
         ext_vars = get_ext_vars()
 
-        config_dict = parse_jsonnet_now(config_path, ext_vars)
-        if not isinstance(config_dict, dict):
-            raise TypeError('Expected Jsonnet configuration to evaluate to a mapping')
+        config_dict: dict[str, Any] = cast(dict[str, Any], parse_jsonnet_now(config_path, ext_vars))
 
-        hosts_raw = config_dict.get('hosts', [])
-        if not isinstance(hosts_raw, list):
-            raise TypeError('Config "hosts" entry must be a list')
+        hosts_raw: list[dict[str, Any]] = config_dict.get('hosts', [])
 
-        config_dict['hosts'] = [Host(**cast(dict[str, Any], host)) for host in hosts_raw]
-        return Config(**cast(dict[str, Any], config_dict))
+        config_dict['hosts'] = [Host(**host) for host in hosts_raw]
+        return Config(**config_dict)
 
 
-    def get_localhost(self) -> Host | None:
+    def get_localhost(self) -> Optional[Host]:
         return next((h for h in self.hosts if h.is_localhost), None)
 
-    def find_host(self, token: str | None) -> Host | None:
+    def find_host(self, token: Optional[str]) -> Optional[Host]:
         if token is None:
             return None
         token_lower = token.lower()
@@ -463,12 +481,13 @@ def print_ops(ops: list[RunOp], quiet: bool = False) -> None:
             if not quiet:
                 print(entry)
         elif isinstance(entry, list):
+            entry = cast(list[str], entry)
             print(f'DEBUG: {" ".join(entry)}')
         elif callable(entry):
             func = getattr(entry, 'func', None)
             keywords = getattr(entry, 'keywords', None)
             if func and isinstance(keywords, dict):
-                func_args = ', '.join(f"{k}={v}" for k, v in keywords.items())
+                func_args = ', '.join(f"{k}={v}" for k, v in keywords.items()) # type: ignore
                 print(f'DEBUG: invoking {func.__name__}({func_args})')
             else:
                 fallback_name = getattr(entry, '__name__', repr(entry))
@@ -485,8 +504,9 @@ def run_ops(ops: list[RunOp], quiet: bool = False) -> None:
             if not quiet:
                 print(entry)
         elif isinstance(entry, list):
-            if not all(isinstance(arg, str) for arg in entry):
-                raise TypeError(f'All elements of a command list must be strings: {str(entry)}')
+            if not all(isinstance(arg, str) for arg in entry): # type: ignore
+                raise TypeError(f'All elements of a command list must be strings: {entry}')
+            entry = cast(list[str], entry)
             try:
                 subprocess.run(make_shell_command(entry), shell=True, check=True)
             except subprocess.CalledProcessError:
@@ -556,12 +576,14 @@ def update_workspace_settings() -> None:
 
     def merge_maps(primary: Any, secondary: Any) -> Any:
         if isinstance(primary, dict) and isinstance(secondary, dict):
+            primary = cast(dict[Any, Any], primary)
+            secondary = cast(dict[Any, Any], secondary)
             merged: dict[Any, Any] = {key: merge_maps(primary[key], secondary.get(key)) for key in primary}
             for key, value in secondary.items():
                 if key not in merged:
                     merged[key] = value
             return merged
-        return primary
+        return cast(Any, primary)
 
     merged_settings = merge_maps(host_settings, repo_settings)
 
@@ -694,7 +716,7 @@ def copy_directories_local(
     return ops
 
 
-def parse_jsonnet_now(jsonnet_file: Path, ext_vars: dict, output_string: bool = False) -> dict | list | str:
+def parse_jsonnet_now(jsonnet_file: Path, ext_vars: dict[str, str], output_string: bool = False) -> dict[str, Any] | list[Any] | str:
     try:
         result = subprocess.run(
             parse_jsonnet(jsonnet_file, ext_vars, None, output_string=output_string),
@@ -709,9 +731,7 @@ def parse_jsonnet_now(jsonnet_file: Path, ext_vars: dict, output_string: bool = 
         raise
 
 
-def parse_jsonnet(jsonnet_file: Path, ext_vars: dict, output_path: Path | None = None, is_multicast: bool = False, output_string: bool = False) -> list[str]:
-    if not isinstance(jsonnet_file, Path):
-        raise TypeError('jsonnet_file must be a Path object')
+def parse_jsonnet(jsonnet_file: Path, ext_vars: dict[str, str], output_path: Optional[Path] = None, is_multicast: bool = False, output_string: bool = False) -> list[str]:
     proc_args = ['jsonnet']
 
     if output_string or (output_path and (output_path.suffix == '.sh' or output_path.suffix == '.ini')):
@@ -727,7 +747,7 @@ def parse_jsonnet(jsonnet_file: Path, ext_vars: dict, output_path: Path | None =
     return proc_args
 
 
-def get_ext_vars(host: Host | None = None) -> dict[str, str]:
+def get_ext_vars(host: Optional[Host] = None) -> dict[str, str]:
     standard_ext_vars = {
         'is_localhost': 'true',
         'hostname': LOCALHOST_NAME,
@@ -798,11 +818,11 @@ def preprocess_jsonnet_files(host: Host, source_dir: Path, staging_dir: Path, ve
     ops.extend(jsonnet_commands)
     return ops
 
-def preprocess_jsonnet_directories(host, source_dir: Path, staging_dir: Path, verbose: bool=False) -> list[RunOp]:
+def preprocess_jsonnet_directories(host: Host, source_dir: Path, staging_dir: Path, verbose: bool=False) -> list[RunOp]:
     if not host.jsonnet_multi_maps:
         return [cast(RunOp, 'No jsonnet multimaps found')]
 
-    full_paths = [(source_dir / src, staging_dir / dest) for src, dest in host.jsonnet_multi_maps.items()]
+    full_paths: list[tuple[Path, Path]] = [(source_dir / src, staging_dir / dest) for src, dest in host.jsonnet_multi_maps.items()]
     staging_dests = {p for _, p in full_paths}
 
     ops: list[RunOp] = []
@@ -927,7 +947,7 @@ def push_remote_staging(host: Host) -> list[RunOp]:
 
 def process_macros_for_staged_file(host: Host, file: Path) -> None:
     is_modified = False
-    modified_content = []
+    modified_content: list[str] = []
     with open(file, 'r', encoding='utf-8') as f:
         lines = f.read().splitlines()
         for line in lines:
@@ -947,10 +967,6 @@ def process_macros_for_staged_file(host: Host, file: Path) -> None:
 def stage_local(host: Host, verbose: bool = False, skip_cache: bool = False) -> list[RunOp]:
     ops: list[RunOp] = []
     ops.append(f'Staging dotFiles for {host.hostname} in {host.local_staging_dir.as_posix()}')
-
-    # Dedicated cache dirs (not in staged output)
-    staging_jsonnet_dir = host.local_jsonnet_dir
-    staging_curl_dir = host.local_curl_dir
 
     # Decide if preprocessing is necessary based on host cache validity
     if skip_cache:
@@ -1118,16 +1134,14 @@ def iterm2_prefs_plist_location() -> str:
     return f'{plist_pref_file_proc.stdout.strip()}/com.googlecode.iterm2.plist'
 
 
-def build_iterm2_prefs_json() -> dict:
+def build_iterm2_prefs_json() -> dict[str, Any]:
     """Build the iTerm2 preferences from the repo's JSONNet file."""
     ext_vars = get_ext_vars(config.get_localhost())
     metadata = Ec2WorkstationMetadata.load()
     if metadata is not None:
         if metadata.instance_name:
             ext_vars['ec2_workstation_hostname'] = metadata.instance_name
-    prefs = parse_jsonnet_now(CWD / 'iterm2/com.googlecode.iterm2.plist.jsonnet', ext_vars)
-    if not isinstance(prefs, dict):
-        raise TypeError('Expected iTerm2 Jsonnet configuration to evaluate to an object')
+    prefs: dict[str, Any] = parse_jsonnet_now(CWD / 'iterm2/com.googlecode.iterm2.plist.jsonnet', ext_vars) # type: ignore
     return prefs
 
 
@@ -1297,7 +1311,7 @@ def main(args: list[str]) -> int:
         os.chdir(parsed_args.working_dir)
 
     global TRACE_STARTUP_FLAG
-    TRACE_STARTUP_FLAG = bool(getattr(parsed_args, 'trace_startup', False))
+    TRACE_STARTUP_FLAG = bool(getattr(parsed_args, 'trace_startup', False)) # type: ignore
 
     operation_arg = parsed_args.operation
     if operation_arg.endswith('-local'):

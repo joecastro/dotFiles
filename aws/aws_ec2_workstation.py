@@ -11,8 +11,272 @@ import time
 from dataclasses import dataclass, asdict, fields
 from pathlib import Path
 from textwrap import dedent
-from typing import Callable
-from aws.aws_clients_ex import AwsError, AwsEx, EC2InstanceStatusEx, EC2VolumeEx, EC2InstanceEx
+from typing import Any, Callable, Optional, TYPE_CHECKING, Sequence, Mapping, Literal, cast
+
+import boto3
+from boto3.session import Session
+from botocore.exceptions import ClientError, WaiterError
+from botocore.waiter import Waiter
+
+if TYPE_CHECKING:
+    from mypy_boto3_ec2 import EC2Client
+
+
+def _format_client_error(error: ClientError) -> str:
+    details = error.response.get("Error", {})
+    code = details.get("Code", "<unknown>")
+    message = details.get("Message", str(error))
+    return f"{code}: {message}"
+
+
+class EC2SecurityGroupRef:
+    def __init__(self, props: Mapping[str, Any]) -> None:
+        self._props: Mapping[str, Any] = props
+
+    @property
+    def id(self) -> str:
+        return str(self._props.get("GroupId", ""))
+
+    @property
+    def props(self) -> Mapping[str, Any]:
+        return self._props
+
+
+class EC2InstanceDescription:
+    def __init__(self, instance_id: str, props: Mapping[str, Any]) -> None:
+        self.instance_id = instance_id
+        self._props: Mapping[str, Any] = props
+
+    @property
+    def props(self) -> Mapping[str, Any]:
+        return self._props
+
+    @property
+    def state(self) -> Optional[str]:
+        state_info = self._props.get("State")
+        if isinstance(state_info, dict):
+            name = state_info.get("Name")
+            return str(name) if name is not None else None
+        return None
+
+    @property
+    def public_ip(self) -> Optional[str]:
+        value = self._props.get("PublicIpAddress")
+        return str(value) if value else None
+
+    @property
+    def public_dns_name(self) -> Optional[str]:
+        value = self._props.get("PublicDnsName")
+        return str(value) if value else None
+
+    @property
+    def availability_zone(self) -> Optional[str]:
+        placement = self._props.get("Placement", {})
+        if isinstance(placement, dict):
+            zone = placement.get("AvailabilityZone")
+            return str(zone) if zone else None
+        return None
+
+    @property
+    def security_groups(self) -> list[EC2SecurityGroupRef]:
+        groups = self._props.get("SecurityGroups", []) or []
+        refs: list[EC2SecurityGroupRef] = []
+        for group in groups:
+            if isinstance(group, dict):
+                refs.append(EC2SecurityGroupRef(group))
+        return refs
+
+
+class EC2InstanceStatusSummary:
+    def __init__(self, instance_id: str, instance_status: str, system_status: str) -> None:
+        self.instance_id = instance_id
+        self.instance_status = instance_status
+        self.system_status = system_status
+
+
+class EC2VolumeDescription:
+    def __init__(self, volume_id: str, props: Mapping[str, Any]) -> None:
+        self.volume_id = volume_id
+        self._props: Mapping[str, Any] = props
+        tags = props.get("Tags", []) or []
+        tag_dict: dict[str, str] = {}
+        for tag in tags:
+            if isinstance(tag, dict):
+                key = tag.get("Key")
+                value = tag.get("Value")
+                if isinstance(key, str) and isinstance(value, str):
+                    tag_dict[key] = value
+        self._tags = tag_dict
+
+    @property
+    def props(self) -> Mapping[str, Any]:
+        return self._props
+
+    @property
+    def tags(self) -> dict[str, str]:
+        return self._tags
+
+
+WaiterName = Literal["instance_running", "volume_available", "volume_in_use", "volume_deleted"]
+
+
+class EC2Service:
+    def __init__(self, profile: str, region: str) -> None:
+        self.profile = profile
+        self.region = region
+        self._session: Session = boto3.Session(profile_name=profile, region_name=region)
+        self._client: EC2Client = self._session.client("ec2", region_name=region)
+
+    @property
+    def client(self) -> "EC2Client":
+        return self._client
+
+    def key_pair_exists(self, key_name: str) -> bool:
+        try:
+            self._client.describe_key_pairs(KeyNames=[key_name])
+            return True
+        except ClientError as exc:
+            if exc.response.get("Error", {}).get("Code") == "InvalidKeyPair.NotFound":
+                return False
+            raise
+
+    def import_key_pair(self, key_name: str, public_key_material: str) -> None:
+        self._client.import_key_pair(KeyName=key_name, PublicKeyMaterial=public_key_material)
+
+    def find_latest_image(self, *, owners: Sequence[str], name_pattern: str) -> str:
+        response = self._client.describe_images(
+            Owners=list(owners),
+            Filters=[{"Name": "name", "Values": [name_pattern]}],
+        )
+        images = response.get("Images", []) or []
+        if not images:
+            raise RuntimeError(f"No images found for pattern {name_pattern}")
+        latest = max(images, key=lambda img: img.get("CreationDate", ""))
+        image_id = latest.get("ImageId")
+        if not isinstance(image_id, str):
+            raise RuntimeError("Image record missing ImageId")
+        return image_id
+
+    def launch_instance(self, **kwargs: Any) -> EC2InstanceDescription:
+        response = self._client.run_instances(**kwargs)
+        instances = response.get("Instances", []) or []
+        if not instances:
+            raise RuntimeError("run_instances returned no instances")
+        instance = instances[0]
+        instance_id = instance.get("InstanceId")
+        if not isinstance(instance_id, str):
+            raise RuntimeError("Instance record missing InstanceId")
+        instance_data = cast(Mapping[str, Any], instance)
+        return EC2InstanceDescription(instance_id, instance_data)
+
+    def describe_instance(self, instance_id: str) -> EC2InstanceDescription:
+        response = self._client.describe_instances(InstanceIds=[instance_id])
+        reservations = response.get("Reservations", []) or []
+        for reservation in reservations:
+            instances = reservation.get("Instances", []) or []
+            for instance in instances:
+                iid = instance.get("InstanceId")
+                if isinstance(iid, str):
+                    instance_data = cast(Mapping[str, Any], instance)
+                    return EC2InstanceDescription(iid, instance_data)
+        raise RuntimeError(f"Instance {instance_id} not found")
+
+    def instance_status_summary(self, instance_id: str) -> EC2InstanceStatusSummary:
+        response = self._client.describe_instance_status(
+            InstanceIds=[instance_id],
+            IncludeAllInstances=True,
+        )
+        statuses = response.get("InstanceStatuses", []) or []
+        if not statuses:
+            return EC2InstanceStatusSummary(instance_id, "unknown", "unknown")
+        status = statuses[0]
+        instance_status = status.get("InstanceStatus", {})
+        system_status = status.get("SystemStatus", {})
+        inst_value = instance_status.get("Status") if isinstance(instance_status, dict) else None
+        sys_value = system_status.get("Status") if isinstance(system_status, dict) else None
+        return EC2InstanceStatusSummary(
+            instance_id,
+            str(inst_value or "unknown"),
+            str(sys_value or "unknown"),
+        )
+
+    def start_instance(self, instance_id: str) -> None:
+        self._client.start_instances(InstanceIds=[instance_id])
+
+    def stop_instance(self, instance_id: str) -> None:
+        self._client.stop_instances(InstanceIds=[instance_id])
+
+    def terminate_instance(self, instance_id: str) -> None:
+        self._client.terminate_instances(InstanceIds=[instance_id])
+
+    def create_volume(self, **kwargs: Any) -> dict[str, Any]:
+        response = self._client.create_volume(**kwargs)
+        return cast(dict[str, Any], response)
+
+    def attach_volume(self, **kwargs: Any) -> None:
+        self._client.attach_volume(**kwargs)
+
+    def detach_volume(self, **kwargs: Any) -> None:
+        self._client.detach_volume(**kwargs)
+
+    def delete_volume(self, volume_id: str) -> None:
+        self._client.delete_volume(VolumeId=volume_id)
+
+    def describe_volumes(self, volume_ids: Optional[Sequence[str]] = None) -> list[EC2VolumeDescription]:
+        if volume_ids:
+            response = self._client.describe_volumes(VolumeIds=list(volume_ids))
+        else:
+            response = self._client.describe_volumes()
+        volumes = response.get("Volumes", []) or []
+        results: list[EC2VolumeDescription] = []
+        for volume in volumes:
+            volume_id = volume.get("VolumeId")
+            if isinstance(volume_id, str):
+                volume_data = cast(Mapping[str, Any], volume)
+                results.append(EC2VolumeDescription(volume_id, volume_data))
+        return results
+
+    def ensure_security_group_ingress(
+        self,
+        *,
+        group_id: str,
+        cidr: str,
+        ip_protocol: str,
+        from_port: int,
+        to_port: int,
+    ) -> bool:
+        response = self._client.describe_security_groups(GroupIds=[group_id])
+        groups = response.get("SecurityGroups", []) or []
+        if groups:
+            permissions = groups[0].get("IpPermissions", []) or []
+            for perm in permissions:
+                if perm.get("IpProtocol") != ip_protocol:
+                    continue
+                if perm.get("FromPort") != from_port or perm.get("ToPort") != to_port:
+                    continue
+                for ip_range in perm.get("IpRanges", []) or []:
+                    if ip_range.get("CidrIp") == cidr:
+                        return False
+        try:
+            self._client.authorize_security_group_ingress(
+                GroupId=group_id,
+                IpPermissions=[
+                    {
+                        "IpProtocol": ip_protocol,
+                        "FromPort": from_port,
+                        "ToPort": to_port,
+                        "IpRanges": [{"CidrIp": cidr}],
+                    }
+                ],
+            )
+        except ClientError as exc:
+            if exc.response.get("Error", {}).get("Code") == "InvalidPermission.Duplicate":
+                return False
+            raise
+        return True
+
+    def get_waiter(self, name: WaiterName) -> Waiter:
+        return self._client.get_waiter(name)
 
 XDG_CONFIG_HOME = Path(os.environ.get('XDG_CONFIG_HOME', Path.home() / '.config'))
 DEFAULT_INSTANCE_NAME = "Boxer"
@@ -40,7 +304,7 @@ class WorkstationConfig:
     tag_value: str
     root_volume_size: int
     data_volume_size: int
-    ssh_public_key: str | None = None
+    ssh_public_key: Optional[str] = None
     ssh_cidr: str = DEFAULT_SSH_CIDR
 
 
@@ -49,13 +313,13 @@ class WorkstationMetadata:
     META_FILE = XDG_CONFIG_HOME / ".ec2-devbox-meta.json"
 
     instance_id: str
-    volume_id: str | None
+    volume_id: Optional[str]
     config: WorkstationConfig
-    public_ip: str | None = None
-    public_dns: str | None = None
+    public_ip: Optional[str] = None
+    public_dns: Optional[str] = None
 
     @classmethod
-    def load(cls) -> WorkstationMetadata | None:
+    def load(cls) -> Optional[WorkstationMetadata]:
         if not cls.META_FILE.exists():
             return None
 
@@ -110,14 +374,14 @@ def wait_for_condition(
         if pred():
             return
         time.sleep(poll_interval)
-    raise AwsError("Condition not met before timeout")
+    raise RuntimeError("Condition not met before timeout")
 
 class WorkstationManager:
     def __init__(self, profile: str, config: WorkstationConfig) -> None:
         self.config = config
         self.profile = profile
-        self.aws = AwsEx(profile=profile, region=config.region)
-        self._public_key_source: str | None = None
+        self.ec2: EC2Service = EC2Service(profile=profile, region=config.region)
+        self._public_key_source: Optional[str] = None
 
     def create(self) -> None:
         try:
@@ -147,51 +411,47 @@ class WorkstationManager:
         )
 
         try:
-            self.aws.ec2.ensure_key_pair_exists(config.key_name)
-        except AwsError as exc:
-            not_found = bool(
-                getattr(exc.original, "response", {}).get("Error", {}).get("Code") == "InvalidKeyPair.NotFound"
-            )
-            if not_found:
-                try:
-                    self.aws.ec2.import_key_pair(config.key_name, public_key)
-                    print(
-                        f"Imported key pair '{config.key_name}' into region {config.region} using the local public key.",
-                        file=sys.stderr,
-                    )
-                except AwsError as import_exc:
-                    print(import_exc, file=sys.stderr)
-                    if import_exc.original:
-                        print(import_exc.original, file=sys.stderr)
-                    print(instructions, file=sys.stderr)
-                    sys.exit(1)
-            else:
-                print(exc, file=sys.stderr)
-                if exc.original:
-                    print(exc.original, file=sys.stderr)
+            key_pair_exists = self.ec2.key_pair_exists(config.key_name)
+        except ClientError as exc:
+            print(_format_client_error(exc), file=sys.stderr)
+            print(instructions, file=sys.stderr)
+            sys.exit(1)
+
+        if not key_pair_exists:
+            try:
+                self.ec2.import_key_pair(config.key_name, public_key)
+                print(
+                    f"Imported key pair '{config.key_name}' into region {config.region} using the local public key.",
+                    file=sys.stderr,
+                )
+            except ClientError as exc:
+                print(_format_client_error(exc), file=sys.stderr)
                 print(instructions, file=sys.stderr)
                 sys.exit(1)
+
         user_data = self._build_user_data(public_key)
         self._print_config_summary()
         print("Finding latest Ubuntu 22.04 AMI...")
-        ami_id = self.aws.ec2.find_latest_image(
-            owners=["099720109477"],
-            name_pattern="ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*",
-        )
+        try:
+            ami_id = self.ec2.find_latest_image(
+                owners=["099720109477"],
+                name_pattern="ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*",
+            )
+        except (ClientError, RuntimeError) as exc:
+            print(f"Failed to locate Ubuntu AMI: {exc}", file=sys.stderr)
+            sys.exit(1)
         print(f"Using AMI {ami_id}")
 
         instance_id = self._launch_instance(ami_id, user_data)
-        self.aws.ec2.get_waiter("instance_running").wait(InstanceIds=[instance_id])
+        self.ec2.get_waiter("instance_running").wait(InstanceIds=[instance_id])
         print("Waiting for instance status checks to pass...")
         self._ensure_ssh_access(instance_id)
         try:
             summary = self.wait_for_instance_available(instance_id)
-        except AwsError as exc:
+        except (ClientError, WaiterError) as exc:
             print(exc, file=sys.stderr)
-            if exc.original:
-                print(exc.original, file=sys.stderr)
-            summary = self.aws.ec2.instance_status_summary(instance_id)
-        instance = self.aws.ec2.describe_instance(instance_id)
+            summary = self.ec2.instance_status_summary(instance_id)
+        instance = self.ec2.describe_instance(instance_id)
 
         if instance.state != "running" or summary.instance_status != "ok" or summary.system_status != "ok":
             print(
@@ -202,7 +462,7 @@ class WorkstationManager:
         if not instance.public_ip:
             print("Warning: instance does not yet have a public IP", file=sys.stderr)
 
-        volume_id: str | None = None
+        volume_id: Optional[str] = None
         if config.data_volume_size > 0:
             volume_id = self._create_and_attach_volume(instance_id)
         else:
@@ -223,15 +483,15 @@ class WorkstationManager:
         metadata = self._load_metadata_or_exit("No metadata found. Cannot clean up.")
 
         try:
-            self.aws.ec2.terminate_instance(metadata.instance_id)
-        except AwsError as exc:
-            print(f"Warning: failed to terminate instance: {exc}", file=sys.stderr)
+            self.ec2.terminate_instance(metadata.instance_id)
+        except ClientError as exc:
+            print(f"Warning: failed to terminate instance: {_format_client_error(exc)}", file=sys.stderr)
 
         if metadata.volume_id:
             try:
-                self.aws.ec2.delete_volume(metadata.volume_id)
-            except AwsError as exc:
-                print(f"Warning: failed to delete volume: {exc}", file=sys.stderr)
+                self.ec2.delete_volume(metadata.volume_id)
+            except ClientError as exc:
+                print(f"Warning: failed to delete volume: {_format_client_error(exc)}", file=sys.stderr)
 
         WorkstationMetadata.clear()
         print("✅ Cleanup complete.")
@@ -240,11 +500,9 @@ class WorkstationManager:
         metadata = self._load_metadata_or_exit("No metadata found. Run create first.")
 
         try:
-            instance = self.aws.ec2.describe_instance(metadata.instance_id)
-        except AwsError as exc:
+            instance = self.ec2.describe_instance(metadata.instance_id)
+        except (ClientError, RuntimeError) as exc:
             print(exc, file=sys.stderr)
-            if exc.original:
-                print(exc.original, file=sys.stderr)
             return
 
         state = instance.state
@@ -257,19 +515,17 @@ class WorkstationManager:
 
         if state == "stopped":
             print(f"Starting instance {metadata.instance_id}...")
-            self.aws.ec2.start_instance(metadata.instance_id)
+            self.ec2.start_instance(metadata.instance_id)
         elif state != "running":
             print(f"Instance {metadata.instance_id} in state '{state}', waiting until running...")
-            self.aws.ec2.get_waiter("instance_running").wait(InstanceIds=[metadata.instance_id])
+            self.ec2.get_waiter("instance_running").wait(InstanceIds=[metadata.instance_id])
 
         print("Waiting for instance status checks to pass...")
         self._ensure_ssh_access(metadata.instance_id)
         try:
             summary = self.wait_for_instance_available(metadata.instance_id)
-        except AwsError as exc:
+        except (ClientError, WaiterError) as exc:
             print(exc, file=sys.stderr)
-            if exc.original:
-                print(exc.original, file=sys.stderr)
             return
 
         if summary.instance_status != "ok" or summary.system_status != "ok":
@@ -280,7 +536,7 @@ class WorkstationManager:
             )
             return
 
-        instance = self.aws.ec2.describe_instance(metadata.instance_id)
+        instance = self.ec2.describe_instance(metadata.instance_id)
         self._update_metadata_from_instance(metadata, instance)
         self._print_connect_info(instance.public_ip, instance.public_dns_name)
 
@@ -288,11 +544,9 @@ class WorkstationManager:
         metadata = self._load_metadata_or_exit("No metadata found. Run create first.")
 
         try:
-            instance = self.aws.ec2.describe_instance(metadata.instance_id)
-        except AwsError as exc:
+            instance = self.ec2.describe_instance(metadata.instance_id)
+        except (ClientError, RuntimeError) as exc:
             print(exc, file=sys.stderr)
-            if exc.original:
-                print(exc.original, file=sys.stderr)
             return
 
         state = instance.state
@@ -305,20 +559,18 @@ class WorkstationManager:
 
         print(f"Stopping instance {metadata.instance_id}...")
         try:
-            self.aws.ec2.stop_instance(metadata.instance_id)
-        except AwsError as exc:
-            print(exc, file=sys.stderr)
+            self.ec2.stop_instance(metadata.instance_id)
+        except ClientError as exc:
+            print(_format_client_error(exc), file=sys.stderr)
 
     def connect(self) -> None:
         metadata = self._load_metadata_or_exit("No metadata found. Run create first.")
 
         try:
-            summary = self.aws.ec2.instance_status_summary(metadata.instance_id)
-            instance = self.aws.ec2.describe_instance(metadata.instance_id)
-        except AwsError as exc:
+            summary = self.ec2.instance_status_summary(metadata.instance_id)
+            instance = self.ec2.describe_instance(metadata.instance_id)
+        except (ClientError, RuntimeError) as exc:
             print(exc, file=sys.stderr)
-            if exc.original:
-                print(exc.original, file=sys.stderr)
             return
 
         ready = (
@@ -348,7 +600,7 @@ class WorkstationManager:
             )
 
     def list_volumes(self) -> None:
-        metadata: WorkstationMetadata | None = None
+        metadata: Optional[WorkstationMetadata] = None
         try:
             metadata = WorkstationMetadata.load()
         except ValueError as exc:
@@ -357,7 +609,7 @@ class WorkstationManager:
             self.config = metadata.config
 
 
-        volumes = self.aws.ec2.describe_volumes(None) or []
+        volumes = self.ec2.describe_volumes()
         volumes = [
             vol
             for vol in volumes
@@ -391,13 +643,17 @@ class WorkstationManager:
     def add_volume(
         self,
         *,
-        size: int | None,
+        size: Optional[int],
         device: str,
-        name: str | None,
+        name: Optional[str],
         attach: bool,
     ) -> None:
         metadata = self._load_metadata_or_exit("No metadata found. Run create first.")
-        instance = self.aws.ec2.describe_instance(metadata.instance_id)
+        try:
+            instance = self.ec2.describe_instance(metadata.instance_id)
+        except (ClientError, RuntimeError) as exc:
+            print(exc, file=sys.stderr)
+            return
 
         size_gib = size or self.config.data_volume_size
         if size_gib <= 0:
@@ -423,17 +679,22 @@ class WorkstationManager:
             {"Key": self.config.tag_key, "Value": self.config.tag_value},
         ]
 
-        volume = self.aws.ec2.create_volume(
-            AvailabilityZone=instance.availability_zone,
-            Size=size_gib,
-            VolumeType="gp3",
-            TagSpecifications=[{"ResourceType": "volume", "Tags": tags}])
+        try:
+            volume = self.ec2.create_volume(
+                AvailabilityZone=instance.availability_zone,
+                Size=size_gib,
+                VolumeType="gp3",
+                TagSpecifications=[{"ResourceType": "volume", "Tags": tags}],
+            )
+        except ClientError as exc:
+            print(_format_client_error(exc), file=sys.stderr)
+            sys.exit(1)
 
-        volume_id = volume.get("VolumeId", "<unknown>")
+        volume_id = str(volume.get("VolumeId", "<unknown>"))
         print(f"Created volume {volume_id} ({size_gib} GiB) in {instance.availability_zone}")
         try:
-            self.aws.ec2.get_waiter("volume_available").wait(VolumeIds=[volume_id])
-        except Exception as exc:  # pragma: no cover - waiter exceptions are rare
+            self.ec2.get_waiter("volume_available").wait(VolumeIds=[volume_id])
+        except WaiterError as exc:  # pragma: no cover - waiter exceptions are rare
             print(f"Warning: volume {volume_id} did not reach 'available' state: {exc}", file=sys.stderr)
 
         if not attach:
@@ -441,21 +702,19 @@ class WorkstationManager:
             return
 
         try:
-            self.aws.ec2.attach_volume(
+            self.ec2.attach_volume(
                 Device=device,
                 InstanceId=instance.instance_id,
                 VolumeId=volume_id,
             )
-        except AwsError as exc:
-            print(f"Volume {volume_id} created but attach failed: {exc}", file=sys.stderr)
-            if exc.original:
-                print(exc.original, file=sys.stderr)
+        except ClientError as exc:
+            print(f"Volume {volume_id} created but attach failed: {_format_client_error(exc)}", file=sys.stderr)
             print("Attach the volume manually or detach/delete it as needed.")
             return
 
         try:
-            self.aws.ec2.get_waiter("volume_in_use").wait(VolumeIds=[volume_id])
-        except Exception as exc:  # pragma: no cover - waiter exceptions are rare
+            self.ec2.get_waiter("volume_in_use").wait(VolumeIds=[volume_id])
+        except WaiterError as exc:  # pragma: no cover - waiter exceptions are rare
             print(f"Warning: unable to confirm attachment for {volume_id}: {exc}", file=sys.stderr)
 
         print(f"Attached {volume_id} to {instance.instance_id} as {device}")
@@ -476,21 +735,26 @@ class WorkstationManager:
         attachment = attachments[0]
         device = attachment.get("Device", "<unknown>")
         print(f"Detaching volume {volume_id} from {metadata.instance_id} ({device})")
-        self.aws.ec2.detach_volume(
-            VolumeId=volume_id,
-            InstanceId=metadata.instance_id,
-            Force=force)
+        try:
+            self.ec2.detach_volume(
+                VolumeId=volume_id,
+                InstanceId=metadata.instance_id,
+                Force=force,
+            )
+        except ClientError as exc:
+            print(_format_client_error(exc), file=sys.stderr)
+            return
 
         try:
-            self.aws.ec2.get_waiter("volume_available").wait(VolumeIds=[volume_id])
-        except Exception as exc:  # pragma: no cover - waiter exceptions are rare
+            self.ec2.get_waiter("volume_available").wait(VolumeIds=[volume_id])
+        except WaiterError as exc:  # pragma: no cover - waiter exceptions are rare
             print(f"Warning: unable to confirm detach for {volume_id}: {exc}", file=sys.stderr)
             return
 
         print(f"Volume {volume_id} detached")
 
     def destroy_volume(self, volume_id: str, *, force_detach: bool) -> None:
-        metadata: WorkstationMetadata | None = None
+        metadata: Optional[WorkstationMetadata] = None
         try:
             metadata = WorkstationMetadata.load()
         except ValueError as exc:
@@ -536,11 +800,15 @@ class WorkstationManager:
                 sys.exit(1)
 
         print(f"Deleting volume {volume_id}...")
-        self.aws.ec2.delete_volume(volume_id)
+        try:
+            self.ec2.delete_volume(volume_id)
+        except ClientError as exc:
+            print(_format_client_error(exc), file=sys.stderr)
+            return
 
         try:
-            self.aws.ec2.get_waiter("volume_deleted").wait(VolumeIds=[volume_id])
-        except Exception as exc:  # pragma: no cover - waiter exceptions are rare
+            self.ec2.get_waiter("volume_deleted").wait(VolumeIds=[volume_id])
+        except WaiterError as exc:  # pragma: no cover - waiter exceptions are rare
             print(f"Warning: unable to confirm deletion for {volume_id}: {exc}", file=sys.stderr)
 
         print(f"Volume {volume_id} deleted")
@@ -549,8 +817,8 @@ class WorkstationManager:
             metadata.volume_id = None
             metadata.save()
 
-    def _ensure_managed_volume(self, volume_id: str) -> EC2VolumeEx:
-        volumes = self.aws.ec2.describe_volumes([volume_id]) or []
+    def _ensure_managed_volume(self, volume_id: str) -> EC2VolumeDescription:
+        volumes = self.ec2.describe_volumes([volume_id])
         if not volumes:
             print(f"Volume {volume_id} not found", file=sys.stderr)
             sys.exit(1)
@@ -577,8 +845,8 @@ class WorkstationManager:
             sys.exit(1)
 
         self.config = metadata.config
-        if self.aws.region != self.config.region:
-            self.aws = AwsEx(profile=self.profile, region=self.config.region)
+        if self.ec2.region != self.config.region:
+            self.ec2 = EC2Service(profile=self.profile, region=self.config.region)
 
         return metadata
 
@@ -735,7 +1003,7 @@ PUBKEY
             else:
                 sg_names.append(group)
 
-        instance = self.aws.ec2.launch_instance(
+        instance = self.ec2.launch_instance(
             ImageId=ami_id,
             InstanceType=cfg.instance_type,
             KeyName=cfg.key_name,
@@ -757,21 +1025,17 @@ PUBKEY
                     "Ebs": {"VolumeSize": cfg.root_volume_size},
                 }
             ],
-            **(
-                {"SecurityGroupIds": sg_ids} if sg_ids else {}
-            ),
-            **(
-                {"SecurityGroups": sg_names} if sg_names and not sg_ids else {}
-            ),
+            **({"SecurityGroupIds": sg_ids} if sg_ids else {}),
+            **({"SecurityGroups": sg_names} if sg_names and not sg_ids else {}),
         )
         print(f"Instance ID: {instance.instance_id}")
         return instance.instance_id
 
     def _create_and_attach_volume(self, instance_id: str) -> str:
-        instance = self.aws.ec2.describe_instance(instance_id)
+        instance = self.ec2.describe_instance(instance_id)
         cfg = self.config
 
-        volume = self.aws.ec2.create_volume(
+        volume = self.ec2.create_volume(
             AvailabilityZone=instance.availability_zone,
             Size=cfg.data_volume_size,
             VolumeType="gp3",
@@ -785,13 +1049,17 @@ PUBKEY
                 }
             ],
         )
-        volume_id = volume["VolumeId"]
-        self.aws.ec2.get_waiter("volume_available").wait(VolumeIds=[volume_id])
-        self.aws.ec2.attach_volume(Device="/dev/xvdf", InstanceId=instance_id, VolumeId=volume_id)
+        volume_id = str(volume.get("VolumeId", "<unknown>"))
+        self.ec2.get_waiter("volume_available").wait(VolumeIds=[volume_id])
+        try:
+            self.ec2.attach_volume(Device="/dev/xvdf", InstanceId=instance_id, VolumeId=volume_id)
+        except ClientError as exc:
+            print(f"Volume {volume_id} created but attach failed: {_format_client_error(exc)}", file=sys.stderr)
+            raise
         print(f"Volume {volume_id} attached")
         return volume_id
 
-    def _print_connect_info(self, public_ip: str | None, public_dns: str | None) -> None:
+    def _print_connect_info(self, public_ip: Optional[str], public_dns: Optional[str]) -> None:
         address = public_dns or public_ip
         if address:
             print("\nConnect using:")
@@ -803,17 +1071,15 @@ PUBKEY
 
     def _ensure_ssh_access(self, instance_id: str) -> None:
         try:
-            instance = self.aws.ec2.describe_instance(instance_id)
-        except AwsError as exc:
+            instance = self.ec2.describe_instance(instance_id)
+        except (ClientError, RuntimeError) as exc:
             print(f"Warning: unable to inspect instance {instance_id} for security groups: {exc}", file=sys.stderr)
-            if exc.original:
-                print(exc.original, file=sys.stderr)
             return
 
         cidr = self.config.ssh_cidr
         for sg in instance.security_groups:
             try:
-                added = self.aws.ec2.ensure_security_group_ingress(
+                added = self.ec2.ensure_security_group_ingress(
                     group_id=sg.id,
                     cidr=cidr,
                     ip_protocol="tcp",
@@ -822,32 +1088,20 @@ PUBKEY
                 )
                 if added:
                     print(f"Authorized SSH (22/tcp) from {cidr} on security group {sg.id}.")
-            except AwsError as exc:
-                code = (
-                    getattr(exc.original, "response", {})
-                    .get("Error", {})
-                    .get("Code")
-                    if exc.original
-                    else ""
-                )
-                if code == "InvalidPermission.Duplicate":
-                    continue
+            except ClientError as exc:
                 print(
-                    f"Warning: unable to ensure SSH ingress on {sg.id}: {exc}",
+                    f"Warning: unable to ensure SSH ingress on {sg.id}: {_format_client_error(exc)}",
                     file=sys.stderr,
                 )
-                if exc.original:
-                    print(exc.original, file=sys.stderr)
 
-
-    def wait_for_instance_available(self, instance_id: str) -> EC2InstanceStatusEx:
+    def wait_for_instance_available(self, instance_id: str) -> EC2InstanceStatusSummary:
         timeout_seconds = STATUS_DEFAULT_TIMEOUT
-        summary: EC2InstanceStatusEx | None = None
+        summary: Optional[EC2InstanceStatusSummary] = None
 
         def predicate() -> bool:
             nonlocal summary
-            summary = self.aws.ec2.instance_status_summary(instance_id)
-            instance = self.aws.ec2.describe_instance(instance_id)
+            summary = self.ec2.instance_status_summary(instance_id)
+            instance = self.ec2.describe_instance(instance_id)
             print(f"  status checks for {summary.instance_id}: state={instance.state}, status={summary.instance_status}, system_status={summary.system_status}")
             return summary.instance_status == "ok" and summary.system_status == "ok"
 
@@ -861,7 +1115,7 @@ PUBKEY
         return summary
 
     def _update_metadata_from_instance(
-        self, metadata: WorkstationMetadata, instance: EC2InstanceEx
+        self, metadata: WorkstationMetadata, instance: EC2InstanceDescription
     ) -> None:
         new_ip = instance.public_ip
         new_dns = instance.public_dns_name
@@ -892,16 +1146,14 @@ PUBKEY
         print(f"  tags: Name={cfg.instance_name}, {cfg.tag_key}={cfg.tag_value}")
 
 
-def run_status(manager: WorkstationManager):
+def run_status(manager: WorkstationManager) -> None:
     metadata = manager._load_metadata_or_exit("No metadata found. Run create first.")
     try:
         summary = manager.wait_for_instance_available(metadata.instance_id)
-    except AwsError as exc:
+    except (ClientError, WaiterError, RuntimeError) as exc:
         print(exc, file=sys.stderr)
-        if exc.original:
-            print(exc.original, file=sys.stderr)
-        summary = manager.aws.ec2.instance_status_summary(metadata.instance_id)
-    instance = manager.aws.ec2.describe_instance(metadata.instance_id)
+        summary = manager.ec2.instance_status_summary(metadata.instance_id)
+    instance = manager.ec2.describe_instance(metadata.instance_id)
     manager._update_metadata_from_instance(metadata, instance)
 
     ready = (
