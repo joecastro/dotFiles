@@ -2,18 +2,18 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Compile requirements.txt",
+      "label": "Lock dependencies",
       "type": "shell",
-      "command": "pip-compile requirements.in -o requirements.txt --strip-extras",
+      "command": "uv lock",
       "options": {
         "cwd": "${workspaceFolder}"
       },
       "problemMatcher": []
     },
     {
-      "label": "Compile requirements.txt (upgrade)",
+      "label": "Lock dependencies (upgrade)",
       "type": "shell",
-      "command": "pip-compile --upgrade requirements.in -o requirements.txt --strip-extras",
+      "command": "uv lock --upgrade",
       "options": {
         "cwd": "${workspaceFolder}"
       },

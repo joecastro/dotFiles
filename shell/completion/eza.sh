@@ -37,5 +37,3 @@ function kd_tree() {
 
 alias kt='kd_tree'
 alias realls='\ls -FHG'
-
-unset completions_dir

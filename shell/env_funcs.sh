@@ -311,6 +311,27 @@ function __auto_activate_venv() {
             # shellcheck disable=SC1091
             source ./.venv/bin/activate
             echo "${ICON_MAP[PYTHON]} Activating venv with $(python --version) for $PWD/.venv"
+            if command -v uv &> /dev/null; then
+                local uv_lock=""
+                if [[ -f uv.lock ]]; then
+                    uv_lock="uv.lock"
+                elif [[ -f pyproject.toml ]]; then
+                    uv_lock="pyproject.toml"
+                fi
+
+                if [[ -n "$uv_lock" ]]; then
+                    local sync_marker=".venv/.uv-sync-marker"
+                    local uv_python="$PWD/.venv/bin/python"
+                    if [[ ! -f "$sync_marker" || "$uv_lock" -nt "$sync_marker" ]]; then
+                        if uv sync; then
+                            touch "$sync_marker"
+                            echo "${ICON_MAP[PYTHON]} uv sync complete for $PWD ($uv_lock)"
+                        else
+                            echo "${ICON_MAP[WARNING]} uv sync failed (see output above)"
+                        fi
+                    fi
+                fi
+            fi
         # else: CONSIDER: test "$PWD" -ef "$VIRTUAL_ENV" && "🐍 Avoiding implicit activation of .venv environment because $VIRTUAL_ENV is already active"
         fi
     fi

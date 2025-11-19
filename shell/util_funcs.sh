@@ -15,12 +15,27 @@ function kill_port_proc() {
 
 function make_python_venv() {
     _dotTrace_enter "$@"
-    python3 -m venv ./.venv
+    # Maybe...
+    if ! command -v uv &> /dev/null; then
+        echo "uv is required but not installed. See https://docs.astral.sh/uv/getting-started/."
+        _dotTrace_exit 1
+        return 1
+    fi
+
+    uv venv ./.venv
     local rc=$?
     if (( rc != 0 )); then
         _dotTrace_exit "$rc"
         return "$rc"
     fi
+
+    uv sync --python ./.venv/bin/python --group dev
+    rc=$?
+    if (( rc != 0 )); then
+        _dotTrace_exit "$rc"
+        return "$rc"
+    fi
+
     cd .; cd -
     _dotTrace_exit 0
 }
