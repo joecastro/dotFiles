@@ -430,10 +430,7 @@ function __print_git_operation_state() {
 # https://git-scm.com/book/en/v2/Git-Basics-Git-Aliases
 
 function git-stash-apply-theirs() {
-    git stash apply "$@"
-
-    # If conflicts occur, accept the stashed ("theirs") version everywhere
-    if [ $? -ne 0 ]; then
+    if ! git stash apply "$@"; then
         git checkout --theirs -- .
         git add .
         echo "Conflicts resolved in favor of stashed changes."
@@ -461,4 +458,41 @@ function git-stage-branch() {
     git add -A
 
     echo "Staged all changes from branch '$other_branch' onto current branch."
+}
+
+function git-rewrite-to-base() {
+    if [[ -z "$1" ]]; then
+        echo "Usage: git rewrite-to-base <other-branch>" >&2
+        return 1
+    fi
+
+    local other_branch="$1"
+
+    # Make sure the branch exists
+    if ! git rev-parse --verify "$other_branch" >/dev/null 2>&1; then
+        echo "Branch '$other_branch' not found."
+        return 1
+    fi
+
+
+    # Create a snapshot commit of the current file state
+    git add -A
+    git commit -m "TEMP-SNAPSHOT" --allow-empty
+    snapshot_sha=$(git rev-parse HEAD)
+
+    # Reset branch to target branch's history
+    git fetch origin "$other_branch" >/dev/null 2>&1 || true
+    if git show-ref --verify --quiet "refs/heads/$other_branch"; then
+        git reset --hard "$other_branch"
+    else
+        git reset --hard "origin/$other_branch"
+    fi
+
+    # Forcefully restore the entire tree from the snapshot commit
+    git restore --worktree --source "$snapshot_sha" .
+
+    # Remove the snapshot commit (move HEAD back one)
+    git reset HEAD^ --quiet
+
+    echo "✔ History now matches '$other_branch'."
 }

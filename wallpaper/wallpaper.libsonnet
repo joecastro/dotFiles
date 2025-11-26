@@ -43,6 +43,7 @@ local SvgImage(path) = {
     icons: {
         android: SvgImage("android.svg"),
         bash: SvgImage("bash.svg"),
+        dolby: SvgImage("dolby_double_d.svg"),
         google: SvgImage("google_logo.svg"),
         google_cloud: SvgImage("google_cloud_icon.svg"),
         quake: SvgImage("quake.svg"),
