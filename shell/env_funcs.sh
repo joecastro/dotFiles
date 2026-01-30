@@ -464,25 +464,48 @@ else
 fi
 
 # Helper: compute minimal unique prefix of name among sibling directories under parent.
-# Prints the chosen prefix (at least 1 char). Assumes parent exists.
+# Prints the chosen prefix length.
 function __get_unique_prefix_length() {
     local parent="$1"
     local name="$2"
 
-    local -i len=1
-    if __need eza; then
-        while :; do
-            local -i count
-            count=$(eza -a1D --icons=never --color=never "${parent}" | grep -c "^${name:0:$len}")
-            if (( count <= 1 )); then
-                break
-            fi
-            ((len++))
-        done
+    # If parent doesn't exist or name empty, default to 1
+    if [[ -z "$name" || ! -d "$parent" ]]; then
+        printf '%s' 1
+        return 0
     fi
 
-    return $len
+    local -i maxlen=${#name}
+    local -i len
+    for (( len = 1; len <= maxlen; len++ )); do
+        local -i count=0
+        local entry base prefix
+        # compute prefix portably: zsh uses 1-based ${name[1,N]}, bash uses ${name:0:N}
+        if __is_shell_zsh; then
+            prefix="${name[1,$len]}"
+        else
+            prefix="${name:0:$len}"
+        fi
 
+        # iterate children safely (including dotfiles) without relying on shell glob options
+        while IFS= read -r -d '' entry; do
+            base="${entry##*/}"
+            [[ "$base" == "." || "$base" == ".." ]] && continue
+            # literal prefix match using shell globbing (safe against regex metacharacters)
+            if [[ "${base}" == "${prefix}"* ]]; then
+                ((count++))
+                (( count > 1 )) && break
+            fi
+        done < <(find "$parent" -mindepth 1 -maxdepth 1 -print0 2>/dev/null)
+
+        if (( count <= 1 )); then
+            printf '%s' "$len"
+            return 0
+        fi
+    done
+
+    printf '%s' "$maxlen"
+    return 0
 }
 
 function __print_abbreviated_path() {
@@ -490,44 +513,69 @@ function __print_abbreviated_path() {
     local input_string="$1"
     local root_base="$2"
     local result=""
-    local part
-    local lookup
+    local part lookup
+
+    # Trim trailing slashes (except when input is exactly "/")
+    if [[ "$input_string" != "/" ]]; then
+        input_string="${input_string%/}"
+    fi
+
+    # Preserve leading slash for absolute paths, strip for processing
+    local preserve_leading_slash=0
+    if [[ "${input_string}" == /* ]]; then
+        preserve_leading_slash=1
+        input_string="${input_string#/}"
+    fi
 
     local is_ctx_valid=1
     while [[ "$input_string" == *"/"* ]]; do
-        if (( is_ctx_valid )) && [[ ! -d "$root_base" ]]; then
+        if (( is_ctx_valid )) && [[ -n "$root_base" && ! -d "$root_base" ]]; then
             is_ctx_valid=0
         fi
+
         part="${input_string%%/*}"
         _dotTrace "Calculating abbreviation for part: $part"
         lookup="$(__cute_pwd_lookup "$part")"
         if [[ -n "$lookup" ]]; then
             result+="$lookup/"
         else
-            local -i prefix_len=1
+            local prefix_len=1
             if (( ${#part} <= 3 )); then
                 _dotTrace "Not abbreviating $part because it's short"
                 prefix_len=${#part}
             elif (( is_ctx_valid )); then
-                __get_unique_prefix_length "$root_base" "$part"
-                prefix_len=$?
+                prefix_len=$(__get_unique_prefix_length "${root_base:-.}" "$part")
+                prefix_len="${prefix_len//[^0-9]/}"
+                [[ -z "$prefix_len" ]] && prefix_len=1
                 _dotTrace "Unique prefix length for $part is $prefix_len"
             fi
             result+="${part:0:$prefix_len}/"
         fi
 
         if (( is_ctx_valid )); then
-            root_base="$root_base/$part"
+            if [[ -z "$root_base" ]]; then
+                root_base="$part"
+            else
+                root_base="$root_base/$part"
+            fi
         fi
 
         input_string="${input_string#*/}"
     done
-    _dotTrace "Calculating abbreviation for final part: $input_string"
-    lookup="$(__cute_pwd_lookup "$input_string")"
-    if [[ -n "$lookup" ]]; then
-        result+="$lookup"
-    else
-        result+="$input_string"
+
+    # Do not abbreviate the final (current) directory component.
+    _dotTrace "Final part (not abbreviated): $input_string"
+    if [[ -n "$input_string" ]]; then
+        lookup="$(__cute_pwd_lookup "$input_string")"
+        if [[ -n "$lookup" ]]; then
+            result+="$lookup"
+        else
+            result+="$input_string"
+        fi
+    fi
+
+    if (( preserve_leading_slash )); then
+        result="/${result}"
     fi
 
     printf '%s' "${result}"

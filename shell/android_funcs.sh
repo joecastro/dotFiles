@@ -107,7 +107,7 @@ function repo_current_project_branch_status() {
 }
 
 function repo_current_project_upstream() {
-    _dotTrace_enter "$@"
+    _dotTrace_enter
     local git_remote
     local manifest_revision
 

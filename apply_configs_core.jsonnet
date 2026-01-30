@@ -191,6 +191,7 @@ local env_vars = {
         EXPECT_NERD_FONTS: '${EXPECT_NERD_FONTS:-1}',
         DOTFILES_INIT_EPOCHREALTIME_START: "${EPOCHREALTIME:-}",
         NVM_DIR: "$HOME/.nvm",
+        AWS_PAGER: '',
     } + debug_properties + less_termcaps_properties,
     interactive_directives: less_termcaps_directives,
     aliases: {
