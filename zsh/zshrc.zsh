@@ -8,10 +8,6 @@ _dotTrace "Init loading .zshrc"
 
 #pragma requires colors.sh
 
-# Force homebrew before other completions.
-# Often it's going to be the way other tools are installed.
-#pragma wants completion/homebrew.sh
-
 # In some contexts .zprofile isn't sourced (e.g. when started inside the Python debug console.)
 # shellcheck source=SCRIPTDIR/zsh/zprofile.zsh
 source ${ZDOTDIR:-$HOME}/.zprofile

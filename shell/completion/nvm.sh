@@ -5,8 +5,6 @@
 #pragma requires debug.sh
 #pragma requires env_funcs.sh
 
-#pragma requires completion/homebrew.sh
-
 _dotTrace "Configuring nvm"
 
 nvm_prefix=""
@@ -20,7 +18,7 @@ if command -v brew >/dev/null 2>&1 && brew --prefix nvm >/dev/null 2>&1; then
             source "${nvm_prefix}/nvm.sh"
         fi
         if __is_shell_bash && [[ -s "${nvm_prefix}/etc/bash_completion.d/nvm" ]]; then
-            # shellcheck disable=SC1090
+            # shellcheck disable=SC1091
             source "${nvm_prefix}/etc/bash_completion.d/nvm"
         fi
         unset nvm_prefix
@@ -37,7 +35,7 @@ else
 fi
 
 if __is_shell_bash && [[ -s "${nvm_dir}/bash_completion" ]]; then
-    # shellcheck disable=SC1090
+    # shellcheck disable=SC1091
     source "${nvm_dir}/bash_completion"
 fi
 

@@ -5,8 +5,6 @@
 #pragma requires debug.sh
 #pragma requires env_funcs.sh
 
-#pragma requires completion/homebrew.sh
-
 _dotTrace "Configuring AWS CLI completions"
 
 if ! command -v aws >/dev/null 2>&1; then

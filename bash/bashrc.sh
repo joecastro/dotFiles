@@ -15,10 +15,6 @@ __is_shell_interactive || return
 #pragma requires git_funcs.sh
 #pragma requires completion/git-completion.bash
 
-# Force homebrew before other completions.
-# Often it's going to be the way other tools are installed.
-#pragma wants completion/homebrew.sh
-
 # PS1 components
 Time12h="\T"
 Time12a="\@"

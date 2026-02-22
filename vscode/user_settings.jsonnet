@@ -31,6 +31,12 @@ local editorSettings = {
 
 local terminalSettings = {
     "terminal.external.osxExec": "iTerm.app",
+    "terminal.integrated.automationProfile.osx": {
+        "args": [
+            "-l"
+        ],
+        "path": "/opt/homebrew/bin/zsh"
+    },
     "terminal.integrated.cursorStyle": "line",
     "terminal.integrated.defaultProfile.osx": "zsh",
     "terminal.integrated.enableImages": true,
