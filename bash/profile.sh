@@ -26,6 +26,8 @@ fi
 #pragma requires android_funcs.sh
 #pragma requires util_funcs.sh
 
+__activate_preferred_node_version >/dev/null 2>&1
+
 if __is_shell_bash; then
     #shellcheck source=./bashrc.sh
     [ -s ~/.bashrc ] && source ~/.bashrc

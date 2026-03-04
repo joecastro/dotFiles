@@ -487,8 +487,10 @@ function __get_unique_prefix_length() {
             prefix="${name:0:$len}"
         fi
 
-        # iterate children safely (including dotfiles) without relying on shell glob options
+        # Iterate children safely (including dot directories) without relying on shell glob options.
+        # Only directory-like entries participate in ambiguity checks.
         while IFS= read -r -d '' entry; do
+            [[ -d "$entry" ]] || continue
             base="${entry##*/}"
             [[ "$base" == "." || "$base" == ".." ]] && continue
             # literal prefix match using shell globbing (safe against regex metacharacters)
@@ -866,6 +868,76 @@ if __is_shell_interactive; then
 fi
 
 # Shared setup helpers for bash and zsh.
+
+function __ensure_nvm_loaded() {
+    _dotTrace_enter
+    if declare -f nvm >/dev/null 2>&1; then
+        _dotTrace_exit 0
+        return
+    fi
+
+    if [[ -z "${NVM_DIR:-}" ]]; then
+        export NVM_DIR="$HOME/.nvm"
+    fi
+
+    local nvm_dir="${NVM_DIR}"
+    if [[ -s "${nvm_dir}/nvm.sh" ]]; then
+        # shellcheck disable=SC1090,SC1091
+        source "${nvm_dir}/nvm.sh"
+        _dotTrace_exit 0
+        return
+    fi
+
+    local nvm_prefix=""
+    if command -v brew >/dev/null 2>&1 && nvm_prefix="$(brew --prefix nvm 2>/dev/null)"; then
+        if [[ -s "${nvm_prefix}/nvm.sh" ]]; then
+            # shellcheck disable=SC1090,SC1091
+            source "${nvm_prefix}/nvm.sh"
+            _dotTrace_exit 0
+            return
+        fi
+    fi
+
+    _dotTrace "nvm.sh not found in NVM_DIR or Homebrew prefix"
+    _dotTrace_exit 1
+}
+
+function __activate_preferred_node_version() {
+    _dotTrace_enter "$@"
+    local preferred_node="${DOTFILES_PREFERRED_NODE_VERSION:-24}"
+
+    if [[ "${DOTFILES_ACTIVE_NODE_VERSION:-}" == "${preferred_node}" ]]; then
+        _dotTrace_exit 0
+        return
+    fi
+
+    if ! __ensure_nvm_loaded; then
+        _dotTrace_exit 1
+        return
+    fi
+
+    if ! declare -f nvm >/dev/null 2>&1; then
+        _dotTrace_exit 1
+        return
+    fi
+
+    if nvm use --silent "${preferred_node}" >/dev/null 2>&1; then
+        export DOTFILES_ACTIVE_NODE_VERSION="${preferred_node}"
+        _dotTrace_exit 0
+        return
+    fi
+
+    if nvm use --silent default >/dev/null 2>&1; then
+        local current_node_version
+        current_node_version="$(nvm current 2>/dev/null)"
+        export DOTFILES_ACTIVE_NODE_VERSION="${current_node_version}"
+        _dotTrace_exit 0
+        return
+    fi
+
+    _dotTrace "Could not activate preferred node version: ${preferred_node}"
+    _dotTrace_exit 1
+}
 
 function ssh() {
     __cache_clear "KONSOLE_PROFILE"
