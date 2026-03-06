@@ -12,7 +12,8 @@ if [[ -z "$DOTFILES_INIT_EPOCHREALTIME_START" ]]; then
     _dotTrace "Inferred start time: $DOTFILES_INIT_EPOCHREALTIME_START"
 fi
 
-# Ensure homebrew is available to login/non-interactive shells through PATH
+# Ensure Homebrew and the preferred Node version are available to login and
+# non-interactive shells, not just interactive terminal sessions.
 if command -v brew >/dev/null 2>&1; then
     eval "$(brew shellenv)"
 elif [[ -x "/opt/homebrew/bin/brew" ]]; then

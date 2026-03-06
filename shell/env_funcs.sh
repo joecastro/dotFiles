@@ -902,14 +902,76 @@ function __ensure_nvm_loaded() {
     _dotTrace_exit 1
 }
 
+function __path_prepend_entry() {
+    _dotTrace_enter "$@"
+    local entry="$1"
+    if [[ -z "${entry}" ]]; then
+        _dotTrace_exit 1
+        return 1
+    fi
+
+    local rebuilt_path=""
+    local current_entry=""
+    while IFS= read -r current_entry; do
+        if [[ -z "${current_entry}" || "${current_entry}" == "${entry}" ]]; then
+            continue
+        fi
+        if [[ -n "${rebuilt_path}" ]]; then
+            rebuilt_path="${rebuilt_path}:"
+        fi
+        rebuilt_path="${rebuilt_path}${current_entry}"
+    done < <(printf '%s' "${PATH}" | tr ':' '\n')
+
+    PATH="${entry}${rebuilt_path:+:${rebuilt_path}}"
+    export PATH
+
+    if __is_shell_bash; then
+        hash -r 2>/dev/null || true
+    elif __is_shell_zsh; then
+        rehash 2>/dev/null || true
+    fi
+
+    _dotTrace_exit 0
+}
+
+function __path_remove_matching_entries() {
+    _dotTrace_enter "$@"
+    local entry_regex="${1:-}"
+    if [[ -z "${entry_regex}" ]]; then
+        _dotTrace_exit 1
+        return 1
+    fi
+
+    local rebuilt_path=""
+    local current_entry=""
+    while IFS= read -r current_entry; do
+        if [[ -z "${current_entry}" ]]; then
+            continue
+        fi
+        if [[ "${current_entry}" =~ ${entry_regex} ]]; then
+            continue
+        fi
+        if [[ -n "${rebuilt_path}" ]]; then
+            rebuilt_path="${rebuilt_path}:"
+        fi
+        rebuilt_path="${rebuilt_path}${current_entry}"
+    done < <(printf '%s' "${PATH}" | tr ':' '\n')
+
+    PATH="${rebuilt_path}"
+    export PATH
+
+    if __is_shell_bash; then
+        hash -r 2>/dev/null || true
+    elif __is_shell_zsh; then
+        rehash 2>/dev/null || true
+    fi
+
+    _dotTrace_exit 0
+}
+
 function __activate_preferred_node_version() {
     _dotTrace_enter "$@"
     local preferred_node="${DOTFILES_PREFERRED_NODE_VERSION:-24}"
-
-    if [[ "${DOTFILES_ACTIVE_NODE_VERSION:-}" == "${preferred_node}" ]]; then
-        _dotTrace_exit 0
-        return
-    fi
 
     if ! __ensure_nvm_loaded; then
         _dotTrace_exit 1
@@ -921,21 +983,28 @@ function __activate_preferred_node_version() {
         return
     fi
 
-    if nvm use --silent "${preferred_node}" >/dev/null 2>&1; then
-        export DOTFILES_ACTIVE_NODE_VERSION="${preferred_node}"
-        _dotTrace_exit 0
-        return
+    if ! nvm use --silent "${preferred_node}" >/dev/null 2>&1; then
+        if ! nvm use --silent default >/dev/null 2>&1; then
+            _dotTrace "Could not activate preferred node version: ${preferred_node}"
+            _dotTrace_exit 1
+            return
+        fi
     fi
 
-    if nvm use --silent default >/dev/null 2>&1; then
-        local current_node_version
-        current_node_version="$(nvm current 2>/dev/null)"
+    local current_node_version current_node_path current_node_bin
+    current_node_version="$(nvm current 2>/dev/null)"
+    current_node_path="$(nvm which current 2>/dev/null || true)"
+    current_node_bin="$(dirname "${current_node_path}")"
+
+    if [[ -n "${current_node_path}" && -x "${current_node_path}" && -d "${current_node_bin}" ]]; then
+        __path_remove_matching_entries '^'"${HOME}"'/\.nvm/versions/node/[^/]+/bin$'
+        __path_prepend_entry "${current_node_bin}"
         export DOTFILES_ACTIVE_NODE_VERSION="${current_node_version}"
         _dotTrace_exit 0
         return
     fi
 
-    _dotTrace "Could not activate preferred node version: ${preferred_node}"
+    _dotTrace "Activated nvm but could not resolve active node binary for ${current_node_version}"
     _dotTrace_exit 1
 }
 

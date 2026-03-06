@@ -6,7 +6,8 @@
 
 export BASH_SILENCE_DEPRECATION_WARNING=1
 
-# Ensure homebrew is available to login/non-interactive shells through PATH
+# Ensure Homebrew and the preferred Node version are available to login and
+# non-interactive shells, not just interactive terminal sessions.
 if command -v brew >/dev/null 2>&1; then
     eval "$(brew shellenv)"
 elif [[ -x "/opt/homebrew/bin/brew" ]]; then
