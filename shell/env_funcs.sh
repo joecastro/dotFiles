@@ -843,6 +843,10 @@ if __is_shell_interactive; then
         __cute_shell_header_add_info "${ICON_MAP[TOOLS]}"
     fi
 
+    if __has_homebrew && ! __is_homebrew_prioritized_above_system_bins; then
+        __cute_shell_header_add_warning "${ICON_MAP[APPLE]} Homebrew is behind system bins on PATH"
+    fi
+
     if __has_homebrew_node && __has_nvm_installed_node; then
         __cute_shell_header_add_warning "${ICON_MAP[NODEJS]} Homebrew node conflicts with nvm-managed node"
     fi

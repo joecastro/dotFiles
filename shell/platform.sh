@@ -87,6 +87,50 @@ function __configure_homebrew_shellenv() {
     fi
 }
 
+function __path_index_of_entry() {
+    local target_entry="${1:-}"
+    local current_entry=""
+    local index=0
+
+    [[ -n "${target_entry}" ]] || return 1
+
+    while IFS= read -r current_entry; do
+        if [[ "${current_entry}" == "${target_entry}" ]]; then
+            printf '%s' "${index}"
+            return 0
+        fi
+        index=$((index + 1))
+    done < <(printf '%s' "${PATH}" | tr ':' '\n')
+
+    return 1
+}
+
+function __is_homebrew_prioritized_above_system_bins() {
+    local homebrew_prefix="${HOMEBREW_PREFIX:-/opt/homebrew}"
+    local homebrew_bin="${homebrew_prefix}/bin"
+    local homebrew_index=""
+    local system_entry=""
+    local system_index=""
+
+    if [[ ! -d "${homebrew_bin}" ]]; then
+        return 1
+    fi
+
+    if ! homebrew_index="$(__path_index_of_entry "${homebrew_bin}")"; then
+        return 1
+    fi
+
+    for system_entry in /usr/bin /bin; do
+        if system_index="$(__path_index_of_entry "${system_entry}")"; then
+            if (( homebrew_index > system_index )); then
+                return 1
+            fi
+        fi
+    done
+
+    return 0
+}
+
 function __capture_inherited_nvm_node_bin_from_path() {
     local path_snapshot="${1:-${PATH}}"
     local path_entry=""
