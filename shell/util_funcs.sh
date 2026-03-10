@@ -326,7 +326,6 @@ function bootstrap_brew_packages() {
         macvim \
         git \
         go \
-        node \
         gradle \
         openjdk \
         flock \

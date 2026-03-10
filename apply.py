@@ -967,6 +967,7 @@ def process_macros_for_staged_file(host: Host, file: Path) -> None:
 def stage_local(host: Host, verbose: bool = False, skip_cache: bool = False) -> list[RunOp]:
     ops: list[RunOp] = []
     ops.append(f'Staging dotFiles for {host.hostname} in {host.local_staging_dir.as_posix()}')
+    ops.extend(ensure_directories_exist_ops({host.local_staging_dir}, already_exists_ok=False))
 
     # Decide if preprocessing is necessary based on host cache validity
     if skip_cache:
@@ -1047,11 +1048,12 @@ def stage_local(host: Host, verbose: bool = False, skip_cache: bool = False) -> 
                 files_to_process.add(candidate)
 
         for directory in directories_to_stage:
-            staged_dir = host.local_staging_dir / directory
-            if staged_dir.is_dir():
-                for candidate in staged_dir.rglob('*'):
-                    if is_path_eligible_for_macros(candidate):
-                        files_to_process.add(candidate)
+            source_dir = CWD / directory
+            if source_dir.is_dir():
+                for source_candidate in source_dir.rglob('*'):
+                    if not is_path_eligible_for_macros(source_candidate):
+                        continue
+                    files_to_process.add(host.local_staging_dir / source_candidate.relative_to(CWD))
 
         # Include any pre-staged files generated from jsonnet outputs.
         for file in host.prestaged_files:

@@ -327,7 +327,15 @@ unset completion_script
 [[ -e "${DOTFILES_CONFIG_ROOT}/local_secrets.sh" ]] && source "${DOTFILES_CONFIG_ROOT}/local_secrets.sh"
 
 if __activate_preferred_node_version >/dev/null 2>&1; then
-    __cute_shell_header_add_info "$ICON_MAP[NODEJS] $(nvm current)"
+    node_header_path="$(command -v node 2>/dev/null || true)"
+    node_header_version="$(node -v 2>/dev/null || true)"
+    if [[ -n "${node_header_path}" && -n "${node_header_version}" ]]; then
+        node_header_provider="$(__active_node_provider "${node_header_path}")"
+        __cute_shell_header_add_info "${ICON_MAP[NODEJS]} ${node_header_version} (${node_header_provider})"
+    fi
+    unset node_header_path
+    unset node_header_version
+    unset node_header_provider
 fi
 
 # echo "Welcome to $(__effective_distribution)!"

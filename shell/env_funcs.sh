@@ -843,6 +843,10 @@ if __is_shell_interactive; then
         __cute_shell_header_add_info "${ICON_MAP[TOOLS]}"
     fi
 
+    if __has_homebrew_node && __has_nvm_installed_node; then
+        __cute_shell_header_add_warning "${ICON_MAP[NODEJS]} Homebrew node conflicts with nvm-managed node"
+    fi
+
     case "$(__effective_distribution)" in
     "Ubuntu")
         __cute_shell_header_add_info "${ICON_MAP[UBUNTU]} "
@@ -969,9 +973,23 @@ function __path_remove_matching_entries() {
     _dotTrace_exit 0
 }
 
+function __restore_inherited_nvm_node_bin() {
+    _dotTrace_enter "$@"
+    local inherited_node_bin="${1:-}"
+    if [[ -z "${inherited_node_bin}" ]]; then
+        _dotTrace_exit 1
+        return 1
+    fi
+
+    __path_remove_matching_entries '^'"${HOME}"'/\.nvm/versions/node/[^/]+/bin$'
+    __path_prepend_entry "${inherited_node_bin}"
+    _dotTrace_exit 0
+}
+
 function __activate_preferred_node_version() {
     _dotTrace_enter "$@"
     local preferred_node="${DOTFILES_PREFERRED_NODE_VERSION:-24}"
+    unset DOTFILES_ACTIVE_NODE_VERSION
 
     if ! __ensure_nvm_loaded; then
         _dotTrace_exit 1
@@ -999,7 +1017,6 @@ function __activate_preferred_node_version() {
     if [[ -n "${current_node_path}" && -x "${current_node_path}" && -d "${current_node_bin}" ]]; then
         __path_remove_matching_entries '^'"${HOME}"'/\.nvm/versions/node/[^/]+/bin$'
         __path_prepend_entry "${current_node_bin}"
-        export DOTFILES_ACTIVE_NODE_VERSION="${current_node_version}"
         _dotTrace_exit 0
         return
     fi
