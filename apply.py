@@ -4,6 +4,16 @@
 
 from __future__ import annotations
 
+import sys
+
+# Fail early if Python is too old (this script uses `match` and other 3.10+ features).
+if sys.version_info < (3, 10):
+    sys.stderr.write(
+        f"ERROR: apply.py requires Python 3.10 or newer. "
+        f"Found {sys.version_info.major}.{sys.version_info.minor}\n"
+    )
+    sys.exit(1)
+
 import argparse
 import hashlib
 import json
@@ -13,7 +23,6 @@ import plistlib
 import re
 import shlex
 import subprocess
-import sys
 from dataclasses import dataclass, field, fields, is_dataclass
 from datetime import datetime
 from functools import partial
@@ -23,6 +32,42 @@ from textwrap import dedent
 from typing import (Any, Callable, Iterable, Optional, Sequence,
                     TypeAlias, cast)
 
+
+# Basic recovery safety net for when Path is broken and jsonnet can't be found.
+def find_jsonnet_command() -> str:
+    import shutil
+    # Prefer an on-path jsonnet if available
+    on_path = shutil.which('jsonnet')
+    if on_path:
+        return on_path
+
+    # Bundled binary shipped next to the script
+    bundled_path = Path(__file__).parent / 'jsonnet'
+    if bundled_path.is_file() and os.access(bundled_path, os.X_OK):
+        return bundled_path.as_posix()
+
+    # Common installation locations (macOS / Linux / user-local)
+    candidates = [
+        '/opt/homebrew/bin/jsonnet',          # Homebrew on Apple Silicon
+        '/usr/local/bin/jsonnet',             # Homebrew / local installs
+        '/usr/bin/jsonnet',                   # system location
+        str(Path.home() / '.local' / 'bin' / 'jsonnet'),
+    ]
+
+    # Windows common locations (if ever run on Windows)
+    if os.name == 'nt':
+        candidates.extend([
+            r'C:\Program Files\jsonnet\jsonnet.exe',
+            r'C:\Program Files (x86)\jsonnet\jsonnet.exe',
+        ])
+
+    for candidate in candidates:
+        p = Path(candidate)
+        if p.is_file() and os.access(p, os.X_OK):
+            return p.as_posix()
+
+    # Fallback: return bare name so subprocess usage will still attempt PATH and raise a clear error
+    return 'jsonnet'
 
 def mingify_path(path: str) -> str:
     path = re.sub(r'\\', '/', path)
@@ -732,7 +777,7 @@ def parse_jsonnet_now(jsonnet_file: Path, ext_vars: dict[str, str], output_strin
 
 
 def parse_jsonnet(jsonnet_file: Path, ext_vars: dict[str, str], output_path: Optional[Path] = None, is_multicast: bool = False, output_string: bool = False) -> list[str]:
-    proc_args = ['jsonnet']
+    proc_args = [find_jsonnet_command()]
 
     if output_string or (output_path and (output_path.suffix == '.sh' or output_path.suffix == '.ini')):
         proc_args.append('-S')
