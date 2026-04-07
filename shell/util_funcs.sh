@@ -172,6 +172,66 @@ else
     }
 fi
 
+jsort() {
+  local inplace=0
+  local OPTIND opt
+
+  while getopts ":i" opt; do
+    case "$opt" in
+      i) inplace=1 ;;
+      *) echo "Usage: jsort [-i] <file.json>" >&2; return 1 ;;
+    esac
+  done
+  shift $((OPTIND - 1))
+
+  local file="$1"
+  [[ -z "$file" ]] && { echo "Usage: jsort [-i] <file.json>" >&2; return 1; }
+  [[ ! -f "$file" ]] && { echo "File not found: $file" >&2; return 1; }
+
+  if (( inplace )); then
+    local tmp
+    tmp="$(mktemp)" || return 1
+    if jq -S . "$file" > "$tmp"; then
+      mv "$tmp" "$file"
+    else
+      rm -f "$tmp"
+      return 1
+    fi
+  else
+    jq -S . "$file"
+  fi
+}
+
+ysort() {
+  local inplace=0
+  local OPTIND opt
+
+  while getopts ":i" opt; do
+    case "$opt" in
+      i) inplace=1 ;;
+      *) echo "Usage: ysort [-i] <file.yaml>" >&2; return 1 ;;
+    esac
+  done
+  shift $((OPTIND - 1))
+
+  local file="$1"
+  [[ -z "$file" ]] && { echo "Usage: ysort [-i] <file.yaml>" >&2; return 1; }
+  [[ ! -f "$file" ]] && { echo "File not found: $file" >&2; return 1; }
+
+  if (( inplace )); then
+    local tmp
+    tmp="$(mktemp)" || return 1
+    if yq eval 'sort_keys(..)' "$file" > "$tmp"; then
+      mv "$tmp" "$file"
+    else
+      rm -f "$tmp"
+      return 1
+    fi
+  else
+    yq eval 'sort_keys(..)' "$file"
+  fi
+}
+
 function bootstrap_fonts() {
     local download_dir="$HOME/Downloads"
     local font_dir="$HOME/.local/share/fonts"
