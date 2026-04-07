@@ -164,13 +164,22 @@ function __git_is_on_default_branch() {
     _dotTrace_enter
 
     local default_branch
+    local current_branch
+
     default_branch=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|^refs/remotes/origin/||')
+
     if [[ -z "${default_branch}" ]]; then
+        default_branch=$(git symbolic-ref refs/remotes/upstream/HEAD 2>/dev/null | sed 's|^refs/remotes/upstream/||')
+    fi
+
+    if [[ -z "${default_branch}" ]]; then
+        _dotTrace "Could not determine default branch from origin/HEAD or upstream/HEAD"
+        _dotTrace_exit 1
         return 1
     fi
 
-    local current_branch
     current_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+
     [[ "${current_branch}" == "${default_branch}" ]]
     _dotTrace_exit $?
 }
@@ -288,13 +297,13 @@ function __print_git_pwd() {
     local style_hint="normal"
     local operation_state
     local -i is_on_default_branch \
-             is_in_dotgit \
-             is_head_on_branch \
-             has_remote \
-             has_unpushed \
-             is_unchanged \
-             is_detached_head \
-             is_in_operation
+                is_in_dotgit \
+                is_head_on_branch \
+                has_remote \
+                has_unpushed \
+                is_unchanged \
+                is_detached_head \
+                is_in_operation
 
     __git_is_on_default_branch
     is_on_default_branch=$(( $? == 0 ))
@@ -364,7 +373,7 @@ function __print_git_pwd() {
         fi
     fi
 
-    if (( is_in_operation )) then
+    if (( is_in_operation )); then
         working_pwd+=${operation_state}
     fi
 
@@ -377,7 +386,7 @@ function __print_git_pwd() {
     repo_path=$(__git_root)
 
     local anchored_path="${repo_path##*/}"
-    if (( is_in_dotgit)); then
+    if (( is_in_dotgit )); then
         anchored_path+="/.git${PWD##*.git}"
         _dotTrace "anchored_path (in .git dir): ${anchored_path}"
     else
@@ -409,19 +418,19 @@ function __git_branch_color_hint() {
 }
 
 function __print_git_operation_state() {
-  local git_dir
-  git_dir="$(git rev-parse --git-dir 2>/dev/null)" || return 1
+    local git_dir
+    git_dir="$(git rev-parse --git-dir 2>/dev/null)" || return 1
 
-  # Operation states
-  [[ -d "$git_dir/rebase-merge" ]] && echo "|REBASE-m" && return
-  [[ -d "$git_dir/rebase-apply" ]] && {
-    [[ -f "$git_dir/rebase-apply/applying" ]] && echo "|AM" || echo "|REBASE"
-    return
-  }
-  [[ -f "$git_dir/MERGE_HEAD" ]] && echo "|MERGING" && return
-  [[ -f "$git_dir/CHERRY_PICK_HEAD" ]] && echo "|CHERRY-PICKING" && return
-  [[ -f "$git_dir/REVERT_HEAD" ]] && echo "|REVERTING" && return
-  [[ -f "$git_dir/BISECT_LOG" ]] && echo "|BISECTING" && return
+    # Operation states
+    [[ -d "$git_dir/rebase-merge" ]] && echo "|REBASE-m" && return
+    [[ -d "$git_dir/rebase-apply" ]] && {
+        [[ -f "$git_dir/rebase-apply/applying" ]] && echo "|AM" || echo "|REBASE"
+        return
+    }
+    [[ -f "$git_dir/MERGE_HEAD" ]] && echo "|MERGING" && return
+    [[ -f "$git_dir/CHERRY_PICK_HEAD" ]] && echo "|CHERRY-PICKING" && return
+    [[ -f "$git_dir/REVERT_HEAD" ]] && echo "|REVERTING" && return
+    [[ -f "$git_dir/BISECT_LOG" ]] && echo "|BISECTING" && return
 }
 
 # TODO: Evolve these into git subcommands
@@ -474,7 +483,6 @@ function git-rewrite-to-base() {
         return 1
     fi
 
-
     # Create a snapshot commit of the current file state
     git add -A
     git commit -m "TEMP-SNAPSHOT" --allow-empty
@@ -495,4 +503,320 @@ function git-rewrite-to-base() {
     git reset HEAD^ --quiet
 
     echo "✔ History now matches '$other_branch'."
+}
+
+# Git Shadow Fork Utilities
+#
+# Maintain a private writable mirror of a repository while tracking a separate
+# upstream source repository. This is useful when:
+#
+# * The source repository should remain read-only
+# * You want a private mirror for experimentation or backups
+#
+# Remote Convention
+# -----------------
+#   upstream = canonical source repository (read-only)
+#   origin   = private writable mirror (your repo)
+#
+# The helpers ensure that:
+#   • fetch/merge operations pull from upstream
+#   • push operations go to origin
+#   • accidental pushes to upstream can be blocked
+#
+# Setup
+# -----
+# 1. Clone your private mirror (or create an empty repo)
+#
+#    git clone git@github.com:you/private-mirror.git project
+#    cd project
+#
+# 2. Configure remotes
+#
+#    git-shadow-init <upstream-url> <private-url>
+#
+# 3. Install upstream push protection (optional but recommended)
+#
+#    git-shadow-protect-upstream
+#
+# Daily Workflow
+# --------------
+#
+# Sync your local branch with upstream:
+#
+#    git-shadow-sync
+#
+# Sync a specific branch:
+#
+#    git-shadow-sync main
+#
+# Publish your current branch to your mirror:
+#
+#    git-shadow-publish
+#
+# Check status vs both remotes:
+#
+#    git-shadow-status
+#
+# Example Workflow
+# ----------------
+#
+#    git-shadow-sync main
+#    git checkout -b feature/my-change
+#    <make changes>
+#    git commit
+#    git-shadow-publish
+
+function __git_shadow_default_branch() {
+    _dotTrace_enter
+
+    local default_branch
+    default_branch=$(git symbolic-ref refs/remotes/upstream/HEAD 2>/dev/null | sed 's|^refs/remotes/upstream/||')
+
+    if [[ -z "${default_branch}" ]]; then
+        default_branch=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|^refs/remotes/origin/||')
+    fi
+
+    if [[ -z "${default_branch}" ]]; then
+        default_branch="main"
+    fi
+
+    printf '%s' "${default_branch}"
+    _dotTrace_exit 0
+}
+
+function git-shadow-init() {
+    _dotTrace_enter "$@"
+
+    local upstream_url="${1:-}"
+    local private_url="${2:-}"
+
+    if [[ -z "${upstream_url}" || -z "${private_url}" ]]; then
+        echo "Usage: git-shadow-init <upstream-url> <private-url>" >&2
+        _dotTrace_exit 1
+        return 1
+    fi
+
+    if ! __git_is_in_repo; then
+        echo "Not inside a git repository" >&2
+        _dotTrace_exit 1
+        return 1
+    fi
+
+    if git remote get-url upstream >/dev/null 2>&1; then
+        git remote set-url upstream "${upstream_url}" || {
+            _dotTrace_exit 1
+            return 1
+        }
+    else
+        git remote add upstream "${upstream_url}" || {
+            _dotTrace_exit 1
+            return 1
+        }
+    fi
+
+    if git remote get-url origin >/dev/null 2>&1; then
+        git remote set-url origin "${private_url}" || {
+            _dotTrace_exit 1
+            return 1
+        }
+    else
+        git remote add origin "${private_url}" || {
+            _dotTrace_exit 1
+            return 1
+        }
+    fi
+
+    git config remote.pushDefault origin
+    git config push.default current
+
+    echo "Configured remotes:"
+    git remote -v
+
+    _dotTrace_exit 0
+}
+
+function git-shadow-sync() {
+    _dotTrace_enter "$@"
+
+    local branch="${1:-}"
+
+    if ! __git_is_in_repo; then
+        echo "Not inside a git repository" >&2
+        _dotTrace_exit 1
+        return 1
+    fi
+
+    if ! git remote get-url upstream >/dev/null 2>&1; then
+        echo "Missing remote: upstream" >&2
+        _dotTrace_exit 1
+        return 1
+    fi
+
+    if [[ -z "${branch}" ]]; then
+        branch=$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)
+    fi
+
+    if [[ -z "${branch}" ]]; then
+        branch="$(__git_shadow_default_branch)"
+    fi
+
+    _dotTrace "Syncing branch: ${branch}"
+
+    git fetch upstream --prune --tags || {
+        _dotTrace_exit 1
+        return 1
+    }
+
+    if git show-ref --verify --quiet "refs/heads/${branch}"; then
+        git checkout "${branch}" || {
+            _dotTrace_exit 1
+            return 1
+        }
+    else
+        if ! git show-ref --verify --quiet "refs/remotes/upstream/${branch}"; then
+            echo "Branch 'upstream/${branch}' not found." >&2
+            _dotTrace_exit 1
+            return 1
+        fi
+
+        git checkout -b "${branch}" "upstream/${branch}" || {
+            _dotTrace_exit 1
+            return 1
+        }
+    fi
+
+    git merge --ff-only "upstream/${branch}" || {
+        _dotTrace_exit 1
+        return 1
+    }
+
+    git branch --set-upstream-to="upstream/${branch}" "${branch}" >/dev/null 2>&1 || true
+
+    _dotTrace_exit 0
+}
+
+function git-shadow-publish() {
+    _dotTrace_enter "$@"
+
+    local branch="${1:-}"
+
+    if ! __git_is_in_repo; then
+        echo "Not inside a git repository" >&2
+        _dotTrace_exit 1
+        return 1
+    fi
+
+    if ! git remote get-url origin >/dev/null 2>&1; then
+        echo "Missing remote: origin" >&2
+        _dotTrace_exit 1
+        return 1
+    fi
+
+    if [[ -z "${branch}" ]]; then
+        branch=$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)
+    fi
+
+    if [[ -z "${branch}" ]]; then
+        echo "Could not determine current branch." >&2
+        _dotTrace_exit 1
+        return 1
+    fi
+
+    if ! git show-ref --verify --quiet "refs/heads/${branch}"; then
+        echo "Local branch '${branch}' not found." >&2
+        _dotTrace_exit 1
+        return 1
+    fi
+
+    git push origin "${branch}:${branch}" || {
+        _dotTrace_exit 1
+        return 1
+    }
+
+    git push origin --tags || {
+        _dotTrace_exit 1
+        return 1
+    }
+
+    _dotTrace_exit 0
+}
+
+function git-shadow-status() {
+    _dotTrace_enter "$@"
+
+    local branch="${1:-}"
+
+    if ! __git_is_in_repo; then
+        echo "Not inside a git repository" >&2
+        _dotTrace_exit 1
+        return 1
+    fi
+
+    if [[ -z "${branch}" ]]; then
+        branch=$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)
+    fi
+
+    if [[ -z "${branch}" ]]; then
+        branch="$(__git_shadow_default_branch)"
+    fi
+
+    echo "== remotes =="
+    git remote -v
+    echo
+
+    echo "== branch =="
+    git status --short --branch
+    echo
+
+    if git show-ref --verify --quiet "refs/remotes/upstream/${branch}"; then
+        echo "== ahead/behind vs upstream/${branch} =="
+        git rev-list --left-right --count "upstream/${branch}...HEAD"
+        echo
+    fi
+
+    if git show-ref --verify --quiet "refs/remotes/origin/${branch}"; then
+        echo "== ahead/behind vs origin/${branch} =="
+        git rev-list --left-right --count "origin/${branch}...HEAD"
+        echo
+    fi
+
+    _dotTrace_exit 0
+}
+
+function git-shadow-protect-upstream() {
+    _dotTrace_enter "$@"
+
+    if ! __git_is_in_repo; then
+        echo "Not inside a git repository" >&2
+        _dotTrace_exit 1
+        return 1
+    fi
+
+    mkdir -p .git/hooks || {
+        _dotTrace_exit 1
+        return 1
+    }
+
+    cat > .git/hooks/pre-push <<'HOOK'
+#!/usr/bin/env bash
+set -euo pipefail
+
+remote_name="${1:-}"
+remote_url="${2:-}"
+upstream_url="$(git remote get-url upstream 2>/dev/null || true)"
+
+if [[ -n "${upstream_url}" && "${remote_url}" == "${upstream_url}" && "${GIT_SHADOW_ALLOW_UPSTREAM_PUSH:-0}" != "1" ]]; then
+    echo "Blocked push to upstream." >&2
+    echo "Override once with: GIT_SHADOW_ALLOW_UPSTREAM_PUSH=1 git push upstream ..." >&2
+    exit 1
+fi
+HOOK
+
+    chmod +x .git/hooks/pre-push || {
+        _dotTrace_exit 1
+        return 1
+    }
+
+    echo "Installed .git/hooks/pre-push"
+    _dotTrace_exit 0
 }
