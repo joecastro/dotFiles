@@ -77,6 +77,35 @@ function __is_homebrew_bin() {
     [[ $bin_path == ${HOMEBREW_PREFIX:-/opt/homebrew}/bin/* ]]
 }
 
+function __ensure_path_entry_after_homebrew_bins() {
+    local target_entry="$1"
+    local homebrew_prefix="${HOMEBREW_PREFIX:-/opt/homebrew}"
+    local homebrew_bin="${homebrew_prefix}/bin"
+    local homebrew_sbin="${homebrew_prefix}/sbin"
+
+    [[ -d "${target_entry}" ]] || return 0
+
+    case ":${PATH}:" in
+    *:"${target_entry}":*)
+        return 0
+        ;;
+    esac
+
+    case "${PATH}" in
+    "${homebrew_bin}:${homebrew_sbin}:"*)
+        PATH="${homebrew_bin}:${homebrew_sbin}:${target_entry}:${PATH#"${homebrew_bin}:${homebrew_sbin}:"}"
+        ;;
+    "${homebrew_bin}:"*)
+        PATH="${homebrew_bin}:${target_entry}:${PATH#"${homebrew_bin}:"}"
+        ;;
+    *)
+        PATH="${target_entry}:${PATH}"
+        ;;
+    esac
+
+    export PATH
+}
+
 function __configure_homebrew_shellenv() {
     if command -v brew >/dev/null 2>&1; then
         eval "$(brew shellenv)"
@@ -85,6 +114,11 @@ function __configure_homebrew_shellenv() {
     elif [[ -x "/usr/local/bin/brew" ]]; then
         eval "$(/usr/local/bin/brew shellenv)"
     fi
+
+    # brew shellenv on Apple Silicon rebuilds PATH around /opt/homebrew and can
+    # drop tools installed in the standard local prefix, such as Docker Desktop.
+    __ensure_path_entry_after_homebrew_bins "/usr/local/bin"
+    __ensure_path_entry_after_homebrew_bins "/usr/local/sbin"
 }
 
 function __path_index_of_entry() {
