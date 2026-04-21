@@ -68,13 +68,11 @@ function __git_is_in_worktree() {
         return
     fi
 
-    # git rev-parse --is-inside-work-tree | grep "true" > /dev/null 2>&1
-    local root_worktree active_worktree
+    local git_dir common_dir
+    git_dir=$(git rev-parse --absolute-git-dir 2>/dev/null)
+    common_dir=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
 
-    root_worktree=$(git worktree list | head -n1 | awk '{print $1;}')
-    active_worktree=$(git worktree list | grep "$(git rev-parse --show-toplevel)" | head -n1 | awk '{print $1;}')
-
-    [[ "${root_worktree}" != "${active_worktree}" ]]
+    [[ -n "${git_dir}" && -n "${common_dir}" && "${git_dir}" != "${common_dir}" ]]
     _dotTrace_exit $?
 }
 
@@ -91,7 +89,7 @@ function __git_compare_upstream_changes() {
 
     if [[ -n "${DISABLE_GIT_STATUS_FETCH}" ]]; then
         _dotTrace "auto-fetch disabled via DISABLE_GIT_STATUS_FETCH"
-    else
+    elif [[ -n "${ENABLE_GIT_STATUS_FETCH}" ]]; then
         local max_age=${GIT_STATUS_FETCH_MAX_AGE:-300.000}
         local last_fetch fetch_age
         if ! last_fetch=$(__git_last_fetch_epoch); then
@@ -101,10 +99,12 @@ function __git_compare_upstream_changes() {
         _dotTrace "last fetch epoch: $last_fetch (age: ${fetch_age:-N/A}s, max allowed: ${max_age}s)"
         if (( $(awk "BEGIN {print ($fetch_age > $max_age)}") )); then
             _dotTrace "fetch age exceeds max age; performing git fetch"
-            git fetch --quiet 2>/dev/null || true
+            git fetch --quiet >/dev/null 2>&1 || true
         else
             _dotTrace "fetch age within max age; skipping git fetch"
         fi
+    else
+        _dotTrace "prompt-time fetch disabled; using locally known upstream state"
     fi
 
     local -i ahead=0 behind=0
@@ -140,24 +140,25 @@ __git_last_fetch_epoch() {
     _dotTrace_enter
 
     local fetch_head
-    fetch_head="$(git rev-parse --show-toplevel)/.git/FETCH_HEAD"
+    fetch_head="$(git rev-parse --path-format=absolute --git-path FETCH_HEAD 2>/dev/null)"
 
     # bail if no fetch record yet
-    if [ ! -f "$fetch_head" ]; then
-        echo "" >&2
+    if [[ -z "${fetch_head}" || ! -f "${fetch_head}" ]]; then
+        _dotTrace_exit 1
         return 1
     fi
 
     local mtime
     if stat --version >/dev/null 2>&1; then
         # GNU stat (Linux)
-        mtime=$(stat -c %Y "$fetch_head")
+        mtime=$(stat -c %Y "${fetch_head}")
     else
         # BSD/macOS stat
-        mtime=$(stat -f %m "$fetch_head")
+        mtime=$(stat -f %m "${fetch_head}")
     fi
 
-    echo "$mtime"
+    printf '%s' "${mtime}"
+    _dotTrace_exit 0
 }
 
 function __git_is_on_default_branch() {
@@ -276,15 +277,16 @@ function __print_git_worktree() {
         return 1
     fi
 
-    local root_worktree active_worktree submodule_worktree
+    local root_worktree active_worktree common_dir submodule_worktree
     submodule_worktree=$(git rev-parse --show-superproject-working-tree)
     if [[ "${submodule_worktree}" != "" ]]; then
         printf '%s' "${ICON_MAP[LEGO]}${submodule_worktree##*/}"
         return 0
     fi
 
-    root_worktree=$(git worktree list | head -n1 | awk '{print $1;}')
-    active_worktree=$(git worktree list | grep "$(git rev-parse --show-toplevel)" | head -n1 | awk '{print $1;}')
+    common_dir=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || return 1
+    active_worktree=$(git rev-parse --show-toplevel 2>/dev/null) || return 1
+    root_worktree=$(dirname "${common_dir}")
 
     printf '%s' "${ICON_MAP[LEGO]}${root_worktree##*/}:${active_worktree##*/}"
 }
@@ -326,12 +328,13 @@ function __print_git_pwd() {
         color_hint="yellow"
         style_hint="bold"
     else
+        local -i upstream_change_mask=0
         __git_is_nothing_to_commit
         is_unchanged=$(( $? == 0 ))
-        __git_has_remote_changes
-        has_remote=$(( $? == 0 ))
-        __git_has_unpushed_changes
-        has_unpushed=$(( $? == 0 ))
+        __git_compare_upstream_changes
+        upstream_change_mask=$?
+        has_remote=$(( (upstream_change_mask & 4) != 0 ))
+        has_unpushed=$(( (upstream_change_mask & 2) != 0 ))
     fi
 
     if (( has_remote && has_unpushed )); then
