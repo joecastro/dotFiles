@@ -1,16 +1,27 @@
 {
     "[python]": {
-      "editor.defaultFormatter": "charliermarsh.ruff"
+        "editor.codeActionsOnSave": {
+            "source.fixAll.ruff": "explicit",
+            "source.organizeImports.ruff": "explicit"
+        },
+        "editor.defaultFormatter": "charliermarsh.ruff",
+        "editor.formatOnSave": true
     },
     "files.exclude": {
-        "__pycache__": true,
-        "out": true,
-        ".venv": true,
+        "**/__pycache__": true,
+        "**/.ruff_cache": true,
+        "**/.uv_cache": true,
+        "**/.venv": true,
         "**/.git": true,
         "**/.DS_Store": true,
-        ".gitignore": true,
-        ".gitattributes": true,
-        ".pylintrc": true
+        "out": true
+    },
+    "files.watcherExclude": {
+        "**/__pycache__/**": true,
+        "**/.ruff_cache/**": true,
+        "**/.uv_cache/**": true,
+        "**/.venv/**": true,
+        "**/out/**": true
     },
     "peacock.color": "#1857a4",
     "peacock.remoteColor": "#1857a4",
@@ -37,6 +48,13 @@
     ],
     "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
     "python.analysis.typeCheckingMode": "standard",
+    "search.exclude": {
+        "**/__pycache__": true,
+        "**/.ruff_cache": true,
+        "**/.uv_cache": true,
+        "**/.venv": true,
+        "**/out": true
+    },
     "workbench.colorCustomizations": {
         "activityBar.activeBackground": "#1f6fd0",
         "activityBar.background": "#1f6fd0",
