@@ -26,15 +26,15 @@ fi
 
 if __is_shell_bash; then
     if declare -p precmd_functions &>/dev/null; then
-        precmd_functions+=("__iterm_badge_nodeenv")
+        precmd_functions+=("__iterm_badge_nodeenv" "__iterm_tab_title_cwd")
     else
         __cute_shell_header_add_warning "bash-preexec not loaded"
     fi
 elif __is_shell_zsh; then
     if typeset -p precmd_functions &>/dev/null; then
-        precmd_functions+=(__iterm_badge_nodeenv)
+        precmd_functions+=(__iterm_badge_nodeenv __iterm_tab_title_cwd)
     else
-        precmd_functions=(__iterm_badge_nodeenv)
+        precmd_functions=(__iterm_badge_nodeenv __iterm_tab_title_cwd)
     fi
 fi
 
@@ -88,6 +88,52 @@ function iterm_get_attention() {
 function iterm_set_badge_text() {
     local badge_text="$1"
     printf "\033]1337;SetBadgeFormat=%s\007" "$(echo -n "${badge_text}" | base64)"
+}
+
+function __iterm_title_path_component() {
+    local directory="$1"
+    if __cute_pwd_lookup "${directory}" emoji; then
+        return 0
+    fi
+    printf '%s' "${directory##*/}"
+    return 1
+}
+
+function __iterm_tab_title_cwd() {
+    local current_dir="${PWD}"
+    local title=""
+    local component=""
+    local -i has_symbolic_root=0
+
+    if component="$(__iterm_title_path_component "${current_dir}")"; then
+        has_symbolic_root=1
+    fi
+    title="${component}"
+
+    if (( ! has_symbolic_root )) && [[ "${current_dir}" != "/" ]]; then
+        local parent_dir="${current_dir%/*}"
+        [[ -z "${parent_dir}" ]] && parent_dir="/"
+
+        # Root is only represented by the tree icon when it is the cwd itself.
+        if [[ "${parent_dir}" != "/" ]]; then
+            if component="$(__iterm_title_path_component "${parent_dir}")"; then
+                has_symbolic_root=1
+            fi
+            title="${component}/${title}"
+        fi
+
+        if (( ! has_symbolic_root )) && [[ "${parent_dir}" != "/" ]]; then
+            local grandparent_dir="${parent_dir%/*}"
+            [[ -z "${grandparent_dir}" ]] && grandparent_dir="/"
+            if [[ "${grandparent_dir}" != "/" ]]; then
+                component="$(__iterm_title_path_component "${grandparent_dir}")"
+                title="${component}/${title}"
+            fi
+        fi
+    fi
+
+    # OSC 1 sets the icon/tab title.
+    printf '\033]1;%s\007' "${title}"
 }
 
 function __iterm_badge_nodeenv() {

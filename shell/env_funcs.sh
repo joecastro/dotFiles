@@ -365,89 +365,100 @@ function __is_style_name() {
 
 if ! __is_shell_old_bash; then
 
+    function __print_path_icon() {
+        local icon_key="$1"
+        local icon_variant="${2:-nerd}"
+        if [[ "${icon_variant}" == "emoji" ]]; then
+            printf '%s' "${EMOJI_ICON_MAP[$icon_key]}"
+        else
+            printf '%s' "${ICON_MAP[$icon_key]}"
+        fi
+    }
+
     function __cute_pwd_lookup() {
         local ACTIVE_DIR=$1
+        local icon_variant="${2:-nerd}"
 
         case "${ACTIVE_DIR}" in
         "${HOME}")
-            printf '%s' "${ICON_MAP[COD_HOME]}"
+            __print_path_icon COD_HOME "${icon_variant}"
             return 0
             ;;
         "${HOME}/Desktop")
-            printf '%s' "${ICON_MAP[DESKTOP]}"
+            __print_path_icon DESKTOP "${icon_variant}"
             return 0
             ;;
         "${HOME}/Documents")
-            printf '%s' "${ICON_MAP[DOCUMENTS]}"
+            __print_path_icon DOCUMENTS "${icon_variant}"
             return 0
             ;;
         "${HOME}/Videos")
-            printf '%s' "${ICON_MAP[VIDEOS]}"
+            __print_path_icon VIDEOS "${icon_variant}"
             return 0
             ;;
         "${HOME}/Downloads")
-            printf '%s' "${ICON_MAP[DOWNLOAD]}"
+            __print_path_icon DOWNLOAD "${icon_variant}"
             return 0
             ;;
         "${HOME}/Pictures")
-            printf '%s' "${ICON_MAP[PICTURES]}"
+            __print_path_icon PICTURES "${icon_variant}"
             return 0
             ;;
         "${HOME}/Music")
-            printf '%s' "${ICON_MAP[MUSIC]}"
+            __print_path_icon MUSIC "${icon_variant}"
             return 0
             ;;
         "${HOME}/.ssh")
-            printf '%s' "${ICON_MAP[KEY]}"
+            __print_path_icon KEY "${icon_variant}"
             return 0
             ;;
         "/")
-            printf '%s' "${ICON_MAP[FAE_TREE]}"
+            __print_path_icon FAE_TREE "${icon_variant}"
             return 0
             ;;
         esac
 
         if __is_on_wsl && test "${ACTIVE_DIR}" = "${WIN_USERPROFILE}"; then
-            printf '%s' "${ICON_MAP[HOME_FOLDER]}"
+            __print_path_icon HOME_FOLDER "${icon_variant}"
             return 0
         fi
 
         if __repo_is_in_repo_root "${ACTIVE_DIR}"; then
-            printf '%s' "${ICON_MAP[ANDROID_HEAD]}"
+            __print_path_icon ANDROID_HEAD "${icon_variant}"
             return 0
         fi
 
         case "$(echo "${ACTIVE_DIR##*/}" | tr '[:upper:]' '[:lower:]')" in
         "src")
-            printf '%s' "${ICON_MAP[COD_SAVE]}"
+            __print_path_icon COD_SAVE "${icon_variant}"
             return 0
             ;;
         "source")
-            printf '%s' "${ICON_MAP[COD_SAVE]}"
+            __print_path_icon COD_SAVE "${icon_variant}"
             return 0
             ;;
         "github")
-            printf '%s' "${ICON_MAP[GITHUB]}"
+            __print_path_icon GITHUB "${icon_variant}"
             return 0
             ;;
         "cloud")
-            printf '%s' "${ICON_MAP[CLOUD]}"
+            __print_path_icon CLOUD "${icon_variant}"
             return 0
             ;;
         "$(echo "$USER" | tr '[:upper:]' '[:lower:]')")
-            printf '%s' "${ICON_MAP[ACCOUNT]}"
+            __print_path_icon ACCOUNT "${icon_variant}"
             return 0
             ;;
         "apps")
-            printf '%s' "${ICON_MAP[APPS]}"
+            __print_path_icon APPS "${icon_variant}"
             return 0
             ;;
         "www" | "web" | "website" | "websites")
-            printf '%s' "${ICON_MAP[WEB]}"
+            __print_path_icon WEB "${icon_variant}"
             return 0
             ;;
         "ios")
-            printf '%s' "${ICON_MAP[IOS]}"
+            __print_path_icon IOS "${icon_variant}"
             return 0
             ;;
         esac
@@ -818,6 +829,16 @@ function __cute_shell_header() {
         fi
     fi
 
+    # Evaluate PATH-dependent warnings only after shell initialization has
+    # finished mutating PATH, immediately before the header is rendered.
+    if __has_homebrew && ! __is_homebrew_prioritized_above_system_bins; then
+        __cute_shell_header_add_warning "${ICON_MAP[APPLE]} Homebrew is behind system bins on PATH"
+    fi
+
+    if __has_homebrew_node && __has_nvm_installed_node; then
+        __cute_shell_header_add_warning "${ICON_MAP[NODEJS]} Homebrew node conflicts with nvm-managed node"
+    fi
+
     # Build line prefix for nested shells
     local prefix=""
     if (( SHLVL > 1 )); then
@@ -860,14 +881,6 @@ if __is_shell_interactive; then
 
     if __is_tool_window; then
         __cute_shell_header_add_info "${ICON_MAP[TOOLS]}"
-    fi
-
-    if __has_homebrew && ! __is_homebrew_prioritized_above_system_bins; then
-        __cute_shell_header_add_warning "${ICON_MAP[APPLE]} Homebrew is behind system bins on PATH"
-    fi
-
-    if __has_homebrew_node && __has_nvm_installed_node; then
-        __cute_shell_header_add_warning "${ICON_MAP[NODEJS]} Homebrew node conflicts with nvm-managed node"
     fi
 
     case "$(__effective_distribution)" in

@@ -11,7 +11,7 @@ local config = {
         'window-decoration': 'client',
         'background-image': wallpaper.backgrounds.hokusai_mt_fuji.target_path(host),
         'background-image-fit': 'cover',
-        'background-image-opacity': 0.6,
+        'background-image-opacity': 0.4,
     },
     keybindings: {
         'ctrl+t': 'new_tab',

@@ -131,7 +131,7 @@ local ItermColorWhite = ItermColor(Colors.White);
         "Shortcut": "",
         "Silence Bell": false,
         "Space": 0,
-        "Sync Title": false,
+        "Sync Title": true,
         "Tags": [],
         "Terminal Type": "xterm-256color",
         "Thin Strokes": 3,
