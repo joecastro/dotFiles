@@ -1,23 +1,149 @@
 #!/usr/bin/env python3
 
 import sys
+from collections.abc import Sequence
 
 # Inspired by https://raw.githubusercontent.com/ryanoasis/nerd-fonts/master/bin/scripts/test-fonts.sh
 
 RESET_COLOR = '\033[0m'
 BG_COLOR_BORDER = '\033[48;5;8m'
 
-EMOJI_TESTSET = sorted([
-    '😀', '😁', '😂', '😃', '😅', '😆', '😉', '😊', '😋', '😎', '😍', '😘', '😗', '😙', '😚', '🙂',
-    '🤩', '🥳', '😇', '🤠', '🤡', '🤥', '🤫', '🤭', '🧐', '🤓', '😈', '👿', '👹', '👺', '💀', '👻',
-    '👽', '👾', '🤖', '💩', '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿', '😾', '🙈', '🙉', '🙊',
-    '💋', '💌', '💘', '💝', '💖', '💗', '💓', '💞', '💕', '💟', '💔', '🧡', '💛', '💚', '💙', '💜',
-    '🤎', '🖤', '🤍', '💯', '💢', '💥', '💫', '💦', '💨', '💣', '💬', '💭',
-    '💤', '🤗', '🤔', '😐', '😑', '😶', '🙄', '😏', '😣', '😥', '😮', '🤐', '😯', '😪', '😫', '😴',
-    '😌', '😛', '😜', '😝', '🤤', '😒', '😓', '😔', '😕', '🙃', '🤑', '😲', '🙁', '😖', '😞', '😟',
-    '😤', '😢', '😭', '😦', '😧', '😨', '😩', '🤯', '😬', '😰', '😱', '😳', '🤪', '😵', '😡', '😠',
-    '🤬', '😷', '🤒', '🤕', '🤢', '🤮', '🤧'
-], key=ord)
+EMOJI_TESTSET = sorted(
+    [
+        '😀',
+        '😁',
+        '😂',
+        '😃',
+        '😅',
+        '😆',
+        '😉',
+        '😊',
+        '😋',
+        '😎',
+        '😍',
+        '😘',
+        '😗',
+        '😙',
+        '😚',
+        '🙂',
+        '🤩',
+        '🥳',
+        '😇',
+        '🤠',
+        '🤡',
+        '🤥',
+        '🤫',
+        '🤭',
+        '🧐',
+        '🤓',
+        '😈',
+        '👿',
+        '👹',
+        '👺',
+        '💀',
+        '👻',
+        '👽',
+        '👾',
+        '🤖',
+        '💩',
+        '😺',
+        '😸',
+        '😹',
+        '😻',
+        '😼',
+        '😽',
+        '🙀',
+        '😿',
+        '😾',
+        '🙈',
+        '🙉',
+        '🙊',
+        '💋',
+        '💌',
+        '💘',
+        '💝',
+        '💖',
+        '💗',
+        '💓',
+        '💞',
+        '💕',
+        '💟',
+        '💔',
+        '🧡',
+        '💛',
+        '💚',
+        '💙',
+        '💜',
+        '🤎',
+        '🖤',
+        '🤍',
+        '💯',
+        '💢',
+        '💥',
+        '💫',
+        '💦',
+        '💨',
+        '💣',
+        '💬',
+        '💭',
+        '💤',
+        '🤗',
+        '🤔',
+        '😐',
+        '😑',
+        '😶',
+        '🙄',
+        '😏',
+        '😣',
+        '😥',
+        '😮',
+        '🤐',
+        '😯',
+        '😪',
+        '😫',
+        '😴',
+        '😌',
+        '😛',
+        '😜',
+        '😝',
+        '🤤',
+        '😒',
+        '😓',
+        '😔',
+        '😕',
+        '🙃',
+        '🤑',
+        '😲',
+        '🙁',
+        '😖',
+        '😞',
+        '😟',
+        '😤',
+        '😢',
+        '😭',
+        '😦',
+        '😧',
+        '😨',
+        '😩',
+        '🤯',
+        '😬',
+        '😰',
+        '😱',
+        '😳',
+        '🤪',
+        '😵',
+        '😡',
+        '😠',
+        '🤬',
+        '😷',
+        '🤒',
+        '🤕',
+        '🤢',
+        '🤮',
+        '🤧',
+    ],
+    key=ord,
+)
 
 NF_EXAMPLAR_TESTSET = ['', '', '', '', '', '󰀲', '', '', '', '', '󱂵', '']
 NF_CHESS_TESTSET = ['♚', '♛', '♜', '♝', '♞', '♟', '♔', '♕', '♖', '♗', '♘', '♙']
@@ -25,7 +151,8 @@ NF_CHESS_TESTSET = ['♚', '♛', '♜', '♝', '♞', '♟', '♔', '♕', '♖
 CELL_WIDTH = 6
 HALF_BAR = '═' * (int)(CELL_WIDTH / 2)
 
-def print_top_line(length):
+
+def print_top_line(length: int) -> None:
     top_line_start = f'{BG_COLOR_BORDER}╔{HALF_BAR}'
     top_line_middle = f'{HALF_BAR}╦{HALF_BAR}'
     top_line_end = f'{HALF_BAR}╗{RESET_COLOR}'
@@ -33,7 +160,7 @@ def print_top_line(length):
     print(top_line_start + (top_line_middle * (length - 1)) + top_line_end)
 
 
-def print_bottom_line(length):
+def print_bottom_line(length: int) -> None:
     bottom_line_start = f'{BG_COLOR_BORDER}╚{HALF_BAR}'
     bottom_line_middle = f'{HALF_BAR}╩{HALF_BAR}'
     bottom_line_end = f'{HALF_BAR}╝{RESET_COLOR}'
@@ -41,7 +168,7 @@ def print_bottom_line(length):
     print(bottom_line_start + (bottom_line_middle * (length - 1)) + bottom_line_end)
 
 
-def print_middle_line(length, next_line_length):
+def print_middle_line(length: int, next_line_length: int) -> None:
     line_start = f'{BG_COLOR_BORDER}╠{HALF_BAR}'
     line_middle = f'{HALF_BAR}╬{HALF_BAR}'
     line_end = f'{HALF_BAR}╣{RESET_COLOR}'
@@ -56,7 +183,9 @@ def print_middle_line(length, next_line_length):
         print((bottom_line_middle * (length - next_line_length - 1)) + bottom_line_end)
 
 
-def print_codes_line(code_color, char_color, chunk, line_length):
+def print_codes_line(
+    code_color: str, char_color: str, chunk: Sequence[int], line_length: int
+) -> None:
     vertical_bar = f'{BG_COLOR_BORDER}║{RESET_COLOR}'
     underline = '\033[4m'
 
@@ -66,7 +195,7 @@ def print_codes_line(code_color, char_color, chunk, line_length):
 
     all_codes = vertical_bar
     all_chars = vertical_bar
-    for (code, char) in header_line:
+    for code, char in header_line:
         leftpad_code = (int)((CELL_WIDTH - len(code)) / 2)
         rightpad_code = CELL_WIDTH - len(code) - leftpad_code
         # Emoji characters print with variable width in different fonts,
@@ -75,24 +204,28 @@ def print_codes_line(code_color, char_color, chunk, line_length):
         leftpad_char = (int)((CELL_WIDTH - char_width) / 2)
         rightpad_char = CELL_WIDTH - char_width - leftpad_char
         all_codes += f'{code_color}{" " * (leftpad_code)}{underline}{code}{RESET_COLOR}{code_color}{" " * rightpad_code}{vertical_bar}'
-        all_chars += f'{char_color}{" " * leftpad_char}{char}{" " * rightpad_char}{vertical_bar}'
+        all_chars += (
+            f'{char_color}{" " * leftpad_char}{char}{" " * rightpad_char}{vertical_bar}'
+        )
 
     print(f'{all_codes}\n{all_chars}')
 
 
 # Given a range of numbers print all unicode code-points.
-def print_unicode_range(seq, wrap_at=16):
+def print_unicode_range(seq: Sequence[int], wrap_at: int = 16) -> None:
     # Use alternating colors to see which symbols extend outside the bounding boxes.
     bg_color_code_alt = '\033[48;5;246m'
     bg_color_code = '\033[48;5;240m'
     bg_color_char_alt = '\033[48;5;66m'
     bg_color_char = '\033[48;5;60m'
 
-    sequence = []
+    sequence: list[int] = []
     sequence.extend(seq)
 
-    chunked_sequences = [sequence[i * wrap_at:(i + 1) * wrap_at]
-                         for i in range((len(sequence) + wrap_at - 1) // wrap_at)]
+    chunked_sequences = [
+        sequence[i * wrap_at : (i + 1) * wrap_at]
+        for i in range((len(sequence) + wrap_at - 1) // wrap_at)
+    ]
 
     # If there's only one line, then let the table display narrower
     line_length = len(chunked_sequences[0])
@@ -121,7 +254,7 @@ def print_unicode_range(seq, wrap_at=16):
     print_bottom_line(len(chunked_sequences[-1]))
 
 
-def list_to_ranges(lst):
+def list_to_ranges(lst: Sequence[int]) -> list[int]:
     if len(lst) % 2 != 0:
         raise ValueError('This is expected to be an even number of items')
     ranges = []
@@ -130,34 +263,69 @@ def list_to_ranges(lst):
     return ranges
 
 
-def convert_symbols_to_ranges(symbols):
+def convert_symbols_to_ranges(symbols: Sequence[str]) -> list[int]:
     filtered_symbols = [c for c in symbols if len(c) == 1]
     if len(filtered_symbols) != len(symbols):
-        print(f'Warning: {len(symbols) - len(filtered_symbols)} symbols were filtered out')
+        print(
+            f'Warning: {len(symbols) - len(filtered_symbols)} symbols were filtered out'
+        )
         print(f'Filtered out symbols: {", ".join([c for c in symbols if len(c) != 1])}')
-    return list(sum([(ord(c), ord(c)+1) for c in filtered_symbols], ()))
+    return list(sum([(ord(c), ord(c) + 1) for c in filtered_symbols], ()))
 
 
-def main():
+def main() -> int:
     categories = {
         # 'ASCII control codes': [0, 32, 127, 128],
         'ASCII': [32, 127],
         'Emoji': convert_symbols_to_ranges(EMOJI_TESTSET),
-        'Nerd Fonts - Pomicons': [0xe000, 0xe00a],
-        'Nerd Fonts - Powerline + Extras': [0xe0a0, 0xE0A4, 0xE0B0, 0xE0C0, 0xE0C0, 0xE0C9, 0xE0CC, 0xE0D0, 0xE0D0, 0xE0D3, 0xE0D4, 0xe0d5, 0xE0D6, 0xE0D8],
-        'Nerd Fonts - Symbols original': [0xe5fa, 0xe62c],
+        'Nerd Fonts - Pomicons': [0xE000, 0xE00A],
+        'Nerd Fonts - Powerline + Extras': [
+            0xE0A0,
+            0xE0A4,
+            0xE0B0,
+            0xE0C0,
+            0xE0C0,
+            0xE0C9,
+            0xE0CC,
+            0xE0D0,
+            0xE0D0,
+            0xE0D3,
+            0xE0D4,
+            0xE0D5,
+            0xE0D6,
+            0xE0D8,
+        ],
+        'Nerd Fonts - Symbols original': [0xE5FA, 0xE62C],
         # 198 icons
-        'Nerd Fonts - Devicons': [0xe700, (0xe700 + 198)],
-        'Nerd Fonts - Font awesome': [0xf000, 0xf2e1],
-        'Nerd Fonts - Font awesome extension': [0xe200, 0xe2aa],
-        'Nerd Fonts - Octicons': [0xf400, 0xf4a9, 0x2665, 0x2666, 0x26A1, 0x26A2, 0xf27c, 0xf27d],
-        'Nerd Fonts - Font Logos': [0xf300, 0xf330],
-        'Nerd Fonts - Font Power Symbols': [0x23fb, 0x23ff, 0x2b58, 0x2b59],
-        'Nerd Fonts - Material Design Icons (first few)': [0xf0001, 0xf0031],
+        'Nerd Fonts - Devicons': [0xE700, (0xE700 + 198)],
+        'Nerd Fonts - Font awesome': [0xF000, 0xF2E1],
+        'Nerd Fonts - Font awesome extension': [0xE200, 0xE2AA],
+        'Nerd Fonts - Octicons': [
+            0xF400,
+            0xF4A9,
+            0x2665,
+            0x2666,
+            0x26A1,
+            0x26A2,
+            0xF27C,
+            0xF27D,
+        ],
+        'Nerd Fonts - Font Logos': [0xF300, 0xF330],
+        'Nerd Fonts - Font Power Symbols': [0x23FB, 0x23FF, 0x2B58, 0x2B59],
+        'Nerd Fonts - Material Design Icons (first few)': [0xF0001, 0xF0031],
         # 228 icons
-        'Nerd Fonts - Weather Icons': [0xe300, (0xe300 + 228)],
-        'Nerd Fonts - Chess Icons': [0xed5f, 0xed67, 0xe29c, 0xe29d, 0xe25f, 0xe264, 0xf0857, 0xf085d],
-        'Nerd Fonts - ZSH Prompt Icons': convert_symbols_to_ranges(NF_EXAMPLAR_TESTSET)
+        'Nerd Fonts - Weather Icons': [0xE300, (0xE300 + 228)],
+        'Nerd Fonts - Chess Icons': [
+            0xED5F,
+            0xED67,
+            0xE29C,
+            0xE29D,
+            0xE25F,
+            0xE264,
+            0xF0857,
+            0xF085D,
+        ],
+        'Nerd Fonts - ZSH Prompt Icons': convert_symbols_to_ranges(NF_EXAMPLAR_TESTSET),
     }
 
     for name, range_list in categories.items():
@@ -168,5 +336,5 @@ def main():
     return 0
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     sys.exit(main())

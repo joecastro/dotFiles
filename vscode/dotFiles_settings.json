@@ -1,6 +1,6 @@
 {
     "[python]": {
-      "editor.defaultFormatter": "ms-python.black-formatter"
+      "editor.defaultFormatter": "charliermarsh.ruff"
     },
     "files.exclude": {
         "__pycache__": true,
@@ -36,7 +36,7 @@
         "${workspaceFolder}/zsh"
     ],
     "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
-    "python.analysis.typeCheckingMode": "strict",
+    "python.analysis.typeCheckingMode": "standard",
     "workbench.colorCustomizations": {
         "activityBar.activeBackground": "#1f6fd0",
         "activityBar.background": "#1f6fd0",

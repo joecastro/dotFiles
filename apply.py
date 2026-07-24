@@ -9,8 +9,8 @@ import sys
 # Fail early if Python is too old (this script uses `match` and other 3.10+ features).
 if sys.version_info < (3, 10):
     sys.stderr.write(
-        f"ERROR: apply.py requires Python 3.10 or newer. "
-        f"Found {sys.version_info.major}.{sys.version_info.minor}\n"
+        f'ERROR: apply.py requires Python 3.10 or newer. '
+        f'Found {sys.version_info.major}.{sys.version_info.minor}\n'
     )
     sys.exit(1)
 
@@ -29,13 +29,13 @@ from functools import partial
 from itertools import chain
 from pathlib import Path
 from textwrap import dedent
-from typing import (Any, Callable, Iterable, Optional, Sequence,
-                    TypeAlias, cast)
+from typing import Any, Callable, Iterable, Optional, Sequence, TypeAlias, cast
 
 
 # Basic recovery safety net for when Path is broken and jsonnet can't be found.
 def find_jsonnet_command() -> str:
     import shutil
+
     # Prefer an on-path jsonnet if available
     on_path = shutil.which('jsonnet')
     if on_path:
@@ -48,18 +48,20 @@ def find_jsonnet_command() -> str:
 
     # Common installation locations (macOS / Linux / user-local)
     candidates = [
-        '/opt/homebrew/bin/jsonnet',          # Homebrew on Apple Silicon
-        '/usr/local/bin/jsonnet',             # Homebrew / local installs
-        '/usr/bin/jsonnet',                   # system location
+        '/opt/homebrew/bin/jsonnet',  # Homebrew on Apple Silicon
+        '/usr/local/bin/jsonnet',  # Homebrew / local installs
+        '/usr/bin/jsonnet',  # system location
         str(Path.home() / '.local' / 'bin' / 'jsonnet'),
     ]
 
     # Windows common locations (if ever run on Windows)
     if os.name == 'nt':
-        candidates.extend([
-            r'C:\Program Files\jsonnet\jsonnet.exe',
-            r'C:\Program Files (x86)\jsonnet\jsonnet.exe',
-        ])
+        candidates.extend(
+            [
+                r'C:\Program Files\jsonnet\jsonnet.exe',
+                r'C:\Program Files (x86)\jsonnet\jsonnet.exe',
+            ]
+        )
 
     for candidate in candidates:
         p = Path(candidate)
@@ -68,6 +70,7 @@ def find_jsonnet_command() -> str:
 
     # Fallback: return bare name so subprocess usage will still attempt PATH and raise a clear error
     return 'jsonnet'
+
 
 def mingify_path(path: str) -> str:
     path = re.sub(r'\\', '/', path)
@@ -86,18 +89,27 @@ def path_is_within(child: Path, parent: Path) -> bool:
     except Exception:
         return False
 
+
 CWD: Path = Path.cwd()
 OS_CWD = mingify_path(os.getcwd())
 OUT_DIR_ROOT: Path = CWD / 'out'
 HOME_VAR_PATH = Path('"${HOME}"')
-DOTFILES_CONFIG_ROOT = Path(os.environ.get('DOTFILES_CONFIG_ROOT', Path.home() / '.config/' / 'dotShell'))
+DOTFILES_CONFIG_ROOT = Path(
+    os.environ.get('DOTFILES_CONFIG_ROOT', Path.home() / '.config/' / 'dotShell')
+)
 XDG_CONFIG_HOME = Path(os.environ.get('XDG_CONFIG_HOME', Path.home() / '.config'))
 
-DECLARE_SCRIPT_DIR_LINE = 'SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"'
+DECLARE_SCRIPT_DIR_LINE = (
+    'SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"'
+)
 SCRIPTDIR_VAR_PATH = Path('"${SCRIPT_DIR}"')
 
 # Fixup mDNS hostname mangling on macOS
-LOCALHOST_NAME = platform.uname().node if not platform.uname().node.endswith('.local') else platform.uname().node[:-6]
+LOCALHOST_NAME = (
+    platform.uname().node
+    if not platform.uname().node.endswith('.local')
+    else platform.uname().node[:-6]
+)
 
 LOCALHOST_KERNEL = platform.uname().system.lower()
 
@@ -131,27 +143,33 @@ def capture_infocmp_definition(term: str) -> tuple[Optional[str], Optional[str]]
     except subprocess.CalledProcessError as exc:
         stderr = (exc.stderr or exc.stdout or str(exc)).strip()
         details = f' ({stderr})' if stderr else ''
-        return None, f'WARN: infocmp failed for {term}{details}; skipping Ghostty terminfo embedding.'
+        return (
+            None,
+            f'WARN: infocmp failed for {term}{details}; skipping Ghostty terminfo embedding.',
+        )
 
     output = result.stdout.rstrip('\n')
     if not output:
-        return None, f'WARN: infocmp returned no data for {term}; skipping Ghostty terminfo embedding.'
+        return (
+            None,
+            f'WARN: infocmp returned no data for {term}; skipping Ghostty terminfo embedding.',
+        )
 
     return output, None
+
 
 def json_ready(obj: Any) -> Any:
     if is_dataclass(obj):
         return {f.name: json_ready(getattr(obj, f.name)) for f in fields(obj)}
     elif isinstance(obj, dict):
-        typed_obj = cast(dict[Any, Any], obj)
-        return {json_ready(k): json_ready(v) for k, v in typed_obj.items()}
+        return {json_ready(k): json_ready(v) for k, v in obj.items()}
     elif isinstance(obj, (list, tuple)):
-        seq = cast(list[Any], list(obj)) # type: ignore
-        return [json_ready(item) for item in seq]
+        return [json_ready(item) for item in obj]
     elif isinstance(obj, set):
-        return sorted(list(obj)) # type: ignore
+        return sorted((json_ready(item) for item in obj), key=repr)
     else:
         return obj
+
 
 RunCmd: TypeAlias = list[str]
 RunThunk: TypeAlias = Callable[[], Any]
@@ -183,15 +201,17 @@ class Host:
     # Host out layout
     local_out_dir: Path = field(init=False, default=Path())
     local_staging_dir: Path = field(init=False, default=Path())  # final staged files
-    local_jsonnet_dir: Path = field(init=False, default=Path())  # cache for jsonnet outputs
-    local_curl_dir: Path = field(init=False, default=Path())     # cache for curl downloads
+    local_jsonnet_dir: Path = field(
+        init=False, default=Path()
+    )  # cache for jsonnet outputs
+    local_curl_dir: Path = field(init=False, default=Path())  # cache for curl downloads
     cache_json_path: Path = field(init=False, default=Path())
     remote_staging_dir: str = field(init=False, default='')
     # Cache validity flags computed on init
     jsonnet_cache_valid: bool = field(init=False, default=False)
     curl_cache_valid: bool = field(init=False, default=False)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
 
         self.home = mingify_path(self.home)
         if self.hostname == 'localhost':
@@ -204,11 +224,13 @@ class Host:
         # Final staged paths are 'dest' directly; generation happens into cache dirs.
         promoted_jsonnet_entries: list[tuple[str, str, str]] = []
         if isinstance(self.jsonnet_maps, list):
-            for (src, dest, target) in self.jsonnet_maps:
+            for src, dest, target in self.jsonnet_maps:
                 self.file_maps[dest] = target
                 self.prestaged_files.add(dest)
                 promoted_jsonnet_entries.append((src, dest, target))
-            self.jsonnet_maps = {src: dest for (src, dest, _) in promoted_jsonnet_entries}
+            self.jsonnet_maps = {
+                src: dest for (src, dest, _) in promoted_jsonnet_entries
+            }
         else:
             self.jsonnet_maps = dict(self.jsonnet_maps)
 
@@ -216,18 +238,20 @@ class Host:
         self.directory_maps = dict(self.directory_maps)
         promoted_multi_entries: list[tuple[str, str, str]] = []
         if isinstance(self.jsonnet_multi_maps, list):
-            for (src, dest_dir, target_dir) in self.jsonnet_multi_maps:
+            for src, dest_dir, target_dir in self.jsonnet_multi_maps:
                 self.directory_maps[dest_dir] = target_dir
                 self.prestaged_directories.add(dest_dir)
                 promoted_multi_entries.append((src, dest_dir, target_dir))
-            self.jsonnet_multi_maps = {src: dest_dir for (src, dest_dir, _) in promoted_multi_entries}
+            self.jsonnet_multi_maps = {
+                src: dest_dir for (src, dest_dir, _) in promoted_multi_entries
+            }
         else:
             self.jsonnet_multi_maps = dict(self.jsonnet_multi_maps)
 
         # Promote curl maps without exposing cache dirs
         promoted_curl_entries: list[tuple[str, str, str]] = []
         if isinstance(self.curl_maps, list):
-            for (src, dest, target) in self.curl_maps:
+            for src, dest, target in self.curl_maps:
                 self.file_maps[dest] = target
                 self.prestaged_files.add(dest)
                 promoted_curl_entries.append((src, dest, target))
@@ -279,21 +303,21 @@ class Host:
 
     def _cached_jsonnet_outputs_exist(self) -> bool:
         file_targets = [
-            self.local_jsonnet_dir / rel_path
-            for rel_path in self.jsonnet_maps.values()
+            self.local_jsonnet_dir / rel_path for rel_path in self.jsonnet_maps.values()
         ]
         dir_targets = [
             self.local_jsonnet_dir / rel_dir
             for rel_dir in self.jsonnet_multi_maps.values()
         ]
-        return all(path.is_file() for path in file_targets) and all(path.is_dir() for path in dir_targets)
+        return all(path.is_file() for path in file_targets) and all(
+            path.is_dir() for path in dir_targets
+        )
 
     def _cached_curl_outputs_exist(self) -> bool:
         return all(
             (self.local_curl_dir / rel_path).is_file()
             for rel_path in self.curl_maps.values()
         )
-
 
     def __repr__(self) -> str:
         return self.hostname
@@ -314,13 +338,19 @@ class Host:
         hasher.update(json.dumps(ext_vars, sort_keys=True).encode('utf-8'))
 
         # Entry file names for stability
-        entry_files = sorted(set(self.jsonnet_maps.keys()) | set(self.jsonnet_multi_maps.keys()))
+        entry_files = sorted(
+            set(self.jsonnet_maps.keys()) | set(self.jsonnet_multi_maps.keys())
+        )
         for entry in entry_files:
             hasher.update(entry.encode('utf-8'))
 
         # Hash Jsonnet sources outside OUT_DIR_ROOT
-        candidates = [p for p in root.rglob('*.jsonnet') if not path_is_within(p, out_root)]
-        candidates += [p for p in root.rglob('*.libsonnet') if not path_is_within(p, out_root)]
+        candidates = [
+            p for p in root.rglob('*.jsonnet') if not path_is_within(p, out_root)
+        ]
+        candidates += [
+            p for p in root.rglob('*.libsonnet') if not path_is_within(p, out_root)
+        ]
         candidates.sort()
         for p in candidates:
             with open(p, 'rb') as f:
@@ -331,7 +361,14 @@ class Host:
     def read_cache_hashes(self) -> dict[str, str]:
         try:
             with open(self.cache_json_path, 'r', encoding='utf-8') as f:
-                return json.load(f)
+                data = json.load(f)
+                if not isinstance(data, dict):
+                    return {}
+                return {
+                    key: value
+                    for key, value in data.items()
+                    if isinstance(key, str) and isinstance(value, str)
+                }
         except FileNotFoundError:
             return {}
         except json.JSONDecodeError:
@@ -360,8 +397,9 @@ class Host:
         with open(self.cache_json_path, 'w', encoding='utf-8') as f:
             json.dump(current, f, indent=4, sort_keys=True)
 
-
-    def get_inflated_macro(self, key: str, file_path: Path, pragma_arg: Optional[str] = None) -> list[str]:
+    def get_inflated_macro(
+        self, key: str, file_path: Path, pragma_arg: Optional[str] = None
+    ) -> list[str]:
         """Inflate a macro template defined in Jsonnet with built-in tokens.
 
         Supported tokens in templates:
@@ -370,12 +408,12 @@ class Host:
         - @@PRAGMA_ARG  -> argument following the pragma on the source line
         """
         arg_value = pragma_arg or ''
-        now_value = datetime.now().strftime("%Y-%m-%d %H:%M")
+        now_value = datetime.now().strftime('%Y-%m-%d %H:%M')
         file_stem_upper = file_path.stem.upper()
         return [
             v.replace('@@FILE_NAME', file_stem_upper)
-             .replace('@@NOW', now_value)
-             .replace('@@PRAGMA_ARG', arg_value)
+            .replace('@@NOW', now_value)
+            .replace('@@PRAGMA_ARG', arg_value)
             for v in self.macros.get(key, [])
         ]
 
@@ -386,8 +424,13 @@ class Host:
         converted: list[RunOp] = []
         for op in ops:
             if isinstance(op, list):
-                op = cast(list[str], op)
-                converted.append(['ssh', self.connection_host or self.hostname, make_shell_command(op)])
+                converted.append(
+                    [
+                        'ssh',
+                        self.connection_host or self.hostname,
+                        make_shell_command(op),
+                    ]
+                )
             elif isinstance(op, str):
                 converted.append(op)
             else:
@@ -436,9 +479,11 @@ class Ec2WorkstationMetadata:
 
     METADATA_PATH = XDG_CONFIG_HOME / '.ec2-devbox-meta.json'
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not self.public_ip:
-            raise ValueError('Workstation metadata missing public_ip; cannot establish SSH connection')
+            raise ValueError(
+                'Workstation metadata missing public_ip; cannot establish SSH connection'
+            )
 
     @staticmethod
     def load() -> Optional[Ec2WorkstationMetadata]:
@@ -467,6 +512,7 @@ class Ec2WorkstationMetadata:
 
         return Ec2WorkstationMetadata(**values)
 
+
 @dataclass
 class Config:
     hosts: list[Host]
@@ -484,13 +530,14 @@ class Config:
 
         ext_vars = get_ext_vars()
 
-        config_dict: dict[str, Any] = cast(dict[str, Any], parse_jsonnet_now(config_path, ext_vars))
+        config_dict: dict[str, Any] = cast(
+            dict[str, Any], parse_jsonnet_now(config_path, ext_vars)
+        )
 
         hosts_raw: list[dict[str, Any]] = config_dict.get('hosts', [])
 
         config_dict['hosts'] = [Host(**host) for host in hosts_raw]
         return Config(**config_dict)
-
 
     def get_localhost(self) -> Optional[Host]:
         return next((h for h in self.hosts if h.is_localhost), None)
@@ -505,8 +552,11 @@ class Config:
         return None
 
     def update(self, metadata: Ec2WorkstationMetadata) -> None:
-        host = next(h for t in (metadata.instance_name, metadata.instance_id, 'ec2-workstation')
-                    if (h := self.find_host(t)))
+        host = next(
+            h
+            for t in (metadata.instance_name, metadata.instance_id, 'ec2-workstation')
+            if (h := self.find_host(t))
+        )
 
         host.add_alias('ec2-workstation')
         host.add_alias(metadata.public_ip)
@@ -526,13 +576,12 @@ def print_ops(ops: list[RunOp], quiet: bool = False) -> None:
             if not quiet:
                 print(entry)
         elif isinstance(entry, list):
-            entry = cast(list[str], entry)
             print(f'DEBUG: {" ".join(entry)}')
         elif callable(entry):
             func = getattr(entry, 'func', None)
             keywords = getattr(entry, 'keywords', None)
             if func and isinstance(keywords, dict):
-                func_args = ', '.join(f"{k}={v}" for k, v in keywords.items()) # type: ignore
+                func_args = ', '.join(f'{k}={v}' for k, v in keywords.items())
                 print(f'DEBUG: invoking {func.__name__}({func_args})')
             else:
                 fallback_name = getattr(entry, '__name__', repr(entry))
@@ -549,9 +598,10 @@ def run_ops(ops: list[RunOp], quiet: bool = False) -> None:
             if not quiet:
                 print(entry)
         elif isinstance(entry, list):
-            if not all(isinstance(arg, str) for arg in entry): # type: ignore
-                raise TypeError(f'All elements of a command list must be strings: {entry}')
-            entry = cast(list[str], entry)
+            if not all(isinstance(arg, str) for arg in entry):
+                raise TypeError(
+                    f'All elements of a command list must be strings: {entry}'
+                )
             try:
                 subprocess.run(entry, check=True)
             except subprocess.CalledProcessError:
@@ -560,7 +610,9 @@ def run_ops(ops: list[RunOp], quiet: bool = False) -> None:
             except FileNotFoundError:
                 # Hacky workaround for running in Cygwin.
                 if entry[0] == '/bin/bash':
-                    print(f'! Failed running: "{" ".join(entry)}". Try again from the command line.')
+                    print(
+                        f'! Failed running: "{" ".join(entry)}". Try again from the command line.'
+                    )
                 else:
                     raise
         elif callable(entry):
@@ -572,14 +624,14 @@ def run_ops(ops: list[RunOp], quiet: bool = False) -> None:
 def update_workspace_extensions() -> None:
     repo_workspace_extensions_location = 'vscode/dotFiles_extensions.json'
 
-    completed_proc = subprocess.run(['code', '--list-extensions'], check=True, capture_output=True, text=True)
+    completed_proc = subprocess.run(
+        ['code', '--list-extensions'], check=True, capture_output=True, text=True
+    )
     installed_extensions = completed_proc.stdout.splitlines()
     if installed_extensions[0].startswith('Extensions installed on WSL'):
         raise ValueError('Running this way is not supported. Use the WSL terminal.')
 
-    extensions_node = {
-        'recommendations': sorted(installed_extensions, key=str.lower)
-    }
+    extensions_node = {'recommendations': sorted(installed_extensions, key=str.lower)}
 
     with open(repo_workspace_extensions_location, 'w', encoding='utf-8') as f:
         json.dump(extensions_node, f, indent=4, sort_keys=True)
@@ -588,7 +640,9 @@ def update_workspace_extensions() -> None:
 def update_workspace_settings() -> None:
     repo_settings_path = Path('vscode/dotFiles_settings.json')
     if not repo_settings_path.is_file():
-        raise FileNotFoundError(f'Missing repository workspace settings: {repo_settings_path}')
+        raise FileNotFoundError(
+            f'Missing repository workspace settings: {repo_settings_path}'
+        )
 
     localhost = config.get_localhost()
     if localhost is None:
@@ -597,11 +651,15 @@ def update_workspace_settings() -> None:
     template_path = 'vscode/user_settings.jsonnet'
     target_jsonnet_entry = localhost.jsonnet_maps.get(template_path)
     if not target_jsonnet_entry:
-        raise ValueError('Local host does not define a VSCode user settings Jsonnet mapping')
+        raise ValueError(
+            'Local host does not define a VSCode user settings Jsonnet mapping'
+        )
 
     target_file_entry = localhost.file_maps.get(target_jsonnet_entry)
     if not target_file_entry:
-        raise ValueError('Local host does not define a VSCode user settings file mapping')
+        raise ValueError(
+            'Local host does not define a VSCode user settings file mapping'
+        )
 
     source_path = Path(target_file_entry)
     if not source_path.is_absolute():
@@ -621,9 +679,9 @@ def update_workspace_settings() -> None:
 
     def merge_maps(primary: Any, secondary: Any) -> Any:
         if isinstance(primary, dict) and isinstance(secondary, dict):
-            primary = cast(dict[Any, Any], primary)
-            secondary = cast(dict[Any, Any], secondary)
-            merged: dict[Any, Any] = {key: merge_maps(primary[key], secondary.get(key)) for key in primary}
+            merged: dict[Any, Any] = {
+                key: merge_maps(primary[key], secondary.get(key)) for key in primary
+            }
             for key, value in secondary.items():
                 if key not in merged:
                     merged[key] = value
@@ -662,7 +720,7 @@ def generate_hosts_config() -> None:
 
 
 def get_plugin_relative_target_path(repo: str) -> Path:
-    match = re.search(r"([^/]+)\.git$", repo)
+    match = re.search(r'([^/]+)\.git$', repo)
     if not match:
         raise ValueError(f'Invalid repository URL: {repo}')
     target_suffix = Path(match.group(1))
@@ -686,21 +744,26 @@ def get_plugin_relative_target_path(repo: str) -> Path:
     return target_prefix / target_suffix
 
 
-def make_install_plugins_bash_commands(plugin_type: str, repo_list: list[str], install_root: Path) -> list[RunOp]:
+def make_install_plugins_bash_commands(
+    plugin_type: str, repo_list: list[str], install_root: Path
+) -> list[RunOp]:
     ops: list[RunOp] = []
     ops.append(f'>> Updating {len(repo_list)} {plugin_type}')
 
     # Remove any surrounding quotes because this is consistently wrapping the combined paths.
     install_root = Path(install_root.name.replace('"', ''))
 
-    repo_targets = [(install_root / get_plugin_relative_target_path(repo), repo) for repo in repo_list]
+    repo_targets = [
+        (install_root / get_plugin_relative_target_path(repo), repo)
+        for repo in repo_list
+    ]
     directories_to_ensure = {t.parent for t, _ in repo_targets}
     dir_ops = ensure_directories_exist_ops(directories_to_ensure)
     for cmd in dir_ops:
         ops.append(BASH_COMMAND_PREFIX + make_shell_command(cast(RunCmd, cmd)))
 
     for target_path, repo in repo_targets:
-        bash_command_block = dedent(f'''\
+        bash_command_block = dedent(f"""\
             if [ -d "{target_path}" ]; then
                 cd "{target_path}"
             if [ -f .git/FETCH_HEAD ] && find .git/FETCH_HEAD -mtime -1 >/dev/null 2>&1; then
@@ -712,7 +775,7 @@ def make_install_plugins_bash_commands(plugin_type: str, repo_list: list[str], i
             else
             git clone "{repo}" "{target_path}"
             fi
-            ''')
+            """)
         for line in bash_command_block.splitlines():
             ops.append(BASH_COMMAND_PREFIX + line)
 
@@ -727,7 +790,7 @@ def make_generate_shell_completion_bash_commands(config_root: Path) -> list[RunO
     ops.append('>> Generating host-local shell completion artifacts')
     ops.append(BASH_COMMAND_PREFIX + make_shell_command(['mkdir', '-p', generated_dir]))
 
-    bash_command_block = dedent(f'''\
+    bash_command_block = dedent(f"""\
         rm -f "{generated_dir}/docker.bash" "{generated_dir}/docker.zsh" \
               "{generated_dir}/docker-compose.bash" "{generated_dir}/docker-compose.zsh" \
               "{generated_dir}/kubectl.bash" "{generated_dir}/kubectl.zsh" \
@@ -764,7 +827,7 @@ def make_generate_shell_completion_bash_commands(config_root: Path) -> list[RunO
             pnpm completion bash > "{generated_dir}/pnpm.bash" 2>/dev/null || rm -f "{generated_dir}/pnpm.bash"
             pnpm completion zsh > "{generated_dir}/pnpm.zsh" 2>/dev/null || rm -f "{generated_dir}/pnpm.zsh"
         fi
-        ''')
+        """)
 
     for line in bash_command_block.splitlines():
         if line.strip():
@@ -774,13 +837,18 @@ def make_generate_shell_completion_bash_commands(config_root: Path) -> list[RunO
 
 
 def remove_parents_from_set(paths: set[Path]) -> set[Path]:
-    return {d for d in paths if not any(subdir != d and path_is_within(subdir, d) for subdir in paths)}
+    return {
+        d
+        for d in paths
+        if not any(subdir != d and path_is_within(subdir, d) for subdir in paths)
+    }
 
 
-def ensure_directories_exist_ops(paths: Iterable[Path | str], already_exists_ok: bool = True) -> list[RunOp]:
+def ensure_directories_exist_ops(
+    paths: Iterable[Path | str], already_exists_ok: bool = True
+) -> list[RunOp]:
     normalized_paths = {
-        path if isinstance(path, Path) else Path(path)
-        for path in paths
+        path if isinstance(path, Path) else Path(path) for path in paths
     }
     targets = sorted(remove_parents_from_set(normalized_paths))
     ops: list[RunOp] = []
@@ -791,7 +859,13 @@ def ensure_directories_exist_ops(paths: Iterable[Path | str], already_exists_ok:
 
 
 def remove_children_from_set(paths: set[str]) -> list[str]:
-    return sorted({d for d in paths if not any(subdir != d and d.startswith(subdir) for subdir in paths)})
+    return sorted(
+        {
+            d
+            for d in paths
+            if not any(subdir != d and d.startswith(subdir) for subdir in paths)
+        }
+    )
 
 
 def copy_directories_local(
@@ -806,38 +880,63 @@ def copy_directories_local(
     dest_dir_list = list(dest_dirs)
 
     ops: list[RunOp] = []
-    ops.extend(ensure_directories_exist_ops({(dest_root_path / d) for d in dest_dir_list}))
-    ops.extend([
-        ['cp', '-a', (src_root_path / src).as_posix() + '/.', (dest_root_path / dest).as_posix()]
-        for src, dest in zip(source_dir_list, dest_dir_list)
-    ])
+    ops.extend(
+        ensure_directories_exist_ops({(dest_root_path / d) for d in dest_dir_list})
+    )
+    ops.extend(
+        [
+            [
+                'cp',
+                '-a',
+                (src_root_path / src).as_posix() + '/.',
+                (dest_root_path / dest).as_posix(),
+            ]
+            for src, dest in zip(source_dir_list, dest_dir_list)
+        ]
+    )
 
     return ops
 
 
-def parse_jsonnet_now(jsonnet_file: Path, ext_vars: dict[str, str], output_string: bool = False) -> dict[str, Any] | list[Any] | str:
+def parse_jsonnet_now(
+    jsonnet_file: Path, ext_vars: dict[str, str], output_string: bool = False
+) -> dict[str, Any] | list[Any] | str:
     try:
         result = subprocess.run(
             parse_jsonnet(jsonnet_file, ext_vars, None, output_string=output_string),
             capture_output=True,
             check=True,
-            text=True
+            text=True,
         )
         return result.stdout if output_string else json.loads(result.stdout)
     except subprocess.CalledProcessError as e:
-        print(f"Error running jsonnet command: {make_shell_command(parse_jsonnet(jsonnet_file, ext_vars, None))}")
-        print(f"Error details: {e.stderr}")
+        print(
+            f'Error running jsonnet command: {make_shell_command(parse_jsonnet(jsonnet_file, ext_vars, None))}'
+        )
+        print(f'Error details: {e.stderr}')
         raise
 
 
-def parse_jsonnet(jsonnet_file: Path, ext_vars: dict[str, str], output_path: Optional[Path] = None, is_multicast: bool = False, output_string: bool = False) -> list[str]:
+def parse_jsonnet(
+    jsonnet_file: Path,
+    ext_vars: dict[str, str],
+    output_path: Optional[Path] = None,
+    is_multicast: bool = False,
+    output_string: bool = False,
+) -> list[str]:
     proc_args = [find_jsonnet_command()]
 
-    if output_string or (output_path and (output_path.suffix == '.sh' or output_path.suffix == '.ini')):
+    if output_string or (
+        output_path and (output_path.suffix == '.sh' or output_path.suffix == '.ini')
+    ):
         proc_args.append('-S')
 
     if output_path:
-        proc_args.extend(['-m', output_path.as_posix()] if is_multicast else ['-o', output_path.as_posix()])
+        proc_args.extend(
+            ['-m', output_path.as_posix()]
+            if is_multicast
+            else ['-o', output_path.as_posix()]
+        )
 
     for key, val in ext_vars.items():
         proc_args.extend(['-V', f'{key}={val}'])
@@ -857,11 +956,13 @@ def get_ext_vars(host: Optional[Host] = None) -> dict[str, str]:
         'ec2_workstation_hostname': '',
     }
     if host:
-        standard_ext_vars.update({
-            'is_localhost': str(host.is_localhost).lower(),
-            'hostname': host.hostname,
-            'kernel': host.kernel,
-        })
+        standard_ext_vars.update(
+            {
+                'is_localhost': str(host.is_localhost).lower(),
+                'hostname': host.hostname,
+                'kernel': host.kernel,
+            }
+        )
     return standard_ext_vars
 
 
@@ -869,7 +970,9 @@ def preprocess_curl_files(host: Host, verbose: bool = False) -> list[RunOp]:
     if not host.curl_maps:
         return [cast(RunOp, 'No curl maps found')]
 
-    full_paths = {src: (host.local_curl_dir / dest) for src, dest in host.curl_maps.items()}
+    full_paths = {
+        src: (host.local_curl_dir / dest) for src, dest in host.curl_maps.items()
+    }
     ops: list[RunOp] = []
     ops.extend(ensure_directories_exist_ops({p.parent for p in full_paths.values()}))
 
@@ -883,26 +986,31 @@ def preprocess_curl_files(host: Host, verbose: bool = False) -> list[RunOp]:
         # Verify the output file is non-empty; remove if invalid
         quoted_dest = shlex.quote(dest.as_posix())
         quoted_src = shlex.quote(src)
-        check_snippet = (
-            f"[ -s {quoted_dest} ] || {{ echo 'ERROR: Failed to download ' {quoted_src} '->' {quoted_dest} 1>&2; rm -f {quoted_dest}; exit 1; }}"
-        )
+        check_snippet = f"[ -s {quoted_dest} ] || {{ echo 'ERROR: Failed to download ' {quoted_src} '->' {quoted_dest} 1>&2; rm -f {quoted_dest}; exit 1; }}"
         # Use sh -c to chain commands with a post-check
-        return ['sh', '-c', f"{make_shell_command(curl_cmd)} && {check_snippet}"]
+        return ['sh', '-c', f'{make_shell_command(curl_cmd)} && {check_snippet}']
 
     ops.extend([make_curl_check_cmd(src, dest) for src, dest in full_paths.items()])
 
     return ops
 
 
-def preprocess_jsonnet_files(host: Host, source_dir: Path, staging_dir: Path, verbose: bool = False) -> list[RunOp]:
+def preprocess_jsonnet_files(
+    host: Host, source_dir: Path, staging_dir: Path, verbose: bool = False
+) -> list[RunOp]:
     if not host.jsonnet_maps:
         return [cast(RunOp, 'No jsonnet maps found')]
 
-    full_paths = [(source_dir / src, staging_dir / dest) for src, dest in host.jsonnet_maps.items()]
+    full_paths = [
+        (source_dir / src, staging_dir / dest)
+        for src, dest in host.jsonnet_maps.items()
+    ]
 
     ops: list[RunOp] = []
     ops.extend(ensure_directories_exist_ops({p.parent for _, p in full_paths}))
-    jsonnet_commands: list[RunOp] = [parse_jsonnet(src, get_ext_vars(host), dest) for src, dest in full_paths]
+    jsonnet_commands: list[RunOp] = [
+        parse_jsonnet(src, get_ext_vars(host), dest) for src, dest in full_paths
+    ]
 
     if verbose:
         annotated_jsonnet_commands: list[RunOp] = [
@@ -917,22 +1025,32 @@ def preprocess_jsonnet_files(host: Host, source_dir: Path, staging_dir: Path, ve
     ops.extend(jsonnet_commands)
     return ops
 
-def preprocess_jsonnet_directories(host: Host, source_dir: Path, staging_dir: Path, verbose: bool=False) -> list[RunOp]:
+
+def preprocess_jsonnet_directories(
+    host: Host, source_dir: Path, staging_dir: Path, verbose: bool = False
+) -> list[RunOp]:
     if not host.jsonnet_multi_maps:
         return [cast(RunOp, 'No jsonnet multimaps found')]
 
-    full_paths: list[tuple[Path, Path]] = [(source_dir / src, staging_dir / dest) for src, dest in host.jsonnet_multi_maps.items()]
+    full_paths: list[tuple[Path, Path]] = [
+        (source_dir / src, staging_dir / dest)
+        for src, dest in host.jsonnet_multi_maps.items()
+    ]
     staging_dests = {p for _, p in full_paths}
 
     ops: list[RunOp] = []
     ops.extend(ensure_directories_exist_ops(staging_dests))
     jsonnet_commands: list[RunOp] = [
-        parse_jsonnet(src, get_ext_vars(host), dest, is_multicast=True, output_string=True) for src, dest in full_paths
+        parse_jsonnet(
+            src, get_ext_vars(host), dest, is_multicast=True, output_string=True
+        )
+        for src, dest in full_paths
     ]
 
     if verbose:
         annotated_jsonnet_commands: list[RunOp] = [
-            f"DEBUG: {make_shell_command(cast(RunCmd, cmd))}" for cmd in jsonnet_commands
+            f'DEBUG: {make_shell_command(cast(RunCmd, cmd))}'
+            for cmd in jsonnet_commands
         ]
         interleaved_dirs: list[RunOp] = []
         for annotation, command in zip(annotated_jsonnet_commands, jsonnet_commands):
@@ -965,9 +1083,14 @@ def copy_files_local(
     ops.extend(ensure_directories_exist_ops({dest.parent for dest in full_path_dests}))
 
     copy_ops: list[RunOp]
-    copy_ops = [['cp', src.as_posix(), dest.as_posix()] for src, dest in zip(full_path_sources, full_path_dests)]
+    copy_ops = [
+        ['cp', src.as_posix(), dest.as_posix()]
+        for src, dest in zip(full_path_sources, full_path_dests)
+    ]
     if annotate:
-        annotated_copy_ops: list[RunOp] = [f"DEBUG: {make_shell_command(cast(RunCmd, cmd))}" for cmd in copy_ops]
+        annotated_copy_ops: list[RunOp] = [
+            f'DEBUG: {make_shell_command(cast(RunCmd, cmd))}' for cmd in copy_ops
+        ]
         interleaved: list[RunOp] = []
         for debug_line, command in zip(annotated_copy_ops, copy_ops):
             interleaved.append(debug_line)
@@ -978,7 +1101,9 @@ def copy_files_local(
     return ops
 
 
-def make_finish_script(command_ops: Sequence[RunOp], script_path: Path, verbose: bool) -> list[RunOp]:
+def make_finish_script(
+    command_ops: Sequence[RunOp], script_path: Path, verbose: bool
+) -> list[RunOp]:
     def write_script() -> None:
         with open(script_path, 'w', encoding='utf-8') as f:
             f.write('#!/bin/bash\n\n')
@@ -988,16 +1113,22 @@ def make_finish_script(command_ops: Sequence[RunOp], script_path: Path, verbose:
             f.write(DECLARE_SCRIPT_DIR_LINE + '\n\n')
             for op in command_ops:
                 if isinstance(op, str):
-                    line = op[len(BASH_COMMAND_PREFIX):] if op.startswith(BASH_COMMAND_PREFIX) else f'echo "{op}"'
+                    line = (
+                        op[len(BASH_COMMAND_PREFIX) :]
+                        if op.startswith(BASH_COMMAND_PREFIX)
+                        else f'echo "{op}"'
+                    )
                 elif isinstance(op, list):
-                    line = make_shell_command(cast(RunCmd, op))
+                    line = make_shell_command(op)
                 else:
-                    raise TypeError('Finish script operations must be strings or command lists')
+                    raise TypeError(
+                        'Finish script operations must be strings or command lists'
+                    )
                 f.write(line + '\n')
 
     ops: list[RunOp] = [partial(write_script)]
     if verbose:
-        ops.append(f"DEBUG: Generated finish script at {script_path}")
+        ops.append(f'DEBUG: Generated finish script at {script_path}')
     ops.append(['chmod', 'u+x', script_path.as_posix()])
 
     return ops
@@ -1009,9 +1140,18 @@ def clean_remote_dotfiles(host: Host, treat_as_localhost: bool = False) -> list[
 
     home = Path(host.home) if not treat_as_localhost else HOME_VAR_PATH
 
-    dirs_to_remove = [f"{home}/{d}" for d in remove_children_from_set({host.config_dir}.union(host.directory_maps.values()))]
-    files_to_remove = {f"{home}/{f}" for f in host.file_maps.values()}
-    files_to_remove = [f for f in remove_children_from_set(files_to_remove.union(dirs_to_remove)) if not f in dirs_to_remove]
+    dirs_to_remove = [
+        f'{home}/{d}'
+        for d in remove_children_from_set(
+            {host.config_dir}.union(host.directory_maps.values())
+        )
+    ]
+    file_candidates = {f'{home}/{f}' for f in host.file_maps.values()}
+    files_to_remove = [
+        f
+        for f in remove_children_from_set(file_candidates.union(dirs_to_remove))
+        if f not in dirs_to_remove
+    ]
 
     ops.extend([['rm', '-rf', d] for d in dirs_to_remove])
     ops.extend([['rm', '-f', f] for f in files_to_remove])
@@ -1025,20 +1165,41 @@ def clean_remote_dotfiles(host: Host, treat_as_localhost: bool = False) -> list[
 def push_remote_staging(host: Host) -> list[RunOp]:
     ops: list[RunOp] = []
     ops.append(f'Syncing dotFiles for {host.hostname} from local staging directory')
-    ops.append(f'>> Copying {len(host.file_maps) + 1} files and {len(host.directory_maps)} folders to {host.hostname} home directory')
+    ops.append(
+        f'>> Copying {len(host.file_maps) + 1} files and {len(host.directory_maps)} folders to {host.hostname} home directory'
+    )
     ops.extend(host.make_ops([['mkdir', '-p', host.remote_staging_dir]]))
 
     if host.is_localhost:
-        ops.extend([
-            ['rm', '-rf', host.remote_staging_dir],
-            ['mkdir', '-p', host.remote_staging_dir],
-            ['cp', '-r', f"{(host.local_staging_dir).as_posix()}/.", host.remote_staging_dir]
-        ])
+        ops.extend(
+            [
+                ['rm', '-rf', host.remote_staging_dir],
+                ['mkdir', '-p', host.remote_staging_dir],
+                [
+                    'cp',
+                    '-r',
+                    f'{(host.local_staging_dir).as_posix()}/.',
+                    host.remote_staging_dir,
+                ],
+            ]
+        )
     else:
-        ops.append(['rsync', '-axv', '--numeric-ids', '--delete', '--progress', f"{(host.local_staging_dir).as_posix()}/", f'{host.connection_host}:{host.remote_staging_dir}'])
+        ops.append(
+            [
+                'rsync',
+                '-axv',
+                '--numeric-ids',
+                '--delete',
+                '--progress',
+                f'{(host.local_staging_dir).as_posix()}/',
+                f'{host.connection_host}:{host.remote_staging_dir}',
+            ]
+        )
 
     remote_finish_path = f'{host.remote_staging_dir}/finish.sh'
-    ops.append(f'>> Running finish script on {host.hostname}: /bin/bash {remote_finish_path}')
+    ops.append(
+        f'>> Running finish script on {host.hostname}: /bin/bash {remote_finish_path}'
+    )
     ops.extend(host.make_ops([['/bin/bash', remote_finish_path]]))
 
     return ops
@@ -1054,8 +1215,10 @@ def process_macros_for_staged_file(host: Host, file: Path) -> None:
             matched_macro = next((k for k in host.macros if line.startswith(k)), None)
             if matched_macro is not None:
                 is_modified = True
-                pragma_arg = line[len(matched_macro):].strip()
-                modified_content.extend(host.get_inflated_macro(matched_macro, file, pragma_arg=pragma_arg))
+                pragma_arg = line[len(matched_macro) :].strip()
+                modified_content.extend(
+                    host.get_inflated_macro(matched_macro, file, pragma_arg=pragma_arg)
+                )
             else:
                 modified_content.append(line)
     if is_modified:
@@ -1063,10 +1226,16 @@ def process_macros_for_staged_file(host: Host, file: Path) -> None:
             f.writelines(line + '\n' for line in modified_content)
 
 
-def stage_local(host: Host, verbose: bool = False, skip_cache: bool = False) -> list[RunOp]:
+def stage_local(
+    host: Host, verbose: bool = False, skip_cache: bool = False
+) -> list[RunOp]:
     ops: list[RunOp] = []
-    ops.append(f'Staging dotFiles for {host.hostname} in {host.local_staging_dir.as_posix()}')
-    ops.extend(ensure_directories_exist_ops({host.local_staging_dir}, already_exists_ok=False))
+    ops.append(
+        f'Staging dotFiles for {host.hostname} in {host.local_staging_dir.as_posix()}'
+    )
+    ops.extend(
+        ensure_directories_exist_ops({host.local_staging_dir}, already_exists_ok=False)
+    )
 
     # Decide if preprocessing is necessary based on host cache validity
     if skip_cache:
@@ -1078,17 +1247,27 @@ def stage_local(host: Host, verbose: bool = False, skip_cache: bool = False) -> 
 
     # No need to preserve cache subdirs; they live outside staged output now.
 
-    files_to_stage = [file for file in host.file_maps.keys() if file not in host.prestaged_files]
-    directories_to_stage = [directory for directory in host.directory_maps.keys() if directory not in host.prestaged_directories]
+    files_to_stage = [
+        file for file in host.file_maps.keys() if file not in host.prestaged_files
+    ]
+    directories_to_stage = [
+        directory
+        for directory in host.directory_maps.keys()
+        if directory not in host.prestaged_directories
+    ]
 
-    ghostty_terminfo_definition, ghostty_terminfo_warning = capture_infocmp_definition('xterm-ghostty')
+    ghostty_terminfo_definition, ghostty_terminfo_warning = capture_infocmp_definition(
+        'xterm-ghostty'
+    )
     if ghostty_terminfo_warning:
         ops.append(ghostty_terminfo_warning)
     if ghostty_terminfo_definition:
         ops.append('>> Captured Ghostty terminfo definition from local machine')
     else:
         fallback_path = CWD / 'ghostty' / 'xterm-ghostty.terminfo'
-        ghostty_terminfo_definition = fallback_path.read_text(encoding='utf-8').rstrip('\n')
+        ghostty_terminfo_definition = fallback_path.read_text(encoding='utf-8').rstrip(
+            '\n'
+        )
         ops.append('>> Using repository Ghostty terminfo fallback for embedding')
 
     if needs_curl_preprocess:
@@ -1099,8 +1278,14 @@ def stage_local(host: Host, verbose: bool = False, skip_cache: bool = False) -> 
 
     if needs_jsonnet_preprocess:
         ops.append('>> Preprocessing jsonnet files')
-        ops.extend(preprocess_jsonnet_files(host, CWD, host.local_jsonnet_dir, verbose=verbose))
-        ops.extend(preprocess_jsonnet_directories(host, CWD, host.local_jsonnet_dir, verbose=verbose))
+        ops.extend(
+            preprocess_jsonnet_files(host, CWD, host.local_jsonnet_dir, verbose=verbose)
+        )
+        ops.extend(
+            preprocess_jsonnet_directories(
+                host, CWD, host.local_jsonnet_dir, verbose=verbose
+            )
+        )
     else:
         ops.append('>> Skipping jsonnet preprocessing (no source changes)')
 
@@ -1110,17 +1295,28 @@ def stage_local(host: Host, verbose: bool = False, skip_cache: bool = False) -> 
     # Stage prestaged outputs from caches into staging dir
     # - Copy jsonnet directories
     if host.jsonnet_multi_maps:
-        ops.extend(copy_directories_local(host.local_jsonnet_dir, host.jsonnet_multi_maps.values(), host.local_staging_dir, host.jsonnet_multi_maps.values()))
+        ops.extend(
+            copy_directories_local(
+                host.local_jsonnet_dir,
+                host.jsonnet_multi_maps.values(),
+                host.local_staging_dir,
+                host.jsonnet_multi_maps.values(),
+            )
+        )
     # - Copy jsonnet single-file outputs
     if host.jsonnet_maps:
-        src_files = [(host.local_jsonnet_dir / d).as_posix() for d in host.jsonnet_maps.values()]
+        src_files = [
+            (host.local_jsonnet_dir / d).as_posix() for d in host.jsonnet_maps.values()
+        ]
         dst_paths = [(host.local_staging_dir / d) for d in host.jsonnet_maps.values()]
         dst_files = [p.as_posix() for p in dst_paths]
         ops.extend(ensure_directories_exist_ops({p.parent for p in dst_paths}))
         ops.extend([['cp', s, d] for s, d in zip(src_files, dst_files)])
     # - Copy curl downloads
     if host.curl_maps:
-        curl_src_files = [(host.local_curl_dir / d).as_posix() for d in host.curl_maps.values()]
+        curl_src_files = [
+            (host.local_curl_dir / d).as_posix() for d in host.curl_maps.values()
+        ]
         curl_dst_paths = [(host.local_staging_dir / d) for d in host.curl_maps.values()]
         curl_dst_files = [p.as_posix() for p in curl_dst_paths]
         ops.extend(ensure_directories_exist_ops({p.parent for p in curl_dst_paths}))
@@ -1130,14 +1326,28 @@ def stage_local(host: Host, verbose: bool = False, skip_cache: bool = False) -> 
     if verbose:
         ops.append(f'Directories to stage: {directories_to_stage}')
         ops.append(f'Files to stage: {files_to_stage}')
-    ops.extend(copy_directories_local(CWD, directories_to_stage, host.local_staging_dir, directories_to_stage))
-    ops.extend(copy_files_local(CWD, files_to_stage, host.local_staging_dir, files_to_stage))
+    ops.extend(
+        copy_directories_local(
+            CWD, directories_to_stage, host.local_staging_dir, directories_to_stage
+        )
+    )
+    ops.extend(
+        copy_files_local(CWD, files_to_stage, host.local_staging_dir, files_to_stage)
+    )
 
     if host.macros:
+
         def is_path_eligible_for_macros(path: Path) -> bool:
             if not path.is_file():
                 return False
-            return path.suffix.lower() not in {'.png', '.jpg', '.svg', '.jpeg', '.gif', '.webp'}
+            return path.suffix.lower() not in {
+                '.png',
+                '.jpg',
+                '.svg',
+                '.jpeg',
+                '.gif',
+                '.webp',
+            }
 
         files_to_process: set[Path] = set()
 
@@ -1152,7 +1362,9 @@ def stage_local(host: Host, verbose: bool = False, skip_cache: bool = False) -> 
                 for source_candidate in source_dir.rglob('*'):
                     if not is_path_eligible_for_macros(source_candidate):
                         continue
-                    files_to_process.add(host.local_staging_dir / source_candidate.relative_to(CWD))
+                    files_to_process.add(
+                        host.local_staging_dir / source_candidate.relative_to(CWD)
+                    )
 
         # Include any pre-staged files generated from jsonnet outputs.
         for file in host.prestaged_files:
@@ -1171,17 +1383,50 @@ def stage_local(host: Host, verbose: bool = False, skip_cache: bool = False) -> 
 
     finish_ops.extend(clean_remote_dotfiles(host, treat_as_localhost=True))
 
-    finish_ops.extend(copy_directories_local(SCRIPTDIR_VAR_PATH, host.directory_maps.keys(), HOME_VAR_PATH, host.directory_maps.values()))
-    finish_ops.extend(copy_files_local(SCRIPTDIR_VAR_PATH, host.file_maps.keys(), HOME_VAR_PATH, host.file_maps.values()))
+    finish_ops.extend(
+        copy_directories_local(
+            SCRIPTDIR_VAR_PATH,
+            host.directory_maps.keys(),
+            HOME_VAR_PATH,
+            host.directory_maps.values(),
+        )
+    )
+    finish_ops.extend(
+        copy_files_local(
+            SCRIPTDIR_VAR_PATH,
+            host.file_maps.keys(),
+            HOME_VAR_PATH,
+            host.file_maps.values(),
+        )
+    )
 
     finish_ops.append('>> Installing Ghostty terminfo entry')
-    finish_ops.append(BASH_COMMAND_PREFIX + "cat <<'EOF' | tic -x -\n" + ghostty_terminfo_definition + "\nEOF")
+    finish_ops.append(
+        BASH_COMMAND_PREFIX
+        + "cat <<'EOF' | tic -x -\n"
+        + ghostty_terminfo_definition
+        + '\nEOF'
+    )
 
     finish_ops.append('>> Updating Vim and Zsh plugins')
-    finish_ops.extend(make_install_plugins_bash_commands('Vim startup plugin(s)', config.vim_pack_plugin_start_repos, HOME_VAR_PATH))
-    finish_ops.extend(make_install_plugins_bash_commands('Vim operational plugin(s)', config.vim_pack_plugin_opt_repos, HOME_VAR_PATH))
-    finish_ops.extend(make_install_plugins_bash_commands('Zsh plugin(s)', config.zsh_plugin_repos, HOME_VAR_PATH))
-    finish_ops.extend(make_generate_shell_completion_bash_commands(HOME_VAR_PATH / host.config_dir))
+    finish_ops.extend(
+        make_install_plugins_bash_commands(
+            'Vim startup plugin(s)', config.vim_pack_plugin_start_repos, HOME_VAR_PATH
+        )
+    )
+    finish_ops.extend(
+        make_install_plugins_bash_commands(
+            'Vim operational plugin(s)', config.vim_pack_plugin_opt_repos, HOME_VAR_PATH
+        )
+    )
+    finish_ops.extend(
+        make_install_plugins_bash_commands(
+            'Zsh plugin(s)', config.zsh_plugin_repos, HOME_VAR_PATH
+        )
+    )
+    finish_ops.extend(
+        make_generate_shell_completion_bash_commands(HOME_VAR_PATH / host.config_dir)
+    )
 
     finish_script = host.local_staging_dir / 'finish.sh'
     ops.extend(make_finish_script(finish_ops, finish_script, verbose=verbose))
@@ -1195,12 +1440,32 @@ def pull_remote(host: Host) -> list[RunOp]:
     ops.append(f'>> Recreating staged dotFiles for {host.hostname}')
 
     ops.extend(ensure_directories_exist_ops({snapshot_dir}, already_exists_ok=False))
-    ops.extend(host.make_ops(ensure_directories_exist_ops({Path(host.remote_staging_dir)}, already_exists_ok=False)))
+    ops.extend(
+        host.make_ops(
+            ensure_directories_exist_ops(
+                {Path(host.remote_staging_dir)}, already_exists_ok=False
+            )
+        )
+    )
 
     remote_ops: list[RunOp] = []
     remote_ops.append('>> Unstaging directories and files')
-    remote_ops.extend(copy_directories_local(host.home, host.directory_maps.values(), host.remote_staging_dir, host.directory_maps.keys()))
-    remote_ops.extend(copy_files_local(host.home, host.file_maps.values(), host.remote_staging_dir, host.file_maps.keys()))
+    remote_ops.extend(
+        copy_directories_local(
+            host.home,
+            host.directory_maps.values(),
+            host.remote_staging_dir,
+            host.directory_maps.keys(),
+        )
+    )
+    remote_ops.extend(
+        copy_files_local(
+            host.home,
+            host.file_maps.values(),
+            host.remote_staging_dir,
+            host.file_maps.keys(),
+        )
+    )
 
     unfinish_script_path = snapshot_dir / 'unfinish.sh'
     ops.extend(make_finish_script(remote_ops, unfinish_script_path, verbose=False))
@@ -1209,16 +1474,35 @@ def pull_remote(host: Host) -> list[RunOp]:
     if host.is_localhost:
         ops.append(['cp', unfinish_script_path.as_posix(), host.remote_staging_dir])
     else:
-        ops.append(['scp', unfinish_script_path.as_posix(), f'{host.connection_host}:{host.remote_staging_dir}'])
+        ops.append(
+            [
+                'scp',
+                unfinish_script_path.as_posix(),
+                f'{host.connection_host}:{host.remote_staging_dir}',
+            ]
+        )
 
     ops.extend(host.make_ops([['/bin/bash', f'{host.remote_staging_dir}/unfinish.sh']]))
 
     if host.is_localhost:
-        ops.append(['cp', '-r', f'{host.remote_staging_dir}/.', snapshot_dir.as_posix()])
+        ops.append(
+            ['cp', '-r', f'{host.remote_staging_dir}/.', snapshot_dir.as_posix()]
+        )
     else:
-        ops.append(['rsync', '-axv', '--numeric-ids', '--delete', '--progress', f'{host.connection_host}:{host.remote_staging_dir}/', snapshot_dir.as_posix()])
+        ops.append(
+            [
+                'rsync',
+                '-axv',
+                '--numeric-ids',
+                '--delete',
+                '--progress',
+                f'{host.connection_host}:{host.remote_staging_dir}/',
+                snapshot_dir.as_posix(),
+            ]
+        )
 
     return ops
+
 
 def bootstrap_windows() -> list[RunOp]:
     """Apply environment settings for a new Windows machine."""
@@ -1231,7 +1515,7 @@ def iterm2_prefs_plist_location() -> str:
         ['defaults', 'read', 'com.googlecode.iterm2', 'PrefsCustomFolder'],
         check=True,
         capture_output=True,
-        text=True
+        text=True,
     )
     return f'{plist_pref_file_proc.stdout.strip()}/com.googlecode.iterm2.plist'
 
@@ -1243,11 +1527,15 @@ def build_iterm2_prefs_json() -> dict[str, Any]:
     if metadata is not None:
         if metadata.instance_name:
             ext_vars['ec2_workstation_hostname'] = metadata.instance_name
-    prefs: dict[str, Any] = parse_jsonnet_now(CWD / 'iterm2/com.googlecode.iterm2.plist.jsonnet', ext_vars) # type: ignore
+    prefs: dict[str, Any] = parse_jsonnet_now(
+        CWD / 'iterm2/com.googlecode.iterm2.plist.jsonnet', ext_vars
+    )  # type: ignore
     return prefs
 
 
-def snapshot_iterm2_prefs_json(out_path: str = 'out/com.googlecode.iterm2.active.json') -> None:
+def snapshot_iterm2_prefs_json(
+    out_path: str = 'out/com.googlecode.iterm2.active.json',
+) -> None:
     """Snapshot the current iTerm2 preferences into a JSON file."""
     print(f'Writing iTerm2 preferences to {out_path}')
     with open(iterm2_prefs_plist_location(), 'rb') as f:
@@ -1262,11 +1550,27 @@ def push_iterm2_prefs() -> None:
     if localhost is None:
         raise ValueError('Local host not defined; cannot push iTerm2 preferences')
     iterm2_config_root = Path.home() / localhost.config_dir / 'iterm2'
-    run_ops([
-        ['mkdir', '-p', str(iterm2_config_root)],
-        ['defaults', 'write', 'com.googlecode.iterm2', 'PrefsCustomFolder', '-string', str(iterm2_config_root)],
-        ['defaults', 'write', 'com.googlecode.iterm2', 'LoadPrefsFromCustomFolder', '-bool', 'true']
-    ])
+    run_ops(
+        [
+            ['mkdir', '-p', str(iterm2_config_root)],
+            [
+                'defaults',
+                'write',
+                'com.googlecode.iterm2',
+                'PrefsCustomFolder',
+                '-string',
+                str(iterm2_config_root),
+            ],
+            [
+                'defaults',
+                'write',
+                'com.googlecode.iterm2',
+                'LoadPrefsFromCustomFolder',
+                '-bool',
+                'true',
+            ],
+        ]
+    )
 
     out_path = iterm2_prefs_plist_location()
     print(f'Writing iTerm2 preferences to {out_path}')
@@ -1319,7 +1623,12 @@ def compare_user_settings(host: Host) -> None:
 
 def push_sublimetext_windows_plugins() -> list[RunOp]:
     """Setup Sublime Text plugins for Windows."""
-    return [cast(RunOp, ['cp', 'sublime_text\\*', '%APPDATA%\\Sublime Text 2\\Packages\\User'])]
+    return [
+        cast(
+            RunOp,
+            ['cp', 'sublime_text\\*', '%APPDATA%\\Sublime Text 2\\Packages\\User'],
+        )
+    ]
 
 
 def push_gnome_settings() -> list[RunOp]:
@@ -1327,7 +1636,7 @@ def push_gnome_settings() -> list[RunOp]:
     dconf_settings = parse_jsonnet_now(
         Path('gnome/dconf_settings.jsonnet'),
         get_ext_vars(config.get_localhost()),
-        output_string=True
+        output_string=True,
     )
     if not isinstance(dconf_settings, str):
         raise TypeError('Expected dconf Jsonnet to render to a string')
@@ -1359,15 +1668,10 @@ def parse_hosts_from_args(host_args: list[str]) -> list[Host]:
 
 config: Config
 
+
 def main(args: list[str]) -> int:
     """Apply dotFiles operations."""
-    host_operations = [
-        'clean',
-        'pull',
-        'push',
-        'push-only',
-        'stage'
-    ]
+    host_operations = ['clean', 'pull', 'push', 'push-only', 'stage']
     workspace_operations = [
         'bootstrap-windows',
         'compare-iterm2-prefs',
@@ -1379,7 +1683,7 @@ def main(args: list[str]) -> int:
         'push-iterm2-prefs',
         'snapshot-iterm2-prefs',
         'update-workspace-settings',
-        'update-workspace-extensions'
+        'update-workspace-extensions',
     ]
     ec2_workstation_operations = {
         'push-ec2-workstation': 'push',
@@ -1395,17 +1699,33 @@ def main(args: list[str]) -> int:
     )
 
     parser = argparse.ArgumentParser(description='Apply dotFiles operations')
-    parser.add_argument('operation', help='Operation to perform', choices=operation_choices)
+    parser.add_argument(
+        'operation', help='Operation to perform', choices=operation_choices
+    )
     parser.add_argument('--hosts', nargs='+', help='Hosts to apply the operation to')
     host_group = parser.add_mutually_exclusive_group()
     host_group.add_argument('--all', action='store_true', help='Apply to all hosts')
-    host_group.add_argument('--local', action='store_true', help='Apply to the local host')
-    parser.add_argument('--dry-run', action='store_true', help='Print operations without executing them')
-    parser.add_argument('--skip-cache', action='store_true', help='Skip caches and rebuild curl/jsonnet artifacts')
+    host_group.add_argument(
+        '--local', action='store_true', help='Apply to the local host'
+    )
+    parser.add_argument(
+        '--dry-run', action='store_true', help='Print operations without executing them'
+    )
+    parser.add_argument(
+        '--skip-cache',
+        action='store_true',
+        help='Skip caches and rebuild curl/jsonnet artifacts',
+    )
     parser.add_argument('--working-dir', help='Set the working directory')
-    parser.add_argument('--verbose', '-v', action='store_true', help='Enable verbose output')
+    parser.add_argument(
+        '--verbose', '-v', action='store_true', help='Enable verbose output'
+    )
     parser.add_argument('--quiet', '-q', action='store_true', help='Suppress output')
-    parser.add_argument('--trace-startup', action='store_true', help='Enable tracing in shell scripts by default')
+    parser.add_argument(
+        '--trace-startup',
+        action='store_true',
+        help='Enable tracing in shell scripts by default',
+    )
 
     parsed_args = parser.parse_args(args)
 
@@ -1413,10 +1733,10 @@ def main(args: list[str]) -> int:
         os.chdir(parsed_args.working_dir)
 
     global CWD, OS_CWD, OUT_DIR_ROOT, TRACE_STARTUP_FLAG, config
-    CWD = Path.cwd() # type: ignore
-    OS_CWD = mingify_path(os.getcwd()) # type: ignore
-    OUT_DIR_ROOT = CWD / 'out' # type: ignore
-    TRACE_STARTUP_FLAG = bool(getattr(parsed_args, 'trace_startup', False)) # type: ignore
+    CWD = Path.cwd()
+    OS_CWD = mingify_path(os.getcwd())
+    OUT_DIR_ROOT = CWD / 'out'
+    TRACE_STARTUP_FLAG = bool(getattr(parsed_args, 'trace_startup', False))
 
     os.makedirs(OUT_DIR_ROOT, exist_ok=True)
     config = Config.load()
@@ -1438,7 +1758,9 @@ def main(args: list[str]) -> int:
     if metadata_required:
         metadata = Ec2WorkstationMetadata.load()
         if metadata is None:
-            raise ValueError('EC2 workstation metadata required but not found; are you running on the EC2 workstation?')
+            raise ValueError(
+                'EC2 workstation metadata required but not found; are you running on the EC2 workstation?'
+            )
         config.update(metadata)
 
     hosts: list[Host] = []
@@ -1446,17 +1768,23 @@ def main(args: list[str]) -> int:
         if parsed_args.hosts:
             raise ValueError('Cannot specify --hosts with EC2 workstation shortcuts')
         if parsed_args.local or parsed_args.all:
-            raise ValueError('Cannot combine --local/--all with EC2 workstation shortcuts')
+            raise ValueError(
+                'Cannot combine --local/--all with EC2 workstation shortcuts'
+            )
         ec2_host = config.find_host('ec2-workstation')
         if ec2_host is None:
-            raise ValueError('EC2 workstation host not defined; ensure apply_configs.jsonnet includes the alias')
+            raise ValueError(
+                'EC2 workstation host not defined; ensure apply_configs.jsonnet includes the alias'
+            )
         hosts = [ec2_host]
     elif parsed_args.local:
         if parsed_args.hosts:
             raise ValueError('Cannot specify --local and hosts')
         localhost = config.get_localhost()
         if localhost is None:
-            raise ValueError('Local host not defined; ensure apply_configs.jsonnet defines a localhost entry')
+            raise ValueError(
+                'Local host not defined; ensure apply_configs.jsonnet defines a localhost entry'
+            )
         hosts = [localhost]
     elif parsed_args.all:
         if parsed_args.hosts:
@@ -1479,7 +1807,11 @@ def main(args: list[str]) -> int:
         case 'bootstrap-windows':
             ops.extend(bootstrap_windows())
         case 'clean':
-            ops.extend(chain.from_iterable(clean_remote_dotfiles(host) for host in hosts if not host.stage_only))
+            ops.extend(
+                chain.from_iterable(
+                    clean_remote_dotfiles(host) for host in hosts if not host.stage_only
+                )
+            )
         case 'compare-iterm2-prefs':
             ops.append(compare_iterm2_prefs)
         case 'compare-user-settings':
@@ -1498,8 +1830,17 @@ def main(args: list[str]) -> int:
                 raise ValueError('Cannot pull from multiple hosts')
             ops.extend(pull_remote(hosts[0]))
         case 'push':
-            ops.extend(chain.from_iterable(stage_local(host, verbose=verbose_flag, skip_cache=skip_cache) for host in hosts))
-            ops.extend(chain.from_iterable(push_remote_staging(host) for host in hosts if not host.stage_only))
+            ops.extend(
+                chain.from_iterable(
+                    stage_local(host, verbose=verbose_flag, skip_cache=skip_cache)
+                    for host in hosts
+                )
+            )
+            ops.extend(
+                chain.from_iterable(
+                    push_remote_staging(host) for host in hosts if not host.stage_only
+                )
+            )
             if any(host.is_localhost and host.kernel == 'darwin' for host in hosts):
                 ops.append(push_iterm2_prefs)
         case 'push-gnome-settings':
@@ -1507,11 +1848,20 @@ def main(args: list[str]) -> int:
         case 'push-iterm2-prefs':
             ops.append(push_iterm2_prefs)
         case 'push-only':
-            ops.extend(chain.from_iterable(push_remote_staging(host) for host in hosts if not host.stage_only))
+            ops.extend(
+                chain.from_iterable(
+                    push_remote_staging(host) for host in hosts if not host.stage_only
+                )
+            )
         case 'snapshot-iterm2-prefs':
             ops.append(snapshot_iterm2_prefs_json)
         case 'stage':
-            ops.extend(chain.from_iterable(stage_local(host, verbose=verbose_flag, skip_cache=skip_cache) for host in hosts))
+            ops.extend(
+                chain.from_iterable(
+                    stage_local(host, verbose=verbose_flag, skip_cache=skip_cache)
+                    for host in hosts
+                )
+            )
         case 'update-workspace-settings':
             ops.append(update_workspace_settings)
         case 'update-workspace-extensions':
@@ -1527,7 +1877,7 @@ def main(args: list[str]) -> int:
     return 0
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     if len(sys.argv) < 2:
         print('<missing args>')
         sys.exit(1)

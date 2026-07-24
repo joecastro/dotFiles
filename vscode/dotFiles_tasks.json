@@ -20,9 +20,18 @@
       "problemMatcher": []
     },
     {
-      "label": "Type check (mypy)",
+      "label": "Type check (Pyright)",
       "type": "shell",
-      "command": "mypy aws",
+      "command": "uv run pyright",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Lint Python (Ruff)",
+      "type": "shell",
+      "command": "uv run ruff check .",
       "options": {
         "cwd": "${workspaceFolder}"
       },
