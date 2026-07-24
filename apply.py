@@ -553,7 +553,7 @@ def run_ops(ops: list[RunOp], quiet: bool = False) -> None:
                 raise TypeError(f'All elements of a command list must be strings: {entry}')
             entry = cast(list[str], entry)
             try:
-                subprocess.run(make_shell_command(entry), shell=True, check=True)
+                subprocess.run(entry, check=True)
             except subprocess.CalledProcessError:
                 print(f'Failed running: {" ".join(entry)}')
                 raise
@@ -1357,7 +1357,7 @@ def parse_hosts_from_args(host_args: list[str]) -> list[Host]:
     return hosts
 
 
-config: Config = Config.load()
+config: Config
 
 def main(args: list[str]) -> int:
     """Apply dotFiles operations."""
@@ -1412,8 +1412,13 @@ def main(args: list[str]) -> int:
     if parsed_args.working_dir:
         os.chdir(parsed_args.working_dir)
 
-    global TRACE_STARTUP_FLAG
+    global CWD, OS_CWD, OUT_DIR_ROOT, TRACE_STARTUP_FLAG, config
+    CWD = Path.cwd()
+    OS_CWD = mingify_path(os.getcwd())
+    OUT_DIR_ROOT = CWD / 'out'
     TRACE_STARTUP_FLAG = bool(getattr(parsed_args, 'trace_startup', False)) # type: ignore
+    os.makedirs(OUT_DIR_ROOT, exist_ok=True)
+    config = Config.load()
 
     operation_arg = parsed_args.operation
     if operation_arg.endswith('-local'):
@@ -1522,7 +1527,6 @@ def main(args: list[str]) -> int:
 
 
 if __name__ == "__main__":
-    os.makedirs('out', exist_ok=True)
     if len(sys.argv) < 2:
         print('<missing args>')
         sys.exit(1)

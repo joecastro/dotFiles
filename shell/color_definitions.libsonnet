@@ -354,7 +354,7 @@ local ExtendedTerminalColors(
                 Palettes.Primary.White, // cursor_foreground
                 null, // underline
                 null)), // tab
-        CampbellPoweshell: $.Schemes.Campbell + {
+        CampbellPowershell: $.Schemes.Campbell + {
             terminal_colors+: {
                 background: Palettes.Primary.PrussianBlue,
             },

@@ -30,7 +30,7 @@ function BootstrapEnv {
     Write-Host ">> Initializing Python virtual environment with uv"
     $venvPath = Join-Path $WorkDir ".venv"
     uv venv $venvPath
-    uv sync --python "$venvPath\Scripts\python.exe" --group dev
+    uv sync --python "$venvPath\Scripts\python.exe"
 
     Write-Host ">> Launching workspace 'code $WorkDir'"
     code $WorkDir
