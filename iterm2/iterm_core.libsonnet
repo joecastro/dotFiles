@@ -155,15 +155,17 @@ local ItermColorWhite = ItermColor(Colors.White);
         regex : regex,
         [if partial then "partial"]: true,
     },
-    ItermProfile(profile_name, color, guid, wallpaper)::
+    ItermProfile(profile_name, color, guid, wallpaper, icon=null)::
         ItermColorPreset(null, default_color_scheme, default_color_scheme.terminal_colors) +
         $.ItermProfileTemplate +
     {
         "Background Image Location": wallpaper.target_path(host),
         "Badge Color": ItermColorAlpha(ColorWithAlpha(color, 0.5)),
         "Blend": wallpaper.blend,
+        [if icon != null then "Custom Icon Path"]: icon.target_path(host),
         "Cursor Guide Color": ItermColorAlpha(ColorWithAlpha(color, 0.25)),
         "Guid": guid,
+        "Icon": if icon == null then 1 else 2,
         "Name": profile_name,
     },
     SessionView(profile):: {
@@ -207,16 +209,16 @@ local ItermColorWhite = ItermColor(Colors.White);
         "Y Origin": 648.0
     },
     Profiles:: {
-        HomebrewZsh: $.ItermProfile("Zsh", Colors.White, $.private_guids[0], wallpapers.backgrounds.hokusai_wave) {
+        HomebrewZsh: $.ItermProfile("Zsh", Colors.White, $.private_guids[0], wallpapers.backgrounds.hokusai_wave, wallpapers.icons.zsh) {
             "Command": "/opt/homebrew/bin/zsh",
         },
-        HomebrewBash: $.ItermProfile("Bash", Colors.White, $.private_guids[1], wallpapers.backgrounds.abstract_pastel) {
+        HomebrewBash: $.ItermProfile("Bash", Colors.White, $.private_guids[1], wallpapers.backgrounds.abstract_pastel, wallpapers.icons.bash) {
             "Command": "/opt/homebrew/bin/bash",
         },
-        NativeOldBash: $.ItermProfile("Old Bash (Debugging)", Colors.White, $.private_guids[2], wallpapers.backgrounds.abstract_pastel) {
+        NativeOldBash: $.ItermProfile("Old Bash (Debugging)", Colors.White, $.private_guids[2], wallpapers.backgrounds.abstract_pastel, wallpapers.icons.bash) {
             "Command": "/bin/bash",
         },
-        GuakeWindow: $.ItermProfile("Guake", Colors.White, $.private_guids[3], wallpapers.backgrounds.quake) {
+        GuakeWindow: $.ItermProfile("Guake", Colors.White, $.private_guids[3], wallpapers.backgrounds.quake, wallpapers.icons.quake) {
             "Has Hotkey": true,
             "Horizontal Spacing": 1.0,
             "HotKey Activated By Modifier": false,

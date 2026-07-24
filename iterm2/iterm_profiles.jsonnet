@@ -15,7 +15,7 @@ local ItermColor(color) = {
 };
 
 local DolbyProfile(name, guid, directory, dimmer_color, accent_color) =
-    iterm.ItermProfile(name, accent_color, guid, wallpaper.backgrounds.dolby) + {
+    iterm.ItermProfile(name, accent_color, guid, wallpaper.backgrounds.dolby, wallpaper.icons.dolby) + {
         "Bound Hosts": [
             directory,
             directory + "/*",
@@ -61,7 +61,7 @@ local hostname_triggers = [
 ];
 
 local ec2_workstation_profile = if ec2_hostname != ''
-    then iterm.ItermProfile("EC2 Workstation", color_defs.Colors.White, guids[0], wallpaper.backgrounds.abstract_orange) +
+    then iterm.ItermProfile("EC2 Workstation", color_defs.Colors.White, guids[0], wallpaper.backgrounds.abstract_orange, wallpaper.icons.tux) +
     {
         "Bound Hosts": [
             ec2_hostname,

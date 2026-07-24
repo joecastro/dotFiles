@@ -90,6 +90,21 @@ def path_is_within(child: Path, parent: Path) -> bool:
         return False
 
 
+def git_tracked_files(root: Path) -> set[Path]:
+    """Return repository-relative paths tracked by Git."""
+    result = subprocess.run(
+        ['git', 'ls-files', '-z'],
+        cwd=root,
+        check=True,
+        capture_output=True,
+    )
+    return {
+        Path(os.fsdecode(raw_path))
+        for raw_path in result.stdout.split(b'\0')
+        if raw_path
+    }
+
+
 CWD: Path = Path.cwd()
 OS_CWD = mingify_path(os.getcwd())
 OUT_DIR_ROOT: Path = CWD / 'out'
@@ -153,6 +168,16 @@ def capture_infocmp_definition(term: str) -> tuple[Optional[str], Optional[str]]
         return (
             None,
             f'WARN: infocmp returned no data for {term}; skipping Ghostty terminfo embedding.',
+        )
+
+    if term == 'xterm-ghostty':
+        # Ghostty's description is just "Ghostty", which older tic versions can
+        # mistake for a second alias (and then report it as a duplicate). A
+        # multiword final field is unambiguously a description.
+        output = output.replace(
+            'xterm-ghostty|ghostty|Ghostty,',
+            'xterm-ghostty|Ghostty terminal emulator,',
+            1,
         )
 
     return output, None
@@ -1206,21 +1231,26 @@ def push_remote_staging(host: Host) -> list[RunOp]:
 
 
 def process_macros_for_staged_file(host: Host, file: Path) -> None:
+    try:
+        content = file.read_text(encoding='utf-8')
+    except UnicodeDecodeError:
+        # Directory maps can contain binary assets (including extensionless files
+        # such as .DS_Store), which cannot contain our line-oriented macros.
+        return
+
     is_modified = False
     modified_content: list[str] = []
-    with open(file, 'r', encoding='utf-8') as f:
-        lines = f.read().splitlines()
-        for line in lines:
-            # Expand macros (supports arguments after the keyword)
-            matched_macro = next((k for k in host.macros if line.startswith(k)), None)
-            if matched_macro is not None:
-                is_modified = True
-                pragma_arg = line[len(matched_macro) :].strip()
-                modified_content.extend(
-                    host.get_inflated_macro(matched_macro, file, pragma_arg=pragma_arg)
-                )
-            else:
-                modified_content.append(line)
+    for line in content.splitlines():
+        # Expand macros (supports arguments after the keyword)
+        matched_macro = next((k for k in host.macros if line.startswith(k)), None)
+        if matched_macro is not None:
+            is_modified = True
+            pragma_arg = line[len(matched_macro) :].strip()
+            modified_content.extend(
+                host.get_inflated_macro(matched_macro, file, pragma_arg=pragma_arg)
+            )
+        else:
+            modified_content.append(line)
     if is_modified:
         with open(file, 'w', encoding='utf-8') as f:
             f.writelines(line + '\n' for line in modified_content)
@@ -1336,6 +1366,7 @@ def stage_local(
     )
 
     if host.macros:
+        tracked_files = git_tracked_files(CWD)
 
         def is_path_eligible_for_macros(path: Path) -> bool:
             if not path.is_file():
@@ -1351,20 +1382,21 @@ def stage_local(
 
         files_to_process: set[Path] = set()
 
-        for file in host.file_maps.keys():
+        for file in files_to_stage:
+            if Path(file) not in tracked_files:
+                continue
             candidate = host.local_staging_dir / file
             if is_path_eligible_for_macros(candidate):
                 files_to_process.add(candidate)
 
         for directory in directories_to_stage:
-            source_dir = CWD / directory
-            if source_dir.is_dir():
-                for source_candidate in source_dir.rglob('*'):
-                    if not is_path_eligible_for_macros(source_candidate):
-                        continue
-                    files_to_process.add(
-                        host.local_staging_dir / source_candidate.relative_to(CWD)
-                    )
+            directory_path = Path(directory)
+            for tracked_file in tracked_files:
+                if not tracked_file.is_relative_to(directory_path):
+                    continue
+                candidate = host.local_staging_dir / tracked_file
+                if is_path_eligible_for_macros(candidate):
+                    files_to_process.add(candidate)
 
         # Include any pre-staged files generated from jsonnet outputs.
         for file in host.prestaged_files:
