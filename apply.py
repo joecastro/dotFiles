@@ -1137,7 +1137,7 @@ def stage_local(host: Host, verbose: bool = False, skip_cache: bool = False) -> 
         def is_path_eligible_for_macros(path: Path) -> bool:
             if not path.is_file():
                 return False
-            return path.suffix.lower() not in {'.png', '.jpg', '.svg', '.jpeg', '.gif'}
+            return path.suffix.lower() not in {'.png', '.jpg', '.svg', '.jpeg', '.gif', '.webp'}
 
         files_to_process: set[Path] = set()
 
