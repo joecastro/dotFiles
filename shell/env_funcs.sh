@@ -294,38 +294,57 @@ function __print_node_modules_status() {
 
 function __is_in_python_venv() { [ -n "${VIRTUAL_ENV}" ]; }
 
+function __find_parent_containing() {
+    local marker="$1"
+    local current_dir="${2:-$PWD}"
+
+    while :; do
+        if [[ -e "${current_dir}/${marker}" ]]; then
+            printf '%s' "${current_dir}"
+            return 0
+        fi
+        [[ "${current_dir}" == "/" ]] && break
+        current_dir="${current_dir%/*}"
+        [[ -z "${current_dir}" ]] && current_dir="/"
+    done
+    return 1
+}
+
 function __auto_activate_venv() {
+    local project_dir=""
+    project_dir="$(__find_parent_containing .venv "$(pwd -P)" 2>/dev/null || true)"
+
     # If I am no longer in the same directory hierarchy as the venv that was last activated, deactivate.
     if __is_in_python_venv; then
         local P_DIR
         P_DIR="$(dirname "$VIRTUAL_ENV")"
-        if [[ "$PWD"/ != "${P_DIR}"/* ]] && command -v deactivate &> /dev/null; then
+        if [[ "${project_dir}" != "${P_DIR}" ]] && command -v deactivate &> /dev/null; then
             echo "${ICON_MAP[PYTHON]} Deactivating venv for ${P_DIR}"
             deactivate
         fi
     fi
 
-    # If I enter a directory with a .venv and I am already activated with another one, let me know but don't activate.
-    if [[ -d ./.venv ]]; then
+    # Activate the nearest project venv after any previously active project venv has been deactivated.
+    if [[ -n "${project_dir}" && -d "${project_dir}/.venv" ]]; then
         if ! __is_in_python_venv; then
             # shellcheck disable=SC1091
-            source ./.venv/bin/activate
-            echo "${ICON_MAP[PYTHON]} Activating venv with $(python --version) for $PWD/.venv"
+            source "${project_dir}/.venv/bin/activate"
+            echo "${ICON_MAP[PYTHON]} Activating venv with $(python --version) for ${project_dir}/.venv"
             if command -v uv &> /dev/null; then
                 local uv_lock=""
-                if [[ -f uv.lock ]]; then
+                if [[ -f "${project_dir}/uv.lock" ]]; then
                     uv_lock="uv.lock"
-                elif [[ -f pyproject.toml ]]; then
+                elif [[ -f "${project_dir}/pyproject.toml" ]]; then
                     uv_lock="pyproject.toml"
                 fi
 
                 if [[ -n "$uv_lock" ]]; then
-                    local sync_marker=".venv/.uv-sync-marker"
-                    local uv_python="$PWD/.venv/bin/python"
-                    if [[ ! -f "$sync_marker" || "$uv_lock" -nt "$sync_marker" ]]; then
-                        if uv sync; then
-                            touch "$sync_marker"
-                            echo "${ICON_MAP[PYTHON]} uv sync complete for $PWD ($uv_lock)"
+                    local sync_marker="${project_dir}/.venv/.uv-sync-marker"
+                    local lock_path="${project_dir}/${uv_lock}"
+                    if [[ ! -f "$sync_marker" || "$lock_path" -nt "$sync_marker" ]]; then
+                        if (cd "${project_dir}" && uv sync); then
+                            touch "${sync_marker}"
+                            echo "${ICON_MAP[PYTHON]} uv sync complete for ${project_dir} (${uv_lock})"
                         else
                             echo "${ICON_MAP[WARNING]} uv sync failed (see output above)"
                         fi
@@ -891,7 +910,7 @@ function __ensure_nvm_loaded() {
     local nvm_dir="${NVM_DIR}"
     if [[ -s "${nvm_dir}/nvm.sh" ]]; then
         # shellcheck disable=SC1090,SC1091
-        source "${nvm_dir}/nvm.sh"
+        source "${nvm_dir}/nvm.sh" --no-use
         _dotTrace_exit 0
         return
     fi
@@ -900,7 +919,7 @@ function __ensure_nvm_loaded() {
     if command -v brew >/dev/null 2>&1 && nvm_prefix="$(brew --prefix nvm 2>/dev/null)"; then
         if [[ -s "${nvm_prefix}/nvm.sh" ]]; then
             # shellcheck disable=SC1090,SC1091
-            source "${nvm_prefix}/nvm.sh"
+            source "${nvm_prefix}/nvm.sh" --no-use
             _dotTrace_exit 0
             return
         fi
@@ -911,7 +930,7 @@ function __ensure_nvm_loaded() {
 }
 
 function __activate_preferred_node_version() {
-    _dotTrace_enter "$@"
+    _dotTrace_enter
     local preferred_node="${DOTFILES_PREFERRED_NODE_VERSION:-24}"
     unset DOTFILES_ACTIVE_NODE_VERSION
 
@@ -947,6 +966,37 @@ function __activate_preferred_node_version() {
 
     _dotTrace "Activated nvm but could not resolve active node binary for ${current_node_version}"
     _dotTrace_exit 1
+}
+
+function __auto_activate_nvm() {
+    local nvmrc_dir=""
+    local nvmrc_path=""
+    nvmrc_dir="$(__find_parent_containing .nvmrc "$(pwd -P)" 2>/dev/null || true)"
+    [[ -n "${nvmrc_dir}" ]] && nvmrc_path="${nvmrc_dir}/.nvmrc"
+
+    if [[ -z "${nvmrc_path}" ]]; then
+        if [[ -n "${DOTFILES_ACTIVE_NVMRC:-}" ]]; then
+            __activate_preferred_node_version >/dev/null 2>&1 || return 1
+            unset DOTFILES_ACTIVE_NVMRC
+        fi
+        return 0
+    fi
+
+    if [[ "${DOTFILES_ACTIVE_NVMRC:-}" == "${nvmrc_path}" ]]; then
+        return 0
+    fi
+
+    if ! __ensure_nvm_loaded; then
+        return 1
+    fi
+
+    if nvm use --silent >/dev/null 2>&1; then
+        export DOTFILES_ACTIVE_NVMRC="${nvmrc_path}"
+        return 0
+    fi
+
+    echo "${ICON_MAP[WARNING]} Unable to activate Node version from ${nvmrc_path}" >&2
+    return 1
 }
 
 function ssh() {

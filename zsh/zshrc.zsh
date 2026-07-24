@@ -149,7 +149,9 @@ source "${HOME}/.config/zshext/zsh-syntax-highlighting/zsh-syntax-highlighting.z
 chpwd_functions=($chpwd_functions __update_prompt)
 
 if ! __is_tool_window && ! __is_embedded_terminal; then
-    chpwd_functions=($chpwd_functions __auto_activate_venv)
+    chpwd_functions=($chpwd_functions __auto_activate_venv __auto_activate_nvm)
+    __auto_activate_venv
+    __auto_activate_nvm
 fi
 
 # Use beam shape cursor for each new prompt.
@@ -344,6 +346,18 @@ fi
 unset node_header_path
 unset node_header_version
 unset node_header_provider
+
+python_project_dir="$(__find_parent_containing .venv "$(pwd -P)" 2>/dev/null || true)"
+if [[ -n "${python_project_dir}" && "${VIRTUAL_ENV:-}" != "${python_project_dir}/.venv" ]]; then
+    __cute_shell_header_add_warning "${ICON_MAP[PYTHON]} .venv is not active (${python_project_dir})"
+fi
+unset python_project_dir
+
+node_version_dir="$(__find_parent_containing .nvmrc "$(pwd -P)" 2>/dev/null || true)"
+if [[ -n "${node_version_dir}" && "${DOTFILES_ACTIVE_NVMRC:-}" != "${node_version_dir}/.nvmrc" ]]; then
+    __cute_shell_header_add_warning "${ICON_MAP[NODEJS]} .nvmrc is not active (${node_version_dir})"
+fi
+unset node_version_dir
 
 # echo "Welcome to $(__effective_distribution)!"
 case "$(__effective_distribution)" in

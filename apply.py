@@ -1413,10 +1413,11 @@ def main(args: list[str]) -> int:
         os.chdir(parsed_args.working_dir)
 
     global CWD, OS_CWD, OUT_DIR_ROOT, TRACE_STARTUP_FLAG, config
-    CWD = Path.cwd()
-    OS_CWD = mingify_path(os.getcwd())
-    OUT_DIR_ROOT = CWD / 'out'
+    CWD = Path.cwd() # type: ignore
+    OS_CWD = mingify_path(os.getcwd()) # type: ignore
+    OUT_DIR_ROOT = CWD / 'out' # type: ignore
     TRACE_STARTUP_FLAG = bool(getattr(parsed_args, 'trace_startup', False)) # type: ignore
+
     os.makedirs(OUT_DIR_ROOT, exist_ok=True)
     config = Config.load()
 
