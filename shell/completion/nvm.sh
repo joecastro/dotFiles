@@ -10,25 +10,34 @@ _dotTrace "Configuring nvm"
 nvm_prefix=""
 nvm_dir="${NVM_DIR:-$HOME/.nvm}"
 
+if __is_shell_zsh; then
+    if ! declare -f nvm >/dev/null 2>&1; then
+        function nvm() {
+            unset -f nvm
+            __ensure_nvm_loaded || return 1
+            nvm "$@"
+        }
+    fi
+    unset nvm_prefix
+    unset nvm_dir
+    return 0
+fi
+
 if [[ -s "${nvm_dir}/nvm.sh" ]]; then
     _dotTrace "Using NVM_DIR nvm"
     # shellcheck disable=SC1090
     source "${nvm_dir}/nvm.sh"
-else
-    if command -v brew >/dev/null 2>&1 && brew --prefix nvm >/dev/null 2>&1; then
-        nvm_prefix="$(brew --prefix nvm 2>/dev/null)"
-        if [[ -d "${nvm_prefix}" ]]; then
-            _dotTrace "Using Homebrew nvm"
-            if [[ -s "${nvm_prefix}/nvm.sh" ]]; then
-                # shellcheck disable=SC1090
-                source "${nvm_prefix}/nvm.sh"
-            fi
-        fi
+elif command -v brew >/dev/null 2>&1 && brew --prefix nvm >/dev/null 2>&1; then
+    nvm_prefix="$(brew --prefix nvm 2>/dev/null)"
+    if [[ -d "${nvm_prefix}" && -s "${nvm_prefix}/nvm.sh" ]]; then
+        _dotTrace "Using Homebrew nvm"
+        # shellcheck disable=SC1090
+        source "${nvm_prefix}/nvm.sh"
     fi
+fi
 
-    if ! declare -f nvm >/dev/null 2>&1; then
-        _dotTrace "Skipping nvm setup: ${nvm_dir}/nvm.sh missing"
-    fi
+if ! declare -f nvm >/dev/null 2>&1; then
+    _dotTrace "Skipping nvm setup: ${nvm_dir}/nvm.sh missing"
 fi
 
 if __is_shell_bash && [[ -s "${nvm_dir}/bash_completion" ]]; then

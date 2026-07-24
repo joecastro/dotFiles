@@ -10,7 +10,9 @@ _dotTrace "Init loading .zshrc"
 
 # In some contexts .zprofile isn't sourced (e.g. when started inside the Python debug console.)
 # shellcheck source=SCRIPTDIR/zsh/zprofile.zsh
-source ${ZDOTDIR:-$HOME}/.zprofile
+if [[ ! -o login ]]; then
+    source ${ZDOTDIR:-$HOME}/.zprofile
+fi
 
 # Useful reference: https://scriptingosx.com/2019/07/moving-to-zsh-part-7-miscellanea/
 
@@ -68,7 +70,14 @@ zle -N edit-command-line
 bindkey -M vicmd v edit-command-line
 
 # Use modern completion system
-autoload -Uz compinit; compinit
+autoload -Uz compinit
+typeset -g __dotfiles_zcompdump="${XDG_CACHE_HOME:-$HOME/.cache}/zsh/.zcompdump"
+mkdir -p "${__dotfiles_zcompdump:h}"
+if [[ -f "${__dotfiles_zcompdump}" ]]; then
+    compinit -C -d "${__dotfiles_zcompdump}"
+else
+    compinit -d "${__dotfiles_zcompdump}"
+fi
 
 # $PATH is tied to $path - Can use one as an array and the other as a scalar.
 typeset -U path # force unique values.
@@ -326,17 +335,15 @@ unset completion_script
 
 [[ -e "${DOTFILES_CONFIG_ROOT}/local_secrets.sh" ]] && source "${DOTFILES_CONFIG_ROOT}/local_secrets.sh"
 
-if __activate_preferred_node_version >/dev/null 2>&1; then
-    node_header_path="$(command -v node 2>/dev/null || true)"
-    node_header_version="$(node -v 2>/dev/null || true)"
-    if [[ -n "${node_header_path}" && -n "${node_header_version}" ]]; then
-        node_header_provider="$(__active_node_provider "${node_header_path}")"
-        __cute_shell_header_add_info "${ICON_MAP[NODEJS]} ${node_header_version} (${node_header_provider})"
-    fi
-    unset node_header_path
-    unset node_header_version
-    unset node_header_provider
+node_header_path="$(command -v node 2>/dev/null || true)"
+node_header_version="$(node -v 2>/dev/null || true)"
+if [[ -n "${node_header_path}" && -n "${node_header_version}" ]]; then
+    node_header_provider="$(__active_node_provider "${node_header_path}")"
+    __cute_shell_header_add_info "${ICON_MAP[NODEJS]} ${node_header_version} (${node_header_provider})"
 fi
+unset node_header_path
+unset node_header_version
+unset node_header_provider
 
 # echo "Welcome to $(__effective_distribution)!"
 case "$(__effective_distribution)" in

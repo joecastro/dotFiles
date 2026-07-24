@@ -7,6 +7,9 @@
 #pragma requires debug.sh
 #pragma requires platform.sh
 #pragma requires env_funcs.sh
+#pragma requires macos_funcs.sh
+#pragma requires android_funcs.sh
+#pragma requires util_funcs.sh
 
 __configure_homebrew_shellenv
 __activate_preferred_node_version >/dev/null 2>&1

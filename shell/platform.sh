@@ -106,6 +106,75 @@ function __ensure_path_entry_after_homebrew_bins() {
     export PATH
 }
 
+function __zsh_fpath_has_entry() {
+    local entry="${1:-}"
+    [[ -n "${entry}" ]] || return 1
+
+    case ":${FPATH:-}:" in
+    *:"${entry}":*)
+        return 0
+        ;;
+    esac
+
+    return 1
+}
+
+function __zsh_fpath_prepend_if_dir() {
+    local entry="${1:-}"
+    [[ -d "${entry}" ]] || return 0
+
+    if ! __zsh_fpath_has_entry "${entry}"; then
+        fpath=("${entry}" "${fpath[@]}")
+    fi
+}
+
+function __zsh_fpath_append_if_dir() {
+    local entry="${1:-}"
+    [[ -d "${entry}" ]] || return 0
+
+    if ! __zsh_fpath_has_entry "${entry}"; then
+        fpath=("${fpath[@]}" "${entry}")
+    fi
+}
+
+function __zsh_fpath_has_function_file() {
+    local function_name="${1:-}"
+    local current_entry=""
+
+    [[ -n "${function_name}" ]] || return 1
+
+    for current_entry in "${fpath[@]}"; do
+        if [[ -r "${current_entry}/${function_name}" ]]; then
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+function __configure_zsh_function_path() {
+    __is_shell_zsh || return 0
+
+    if ! __zsh_fpath_has_function_file colors || ! __zsh_fpath_has_function_file compinit; then
+        fpath=()
+    fi
+
+    typeset -gaU fpath
+
+    __zsh_fpath_prepend_if_dir "${DOTFILES_CONFIG_ROOT}/zfuncs"
+
+    if [[ -n "${HOMEBREW_PREFIX:-}" ]]; then
+        __zsh_fpath_prepend_if_dir "${HOMEBREW_PREFIX}/share/zsh/site-functions"
+        __zsh_fpath_append_if_dir "${HOMEBREW_PREFIX}/share/zsh/functions"
+    fi
+
+    __zsh_fpath_append_if_dir "/usr/local/share/zsh/site-functions"
+    __zsh_fpath_append_if_dir "/usr/share/zsh/site-functions"
+    __zsh_fpath_append_if_dir "/usr/share/zsh/${ZSH_VERSION}/functions"
+    __zsh_fpath_append_if_dir "/usr/share/zsh/${ZSH_VERSION%.*}/functions"
+    __zsh_fpath_append_if_dir "/usr/share/zsh/functions"
+}
+
 function __configure_homebrew_shellenv() {
     if command -v brew >/dev/null 2>&1; then
         eval "$(brew shellenv)"
@@ -119,6 +188,69 @@ function __configure_homebrew_shellenv() {
     # drop tools installed in the standard local prefix, such as Docker Desktop.
     __ensure_path_entry_after_homebrew_bins "/usr/local/bin"
     __ensure_path_entry_after_homebrew_bins "/usr/local/sbin"
+    __configure_zsh_function_path
+}
+
+function __path_prepend_entry() {
+    local entry="$1"
+    local rebuilt_path=""
+    local current_entry=""
+
+    [[ -n "${entry}" ]] || return 1
+
+    while IFS= read -r current_entry; do
+        if [[ -z "${current_entry}" || "${current_entry}" == "${entry}" ]]; then
+            continue
+        fi
+        if [[ -n "${rebuilt_path}" ]]; then
+            rebuilt_path="${rebuilt_path}:"
+        fi
+        rebuilt_path="${rebuilt_path}${current_entry}"
+    done < <(printf '%s' "${PATH}" | tr ':' '\n')
+
+    PATH="${entry}${rebuilt_path:+:${rebuilt_path}}"
+    export PATH
+
+    if __is_shell_bash; then
+        hash -r 2>/dev/null || true
+    elif __is_shell_zsh; then
+        rehash 2>/dev/null || true
+    fi
+}
+
+function __path_remove_matching_entries() {
+    local entry_regex="${1:-}"
+    local rebuilt_path=""
+    local current_entry=""
+
+    [[ -n "${entry_regex}" ]] || return 1
+
+    while IFS= read -r current_entry; do
+        if [[ -z "${current_entry}" || "${current_entry}" =~ ${entry_regex} ]]; then
+            continue
+        fi
+        if [[ -n "${rebuilt_path}" ]]; then
+            rebuilt_path="${rebuilt_path}:"
+        fi
+        rebuilt_path="${rebuilt_path}${current_entry}"
+    done < <(printf '%s' "${PATH}" | tr ':' '\n')
+
+    PATH="${rebuilt_path}"
+    export PATH
+
+    if __is_shell_bash; then
+        hash -r 2>/dev/null || true
+    elif __is_shell_zsh; then
+        rehash 2>/dev/null || true
+    fi
+}
+
+function __restore_inherited_nvm_node_bin() {
+    local inherited_node_bin="${1:-}"
+    [[ -n "${inherited_node_bin}" ]] || return 1
+
+    __path_remove_matching_entries '^'"${HOME}"'/\.nvm/versions/node/[^/]+/bin$'
+    __path_prepend_entry "${inherited_node_bin}"
 }
 
 function __path_index_of_entry() {

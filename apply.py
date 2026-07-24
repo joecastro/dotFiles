@@ -719,6 +719,60 @@ def make_install_plugins_bash_commands(plugin_type: str, repo_list: list[str], i
     return ops
 
 
+def make_generate_shell_completion_bash_commands(config_root: Path) -> list[RunOp]:
+    ops: list[RunOp] = []
+    config_root_str = config_root.as_posix().replace('"', '')
+    generated_dir = f'{config_root_str}/completion/generated'
+
+    ops.append('>> Generating host-local shell completion artifacts')
+    ops.append(BASH_COMMAND_PREFIX + make_shell_command(['mkdir', '-p', generated_dir]))
+
+    bash_command_block = dedent(f'''\
+        rm -f "{generated_dir}/docker.bash" "{generated_dir}/docker.zsh" \
+              "{generated_dir}/docker-compose.bash" "{generated_dir}/docker-compose.zsh" \
+              "{generated_dir}/kubectl.bash" "{generated_dir}/kubectl.zsh" \
+              "{generated_dir}/helm.bash" "{generated_dir}/helm.zsh" \
+              "{generated_dir}/gh.bash" "{generated_dir}/gh.zsh" \
+              "{generated_dir}/pnpm.bash" "{generated_dir}/pnpm.zsh"
+
+        if command -v docker >/dev/null 2>&1; then
+            docker completion bash > "{generated_dir}/docker.bash" 2>/dev/null || rm -f "{generated_dir}/docker.bash"
+            docker completion zsh > "{generated_dir}/docker.zsh" 2>/dev/null || rm -f "{generated_dir}/docker.zsh"
+
+            if docker compose version >/dev/null 2>&1; then
+                docker compose completion bash > "{generated_dir}/docker-compose.bash" 2>/dev/null || rm -f "{generated_dir}/docker-compose.bash"
+                docker compose completion zsh > "{generated_dir}/docker-compose.zsh" 2>/dev/null || rm -f "{generated_dir}/docker-compose.zsh"
+            fi
+        fi
+
+        if command -v kubectl >/dev/null 2>&1; then
+            kubectl completion bash > "{generated_dir}/kubectl.bash" 2>/dev/null || rm -f "{generated_dir}/kubectl.bash"
+            kubectl completion zsh > "{generated_dir}/kubectl.zsh" 2>/dev/null || rm -f "{generated_dir}/kubectl.zsh"
+        fi
+
+        if command -v helm >/dev/null 2>&1; then
+            helm completion bash > "{generated_dir}/helm.bash" 2>/dev/null || rm -f "{generated_dir}/helm.bash"
+            helm completion zsh > "{generated_dir}/helm.zsh" 2>/dev/null || rm -f "{generated_dir}/helm.zsh"
+        fi
+
+        if command -v gh >/dev/null 2>&1; then
+            gh completion -s bash > "{generated_dir}/gh.bash" 2>/dev/null || rm -f "{generated_dir}/gh.bash"
+            gh completion -s zsh > "{generated_dir}/gh.zsh" 2>/dev/null || rm -f "{generated_dir}/gh.zsh"
+        fi
+
+        if command -v pnpm >/dev/null 2>&1; then
+            pnpm completion bash > "{generated_dir}/pnpm.bash" 2>/dev/null || rm -f "{generated_dir}/pnpm.bash"
+            pnpm completion zsh > "{generated_dir}/pnpm.zsh" 2>/dev/null || rm -f "{generated_dir}/pnpm.zsh"
+        fi
+        ''')
+
+    for line in bash_command_block.splitlines():
+        if line.strip():
+            ops.append(BASH_COMMAND_PREFIX + line)
+
+    return ops
+
+
 def remove_parents_from_set(paths: set[Path]) -> set[Path]:
     return {d for d in paths if not any(subdir != d and path_is_within(subdir, d) for subdir in paths)}
 
@@ -1127,6 +1181,7 @@ def stage_local(host: Host, verbose: bool = False, skip_cache: bool = False) -> 
     finish_ops.extend(make_install_plugins_bash_commands('Vim startup plugin(s)', config.vim_pack_plugin_start_repos, HOME_VAR_PATH))
     finish_ops.extend(make_install_plugins_bash_commands('Vim operational plugin(s)', config.vim_pack_plugin_opt_repos, HOME_VAR_PATH))
     finish_ops.extend(make_install_plugins_bash_commands('Zsh plugin(s)', config.zsh_plugin_repos, HOME_VAR_PATH))
+    finish_ops.extend(make_generate_shell_completion_bash_commands(HOME_VAR_PATH / host.config_dir))
 
     finish_script = host.local_staging_dir / 'finish.sh'
     ops.extend(make_finish_script(finish_ops, finish_script, verbose=verbose))

@@ -5,30 +5,27 @@
 #pragma requires debug.sh
 #pragma requires env_funcs.sh
 
-if ! command -v docker >/dev/null 2>&1; then
-    _dotTrace "Skipping Docker completions: docker command not found"
-    return 0
-fi
-
 __docker_completion_target="bash"
 if __is_shell_zsh; then
     __docker_completion_target="zsh"
 fi
 
-if docker completion "${__docker_completion_target}" >/dev/null 2>&1; then
+__docker_generated_completion="${DOTFILES_CONFIG_ROOT}/completion/generated/docker.${__docker_completion_target}"
+if [[ -r "${__docker_generated_completion}" ]]; then
     # shellcheck disable=SC1090
-    source <(docker completion "${__docker_completion_target}")
+    source "${__docker_generated_completion}"
 else
-    _dotTrace "Docker does not support completion for ${__docker_completion_target}"
+    _dotTrace "Generated Docker completion missing for ${__docker_completion_target}"
 fi
 
-if docker compose version >/dev/null 2>&1; then
-    if docker compose completion "${__docker_completion_target}" >/dev/null 2>&1; then
-        # shellcheck disable=SC1090
-        source <(docker compose completion "${__docker_completion_target}")
-    else
-        _dotTrace "Docker Compose does not support completion for ${__docker_completion_target}"
-    fi
+__docker_compose_generated_completion="${DOTFILES_CONFIG_ROOT}/completion/generated/docker-compose.${__docker_completion_target}"
+if [[ -r "${__docker_compose_generated_completion}" ]]; then
+    # shellcheck disable=SC1090
+    source "${__docker_compose_generated_completion}"
+else
+    _dotTrace "Generated Docker Compose completion missing for ${__docker_completion_target}"
 fi
 
+unset __docker_generated_completion
+unset __docker_compose_generated_completion
 unset __docker_completion_target
