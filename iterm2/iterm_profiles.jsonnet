@@ -14,8 +14,8 @@ local ItermColor(color) = {
     "Blue Component": std.toString(color.blue),
 };
 
-local DolbyProfile(name, guid, directory, dimmer_color, accent_color) =
-    iterm.ItermProfile(name, accent_color, guid, wallpaper.backgrounds.dolby, wallpaper.icons.dolby) + {
+local DolbyProfile(name, guid, directory, dimmer_color, accent_color, background=wallpaper.backgrounds.dolby) =
+    iterm.ItermProfile(name, accent_color, guid, background, wallpaper.icons.dolby) + {
         "Bound Hosts": [
             directory,
             directory + "/*",
@@ -53,6 +53,14 @@ local dolby_profiles = [
         home + "/source/LQChassis",
         color_defs.ColorFromHex("#075c46"),
         color_defs.ColorFromHex("#16d6a0"),
+    ),
+    DolbyProfile(
+        "Dolby — Site Gallery",
+        guids[5],
+        home + "/source/site-gallery",
+        color_defs.ColorFromHex("#3d174f"),
+        color_defs.ColorFromHex("#c269e8"),
+        wallpaper.backgrounds.dolby_landscape,
     ),
 ];
 
