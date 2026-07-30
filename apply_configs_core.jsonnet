@@ -192,6 +192,7 @@ local env_vars = {
         DOTFILES_INIT_EPOCHREALTIME_START: "${EPOCHREALTIME:-}",
         NVM_DIR: "$HOME/.nvm",
         AWS_PAGER: '',
+        CHASSIS_EXPERIMENTAL: '1',
     } + debug_properties + less_termcaps_properties,
     interactive_directives: less_termcaps_directives,
     aliases: {

@@ -15,6 +15,35 @@ fi
 
 declare -A ICON_MAP=([NOTHING]="❌")
 
+declare -A COMMON_ICON_MAP=(
+    [MD_GREATER_THAN]=">"
+    [MD_CHEVRON_DOUBLE_RIGHT]=">>"
+    [FA_DOLLAR]=$
+    [GIT_BRANCH]=⑂
+    [GIT_COMMIT]=●
+    [HOME_FOLDER]=⌂
+    [PINNED]=⌖
+    [PINNED_OUTLINE]=⌖
+    [ARROW_UP]=↑
+    [ARROW_DOWN]=↓
+    [ARROW_UPDOWN]=↕
+    [ARROW_UP_THICK]=⬆
+    [ARROW_DOWN_THICK]=⬇
+    [ARROW_UPDOWN_THICK]=⇅
+    [DOWNLOAD]=⇩
+    [CLOUD]=☁
+    [KEY]=⚿
+    [CLOCK]=◷
+    [X]=×
+    [QUESTION]="?"
+    [ALERT]=⚠
+    [TOOLS]=⚒
+    [REACT]=⚛
+    [GIT_REMOTE_ORIGIN]=ⓞ
+    [GIT_REMOTE_FORK]=ⓕ
+    [GIT_REMOTE_UPSTREAM]=ⓤ
+    )
+
 declare -A EMOJI_ICON_MAP=(
     [WINDOWS]=🪟
     [LINUX_PENGUIN]=🐧
@@ -39,13 +68,10 @@ declare -A EMOJI_ICON_MAP=(
     [COD_SAVE]=💾
     [FAE_TREE]=🌲
     [MD_SUBMARINE]=🚢
-    [MD_GREATER_THAN]=">"
-    [MD_CHEVRON_DOUBLE_RIGHT]=">>"
     [MD_MICROSOFT_VISUAL_STUDIO_CODE]=♾️
     [MD_SNAPCHAT]=👻
     [OCT_FILE_SUBMODULE]=🗄️
     [COD_TERMINAL_BASH]="{bash}"
-    [FA_DOLLAR]=$
     [BEER]=🍺
     [CIDER]=🍺
     [YAWN]=🥱
@@ -175,22 +201,31 @@ declare -A NF_ICON_MAP=(
 
 if __is_shell_zsh; then
     # shellcheck disable=SC2296
-    declare -a ICON_MAP_KEYS=("${(@k)EMOJI_ICON_MAP}")
+    declare -a ICON_MAP_KEYS=("${(@k)COMMON_ICON_MAP}" "${(@k)EMOJI_ICON_MAP}" "${(@k)NF_ICON_MAP}")
 else
-    declare -a ICON_MAP_KEYS=("${!EMOJI_ICON_MAP[@]}")
+    declare -a ICON_MAP_KEYS=("${!COMMON_ICON_MAP[@]}" "${!EMOJI_ICON_MAP[@]}" "${!NF_ICON_MAP[@]}")
 fi
 
 # shellcheck disable=SC2207
-IFS=$'\n' ICON_MAP_KEYS=($(sort <<<"${ICON_MAP_KEYS[*]}"))
+IFS=$'\n' ICON_MAP_KEYS=($(sort -u <<<"${ICON_MAP_KEYS[*]}"))
 unset IFS
 
 function __refresh_icon_map() {
     local use_nerd_fonts="$1"
     unset "ICON_MAP[NOTHING]"
+    for key in "${ICON_MAP_KEYS[@]}"; do
+        if [[ -n "${COMMON_ICON_MAP[$key]:-}" ]]; then
+            ICON_MAP[$key]=${COMMON_ICON_MAP[$key]}
+        fi
+    done
     if (( use_nerd_fonts )); then
-        for key in "${ICON_MAP_KEYS[@]}"; do ICON_MAP[$key]=${NF_ICON_MAP[$key]}; done
+        for key in "${ICON_MAP_KEYS[@]}"; do
+            if [[ -n "${NF_ICON_MAP[$key]:-}" ]]; then ICON_MAP[$key]=${NF_ICON_MAP[$key]}; fi
+        done
     else
-        for key in "${ICON_MAP_KEYS[@]}"; do ICON_MAP[$key]=${EMOJI_ICON_MAP[$key]}; done
+        for key in "${ICON_MAP_KEYS[@]}"; do
+            if [[ -n "${EMOJI_ICON_MAP[$key]:-}" ]]; then ICON_MAP[$key]=${EMOJI_ICON_MAP[$key]}; fi
+        done
     fi
 }
 

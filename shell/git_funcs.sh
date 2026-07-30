@@ -204,6 +204,44 @@ function __git_print_branch_name() {
     _dotTrace_exit 0
 }
 
+function __git_print_tracking_remote_badge() {
+    _dotTrace_enter
+
+    # Only branches can have a configured tracking reference. Keep detached
+    # HEAD output focused on the commit state instead of showing a misleading
+    # "untracked" badge.
+    if ! git symbolic-ref --quiet HEAD >/dev/null 2>&1; then
+        _dotTrace_exit 1
+        return 1
+    fi
+
+    local tracking_ref remote_name
+    if ! tracking_ref=$(git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null) \
+        || [[ -z "${tracking_ref}" ]]; then
+        printf '%s' "${ICON_MAP[QUESTION]}"
+        _dotTrace_exit 0
+        return 0
+    fi
+
+    remote_name=${tracking_ref%%/*}
+    case "${remote_name}" in
+        origin)
+            printf '%s' "${ICON_MAP[GIT_REMOTE_ORIGIN]}"
+            ;;
+        fork)
+            printf '%s' "${ICON_MAP[GIT_REMOTE_FORK]}"
+            ;;
+        upstream)
+            printf '%s' "${ICON_MAP[GIT_REMOTE_UPSTREAM]}"
+            ;;
+        *)
+            printf '@%s' "${remote_name}"
+            ;;
+    esac
+
+    _dotTrace_exit 0
+}
+
 function __print_git_branch() {
     local -i skip_color=0
     if [[ "$1" == "--no-color" ]]; then
@@ -365,6 +403,12 @@ function __print_git_pwd() {
     else
         _dotTrace "not on default branch - using git rev-parse for branch display"
         working_pwd+="$(git rev-parse --abbrev-ref HEAD 2>/dev/null)"
+    fi
+
+    local tracking_remote_badge
+    tracking_remote_badge=$(__git_print_tracking_remote_badge)
+    if [[ -n "${tracking_remote_badge}" ]]; then
+        working_pwd+=" ${tracking_remote_badge}"
     fi
 
     if (( ! is_unchanged )); then
