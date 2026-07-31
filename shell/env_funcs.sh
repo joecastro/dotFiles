@@ -1012,6 +1012,24 @@ function __auto_activate_nvm() {
     return 1
 }
 
+# Configure development runtimes needed by login-shell commands. Keep this
+# quiet: login shells are commonly used by IDEs, agents, and Git hooks.
+function __configure_login_toolchains() {
+    __configure_homebrew_shellenv
+
+    local nvmrc_dir=""
+    nvmrc_dir="$(__find_parent_containing .nvmrc "$(pwd -P)" 2>/dev/null || true)"
+    if [[ -n "${nvmrc_dir}" ]]; then
+        __auto_activate_nvm >/dev/null 2>&1 || true
+    else
+        __activate_preferred_node_version >/dev/null 2>&1 || true
+    fi
+
+    if __is_on_macos && declare -f chjava >/dev/null 2>&1; then
+        chjava "${DOTFILES_PREFERRED_JAVA_VERSION:-22}" >/dev/null 2>&1 || true
+    fi
+}
+
 function ssh() {
     __cache_clear "KONSOLE_PROFILE"
     command ssh "$@"

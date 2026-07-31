@@ -375,7 +375,6 @@ case "$(__effective_distribution)" in
     fi
 
     # RPROMPT='$(battery_charge)'
-    chjava 22
 
     ;;
 "WSL")

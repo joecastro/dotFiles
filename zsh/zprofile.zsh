@@ -11,6 +11,6 @@
 #pragma requires android_funcs.sh
 #pragma requires util_funcs.sh
 
-__configure_homebrew_shellenv
+__configure_login_toolchains
 
 _dotTrace "Completed loading .zprofile"

@@ -218,7 +218,7 @@ function __git_print_tracking_remote_badge() {
     local tracking_ref remote_name
     if ! tracking_ref=$(git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null) \
         || [[ -z "${tracking_ref}" ]]; then
-        printf '%s' "${ICON_MAP[QUESTION]}"
+        printf '%s' "${ICON_MAP[GIT_REMOTE_UNTRACKED]}"
         _dotTrace_exit 0
         return 0
     fi

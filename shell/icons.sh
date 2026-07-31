@@ -42,6 +42,7 @@ declare -A COMMON_ICON_MAP=(
     [GIT_REMOTE_ORIGIN]=ⓞ
     [GIT_REMOTE_FORK]=ⓕ
     [GIT_REMOTE_UPSTREAM]=ⓤ
+    [GIT_REMOTE_UNTRACKED]=○
     )
 
 declare -A EMOJI_ICON_MAP=(
