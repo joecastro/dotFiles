@@ -215,10 +215,18 @@ function __git_print_tracking_remote_badge() {
         return 1
     fi
 
-    local tracking_ref remote_name
+    local tracking_ref remote_name remote_count
     if ! tracking_ref=$(git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null) \
         || [[ -z "${tracking_ref}" ]]; then
         printf '%s' "${ICON_MAP[GIT_REMOTE_UNTRACKED]}"
+        _dotTrace_exit 0
+        return 0
+    fi
+
+    # A tracking-remote badge is redundant in the common single-remote case.
+    # Show it only when it helps distinguish between configured remotes.
+    remote_count=$(git remote 2>/dev/null | awk 'NR == 2 { print 2; exit } END { if (NR < 2) print NR }')
+    if (( remote_count < 2 )); then
         _dotTrace_exit 0
         return 0
     fi
