@@ -79,32 +79,37 @@ function __git_is_in_worktree() {
 function __git_compare_upstream_changes() {
     _dotTrace_enter
 
-    local upstream
+    local upstream current_branch tracking_remote
     upstream=$(git rev-parse --abbrev-ref --symbolic-full-name "@{u}" 2>/dev/null)
     if [[ -z "$upstream" ]]; then
         _dotTrace "no upstream; cannot compare"
         _dotTrace_exit 1
         return
     fi
+    current_branch=$(git symbolic-ref --quiet --short HEAD 2>/dev/null)
+    tracking_remote=$(git config --get "branch.${current_branch}.remote" 2>/dev/null)
 
     if [[ -n "${DISABLE_GIT_STATUS_FETCH}" ]]; then
         _dotTrace "auto-fetch disabled via DISABLE_GIT_STATUS_FETCH"
-    elif [[ -n "${ENABLE_GIT_STATUS_FETCH}" ]]; then
+    elif [[ -n "${tracking_remote}" ]] \
+        && git remote get-url "${tracking_remote}" >/dev/null 2>&1; then
         local max_age=${GIT_STATUS_FETCH_MAX_AGE:-300.000}
         local last_fetch fetch_age
-        if ! last_fetch=$(__git_last_fetch_epoch); then
+        if ! last_fetch=$(__git_last_fetch_epoch "${tracking_remote}"); then
             last_fetch="0.000"
         fi
-        fetch_age=$(__time_delta "$last_fetch")
-        _dotTrace "last fetch epoch: $last_fetch (age: ${fetch_age:-N/A}s, max allowed: ${max_age}s)"
+        fetch_age=$(__time_delta "${last_fetch}")
+        _dotTrace "last ${tracking_remote} fetch epoch: ${last_fetch} (age: ${fetch_age:-N/A}s, max allowed: ${max_age}s)"
         if (( $(awk "BEGIN {print ($fetch_age > $max_age)}") )); then
-            _dotTrace "fetch age exceeds max age; performing git fetch"
-            git fetch --quiet >/dev/null 2>&1 || true
+            _dotTrace "fetch age exceeds max age; fetching ${tracking_remote}"
+            if git fetch --quiet "${tracking_remote}" >/dev/null 2>&1; then
+                __git_record_fetch "${tracking_remote}"
+            fi
         else
             _dotTrace "fetch age within max age; skipping git fetch"
         fi
     else
-        _dotTrace "prompt-time fetch disabled; using locally known upstream state"
+        _dotTrace "upstream is not a remote-tracking branch; skipping fetch"
     fi
 
     local -i ahead=0 behind=0
@@ -136,14 +141,30 @@ function __git_has_remote_changes() {
     _dotTrace_exit $result
 }
 
+function __git_prompt_fetch_marker() {
+    local tracking_remote=${1:-}
+    [[ -n "${tracking_remote}" ]] || return 1
+
+    git rev-parse --path-format=absolute \
+        --git-path "cute-prompt-fetch/${tracking_remote}" 2>/dev/null
+}
+
+function __git_record_fetch() {
+    local marker
+    marker=$(__git_prompt_fetch_marker "$1") || return 1
+    mkdir -p "${marker%/*}" || return 1
+    touch "${marker}"
+}
+
 __git_last_fetch_epoch() {
     _dotTrace_enter
 
-    local fetch_head
-    fetch_head="$(git rev-parse --path-format=absolute --git-path FETCH_HEAD 2>/dev/null)"
+    local fetch_marker
+    fetch_marker="$(__git_prompt_fetch_marker "$1")"
 
-    # bail if no fetch record yet
-    if [[ -z "${fetch_head}" || ! -f "${fetch_head}" ]]; then
+    # Each remote gets its own timestamp. A shared FETCH_HEAD can be fresh
+    # because origin was fetched while the current branch tracks fork.
+    if [[ -z "${fetch_marker}" || ! -f "${fetch_marker}" ]]; then
         _dotTrace_exit 1
         return 1
     fi
@@ -151,10 +172,10 @@ __git_last_fetch_epoch() {
     local mtime
     if stat --version >/dev/null 2>&1; then
         # GNU stat (Linux)
-        mtime=$(stat -c %Y "${fetch_head}")
+        mtime=$(stat -c %Y "${fetch_marker}")
     else
         # BSD/macOS stat
-        mtime=$(stat -f %m "${fetch_head}")
+        mtime=$(stat -f %m "${fetch_marker}")
     fi
 
     printf '%s' "${mtime}"
