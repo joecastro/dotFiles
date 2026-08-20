@@ -67,21 +67,11 @@ local terminalSettings = {
 
 local javaSettings = {
     "java.help.showReleaseNotes": false,
-    "java.imports.gradle.wrapper.checksums": [
-        {
-            "allowed": true,
-            "sha256": "e2b82129ab64751fd40437007bd2f7f2afb3c6e41a9198e628650b22d5824a14"
-        }
-    ],
     "redhat.telemetry.enabled": false,
 };
 
 local vimSettings = {
     'vim.useCtrlKeys': false,
-};
-
-local copilotSettings = {
-    "github.copilot.nextEditSuggestions.enabled": true,
 };
 
 {
@@ -101,8 +91,10 @@ local copilotSettings = {
     "accessibility.dimUnfocused.opacity": 0.8,
     "diffEditor.codeLens": true,
     "diffEditor.renderSideBySide": false,
+    "docker.extension.enableComposeLanguageServer": false,
     "files.associations": {
-        "vimrc": "viml"
+        "vimrc": "viml",
+        ".env*": "dotenv"
     },
     "files.exclude": {
         "**/.classpath": true,
@@ -123,10 +115,17 @@ local copilotSettings = {
     "workbench.productIconTheme": preferred_product_icon_theme,
     "workbench.settings.editor": "json",
     "workbench.startupEditor": "none",
+    "yaml.disableSchemaDetection": [
+        "**/.github/workflows/*.yml",
+        "**/.github/workflows/*.yaml",
+        "**/.gitea/workflows/*.yml",
+        "**/.gitea/workflows/*.yaml",
+        "**/.forgejo/workflows/*.yml",
+        "**/.forgejo/workflows/*.yaml"
+    ],
     "update.mode": "none",
 }
     + editorSettings
     + terminalSettings
     + javaSettings
     + vimSettings
-    + copilotSettings
